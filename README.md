@@ -45,3 +45,7 @@ Create and manage sessions with venue selection, game-specific rule controls, pr
 
 4. Click the `+` button, ensure it is **Enabled**, and click **Save and Close**.
 5. Type `/xlplugins`, search for "Gamba Where", and click **Install**.
+
+## Want to add your venue to Gamba Where?
+
+Join the [OOFGames Discord](https://discord.gg/vM6ff4h5Ym) and we'll get you set up!

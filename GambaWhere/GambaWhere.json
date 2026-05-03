@@ -4,7 +4,8 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "Beta Release:\n- Host gamba sessions and discover active events.\n- Auto-detect Chocobo Racing Gamba sessions and prompt to start a session.\n- Configure auto-session detection in settings.",
+  "Changelog": "Bug Fix:\n- Fixed an issue where it would send the wrong location after 15 minutes of being active.",
+  "RepoUrl": "https://github.com/OOFGamesss/GambaWhere  ",
   "ApplicableVersion": "any",
   "Tags": [
     "gambling",

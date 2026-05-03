@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Plugin.Services;
+using Dalamud.Game;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
@@ -15,6 +16,8 @@ public class SessionService : IDisposable
     private readonly PlayerInfoService _playerInfo;
     private readonly SessionState _sessionState;
     private readonly Configuration _config;
+    private readonly IClientState _clientState;
+    private readonly IFramework _framework;
     private readonly IPluginLog _log;
 
     public SessionService(
@@ -22,13 +25,19 @@ public class SessionService : IDisposable
         PlayerInfoService playerInfo,
         SessionState sessionState,
         Configuration config,
+        IClientState clientState,
+        IFramework framework,
         IPluginLog log)
     {
         _client = client;
         _playerInfo = playerInfo;
         _sessionState = sessionState;
         _config = config;
+        _clientState = clientState;
+        _framework = framework;
         _log = log;
+
+        _clientState.TerritoryChanged += OnTerritoryChanged;
     }
 
     public async Task<string?> StartSessionAsync(PostEventRequest request)
@@ -49,7 +58,7 @@ public class SessionService : IDisposable
         var cts = new CancellationTokenSource();
         _sessionState.LoopCts = cts;
 
-        _ = Task.Run(() => RunLocationUpdateLoopAsync(cts.Token));
+        _ = Task.Run(() => RunHeartbeatLoopAsync(cts.Token));
 
         return null;
     }
@@ -69,7 +78,27 @@ public class SessionService : IDisposable
         _config.Save();
     }
 
-    private async Task RunLocationUpdateLoopAsync(CancellationToken ct)
+    private void OnTerritoryChanged(uint territoryId)
+    {
+        if (!_sessionState.IsActive)
+            return;
+
+        _ = PushLocationAsync();
+    }
+
+    private async Task PushLocationAsync()
+    {
+        var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
+        if (location == null)
+            return;
+
+        var putRequest = new PutEventRequest { Location = location };
+        await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
+
+        _sessionState.Location = location;
+    }
+
+    private async Task RunHeartbeatLoopAsync(CancellationToken ct)
     {
         try
         {
@@ -80,10 +109,10 @@ public class SessionService : IDisposable
                 if (ct.IsCancellationRequested)
                     break;
 
-                var location = _playerInfo.GetCurrentLocation();
+                var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
                 if (location == null)
                 {
-                    _log.Warning("Location update skipped: could not resolve current territory.");
+                    _log.Warning("Heartbeat location update skipped: could not resolve current territory.");
                     continue;
                 }
 
@@ -91,7 +120,6 @@ public class SessionService : IDisposable
                 await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
 
                 _sessionState.Location = location;
-
             }
         }
         catch (TaskCanceledException)
@@ -99,12 +127,13 @@ public class SessionService : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Unexpected error in location update loop.");
+            _log.Error(ex, "Unexpected error in location heartbeat loop.");
         }
     }
 
     public void Dispose()
     {
+        _clientState.TerritoryChanged -= OnTerritoryChanged;
         _sessionState.LoopCts?.Cancel();
         _sessionState.LoopCts?.Dispose();
     }

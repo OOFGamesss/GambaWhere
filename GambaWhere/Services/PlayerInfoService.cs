@@ -42,10 +42,7 @@ public class PlayerInfoService
     {
         var player = _objectTable.LocalPlayer;
         if (player == null)
-        {
-            _log.Warning("Attempted to read location while not logged in.");
             return null;
-        }
 
         var world = player.CurrentWorld.Value.Name.ToString();
         var dc = player.CurrentWorld.Value.DataCenter.Value.Name.ToString();

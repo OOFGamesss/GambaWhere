@@ -1,4 +1,5 @@
 using System;
+using Dalamud.Game;
 using Dalamud.Game.Command;
 using Dalamud.IoC;
 using Dalamud.Plugin;
@@ -24,6 +25,7 @@ public sealed class GambaWhere : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
 
     private const string MainCommand = "/gambawhere";
@@ -52,7 +54,7 @@ public sealed class GambaWhere : IDalamudPlugin
         var sessionState = new SessionState();
         var hostFormState = new HostFormState();
 
-        _sessionService = new SessionService(_client, playerInfo, sessionState, Configuration, Log);
+        _sessionService = new SessionService(_client, playerInfo, sessionState, Configuration, ClientState, Framework, Log);
 
         var eventsTab = new GambaEventsTab(_client, _imageCache);
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
