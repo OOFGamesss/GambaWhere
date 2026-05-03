@@ -1,78 +1,47 @@
-> ⚠️ **Don't click Fork!**
-> 
-> This is a GitHub Template repo. If you want to use this for a plugin, [use this template][new-repo] to make a new repo!
->
-> ![image](https://github.com/goatcorp/SamplePlugin/assets/16760685/d9732094-e1ed-4769-a70b-58ed2b92580c)
+<div align="center"><img src="GambaWhere/Images/gamba-where-icon.png" alt="Gamba Where Icon" /></div>
 
-# SamplePlugin
+# Gamba Where
 
-[![Use This Template badge](https://img.shields.io/badge/Use%20This%20Template-0?logo=github&labelColor=grey)][new-repo]
+Find and host FFXIV gambling events near you.
 
+`Gamba Where` is a Dalamud plugin that lets players discover active gamba sessions and host their own with configurable rules, presets, and automatic location updates.
 
-Simple example plugin for Dalamud.
+## What It Does
 
-This is not designed to be the simplest possible example, but it is also not designed to cover everything you might want to do. For more detailed questions, come ask in [the Discord](https://discord.gg/holdshift).
+- **Browse active events** in a card-based feed with host name, venue, description, rules, location, and Discord copy helper.
+- **Filter quickly** by game type and data centre from the main events list.
+- **Host your own session** for Bingo, Blackjack, Chocobo Racing, or Mini Games.
+- **Save and reuse presets** per game type (add, rename, update, delete).
+- **Auto-maintain your listing** with a background location refresh every 15 minutes while your session is active.
+- **Use companion plugin detection** for Chocobo Racing Gamba via IPC, with clickable chat prompts to jump directly into hosting.
 
-## Main Points
+## Commands
 
-* Simple functional plugin
-  * Slash command
-  * Main UI
-  * Settings UI
-  * Image loading
-  * Plugin json
-* Simple, slightly-improved plugin configuration handling
-* Project organization
-  * Copies all necessary plugin files to the output directory
-    * Does not copy dependencies that are provided by dalamud
-    * Output directory can be zipped directly and have exactly what is required
-  * Hides data files from visual studio to reduce clutter
-    * Also allows having data files in different paths than VS would usually allow if done in the IDE directly
+- `/gambawhere` - Open the main plugin window.
+- `/gw` - Alias for `/gambawhere`.
+- `/gambawhereconfig` - Open directly to the settings tab.
 
+## Interface
 
-The intention is less that any of this is used directly in other projects, and more to show how similar things can be done.
+### Gamba Events Tab
 
-## How To Use
+Discover active gambling events, refresh data from the API, apply filters, and expand cards to inspect full rule and location details.
 
-### Getting Started
+![Gamba Events Tab - screenshot placeholder](GambaWhere/Images/gamba-events-tab.png)
 
-To begin, [clone this template repository][new-repo] to your own GitHub account. This will automatically bring in everything you need to get a jumpstart on development. You do not need to fork this repository unless you intend to contribute modifications to it.
+### Host Gamba Tab
 
-Be sure to also check out the [Dalamud Developer Docs][dalamud-docs] for helpful information about building your own plugin. The Developer Docs includes helpful information about all sorts of things, including [how to submit][submit] your newly-created plugin to the official repository. Assuming you use this template repository, the provided project build configuration and license are already chosen to make everything a breeze.
+Create and manage sessions with venue selection, game-specific rule controls, preset management, description input, and start/stop controls.
 
-[new-repo]: https://github.com/new?template_name=SamplePlugin&template_owner=goatcorp
-[dalamud-docs]: https://dalamud.dev
-[submit]: https://dalamud.dev/plugin-publishing/submission
+![Host Gamba Tab - screenshot placeholder](GambaWhere/Images/host-gamba-tab.png)
 
-### Prerequisites
+## How to Install Gamba Where
 
-SamplePlugin assumes all the following prerequisites are met:
+1. Type `/xlsettings` in the in-game chat.
+2. Go to the Experimental tab.
+3. Paste this link into the **Custom Plugin Repositories** at the bottom:
 
-* XIVLauncher, FINAL FANTASY XIV, and Dalamud have all been installed and the game has been run with Dalamud at least once.
-* XIVLauncher is installed to its default directories and configurations.
-  * If a custom path is required for Dalamud's dev directory, it must be set with the `DALAMUD_HOME` environment variable.
-* A .NET Core 8 SDK has been installed and configured, or is otherwise available. (In most cases, the IDE will take care of this.)
+   `https://raw.githubusercontent.com/OOFGamesss/OOFGamesPlugins/main/pluginmaster.json`
 
-### Building
-
-1. Open up `SamplePlugin.sln` in your C# editor of choice (likely [Visual Studio 2022](https://visualstudio.microsoft.com) or [JetBrains Rider](https://www.jetbrains.com/rider/)).
-2. Build the solution. By default, this will build a `Debug` build, but you can switch to `Release` in your IDE.
-3. The resulting plugin can be found at `SamplePlugin/bin/x64/Debug/SamplePlugin.dll` (or `Release` if appropriate.)
-
-### Activating in-game
-
-1. Launch the game and use `/xlsettings` in chat or `xlsettings` in the Dalamud Console to open up the Dalamud settings.
-    * In here, go to `Experimental`, and add the full path to the `SamplePlugin.dll` to the list of Dev Plugin Locations.
-2. Next, use `/xlplugins` (chat) or `xlplugins` (console) to open up the Plugin Installer.
-    * In here, go to `Dev Tools > Installed Dev Plugins`, and the `SamplePlugin` should be visible. Enable it.
-3. You should now be able to use `/pmycommand` (chat) or `pmycommand` (console)!
-
-Note that you only need to add it to the Dev Plugin Locations once (Step 1); it is preserved afterwards. You can disable, enable, or load your plugin on startup through the Plugin Installer.
-
-### Reconfiguring for your own uses
-
-Replace all references to `SamplePlugin` in all the files and filenames with your desired name, then start building the plugin of your dreams. You'll figure it out 😁
-
-Dalamud will load the JSON file (by default, `SamplePlugin/SamplePlugin.json`) next to your DLL and use it for metadata, including the description for your plugin in the Plugin Installer. Make sure to update this with information relevant to _your_ plugin!
-
-All participation in this repository is governed by our [Code of Conduct](https://dalamud.dev/code-of-conduct). If you used AI tooling at any point, review the [AI Usage Policy](https://dalamud.dev/plugin-publishing/ai-policy) and disclose your level of AI use. Entirely AI-generated submissions will be rejected, and undisclosed AI use may result in a ban.
+4. Click the `+` button, ensure it is **Enabled**, and click **Save and Close**.
+5. Type `/xlplugins`, search for "Gamba Where", and click **Install**.

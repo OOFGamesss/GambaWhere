@@ -1,0 +1,113 @@
+using System;
+using Dalamud.Game.Command;
+using Dalamud.IoC;
+using Dalamud.Plugin;
+using Dalamud.Interface.Windowing;
+using Dalamud.Plugin.Services;
+using GambaWhere.API;
+using GambaWhere.Config;
+using GambaWhere.IPC;
+using GambaWhere.Images;
+using GambaWhere.Services;
+using GambaWhere.State;
+using GambaWhere.UI;
+using GambaWhere.UI.Tabs;
+
+namespace GambaWhere;
+
+public sealed class GambaWhere : IDalamudPlugin
+{
+    [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
+    [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
+    [PluginService] internal static IClientState ClientState { get; private set; } = null!;
+    [PluginService] internal static IObjectTable ObjectTable { get; private set; } = null!;
+    [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
+    [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
+    [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
+
+    private const string MainCommand = "/gambawhere";
+    private const string AliasCommand = "/gw";
+    private const string ConfigCommand = "/gambawhereconfig";
+
+    internal Configuration Configuration { get; }
+
+    private readonly WindowSystem _windowSystem = new("GambaWhere");
+    private readonly MainWindow _mainWindow;
+
+    private readonly GambaWhereClient _client;
+    private readonly SessionService _sessionService;
+    private readonly ImageCache _imageCache;
+    private readonly ChocoboRacingGambaIpc _chocoboIpc;
+
+    public GambaWhere()
+    {
+        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.EnsureDefaultPresets();
+
+        _client = new GambaWhereClient(Log);
+        _imageCache = new ImageCache(TextureProvider);
+
+        var playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager, Log);
+        var sessionState = new SessionState();
+        var hostFormState = new HostFormState();
+
+        _sessionService = new SessionService(_client, playerInfo, sessionState, Configuration, Log);
+
+        var eventsTab = new GambaEventsTab(_client, _imageCache);
+        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
+        var settingsTab = new SettingsTab(Configuration);
+
+        _mainWindow = new MainWindow(eventsTab, hostTab, settingsTab);
+        _windowSystem.AddWindow(_mainWindow);
+
+        _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+
+        CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
+        {
+            HelpMessage = "Opens the GambaWhere window."
+        });
+        CommandManager.AddHandler(AliasCommand, new CommandInfo(OnCommand)
+        {
+            HelpMessage = "Alias for /gambawhere."
+        });
+        CommandManager.AddHandler(ConfigCommand, new CommandInfo(OnConfigCommand)
+        {
+            HelpMessage = "Opens the GambaWhere settings tab."
+        });
+
+        PluginInterface.UiBuilder.Draw += _windowSystem.Draw;
+        PluginInterface.UiBuilder.OpenMainUi += ToggleMainUi;
+        PluginInterface.UiBuilder.OpenConfigUi += OpenConfigUi;
+
+        Log.Information("GambaWhere loaded.");
+    }
+
+    public void Dispose()
+    {
+        PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
+        PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;
+        PluginInterface.UiBuilder.OpenConfigUi -= OpenConfigUi;
+
+        _windowSystem.RemoveAllWindows();
+        _mainWindow.Dispose();
+
+        _chocoboIpc.Dispose();
+
+        CommandManager.RemoveHandler(MainCommand);
+        CommandManager.RemoveHandler(AliasCommand);
+        CommandManager.RemoveHandler(ConfigCommand);
+
+        _sessionService.Dispose();
+        _client.Dispose();
+        _imageCache.Dispose();
+    }
+
+    private void OnCommand(string command, string args) => _mainWindow.Toggle();
+
+    private void OnConfigCommand(string command, string args) => OpenConfigUi();
+
+    private void ToggleMainUi() => _mainWindow.Toggle();
+
+    private void OpenConfigUi() => _mainWindow.OpenSettingsTab();
+}

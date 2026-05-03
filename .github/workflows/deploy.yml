@@ -1,0 +1,99 @@
+name: Deploy GambaWhere Plugin
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+      with:
+        path: 'source'
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Download Dalamud Track Config
+      run: curl -L https://raw.githubusercontent.com/goatcorp/dalamud-declarative/main/config.yaml -o config.yaml
+
+    - name: Install yq
+      run: |
+        wget https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 -O /usr/local/bin/yq
+        chmod +x /usr/local/bin/yq
+
+    - name: Detect Latest Dalamud Track
+      id: latest_track
+      run: |
+        latest_entry=$(yq eval '.tracks | to_entries | sort_by(.value.applicableGameVersion, (.key == "release")) | .[-1]' config.yaml)
+        track_name=$(echo "$latest_entry" | yq eval '.key' -)
+        echo "result=$track_name" >> $GITHUB_OUTPUT
+
+    - name: Download Dalamud Dependencies
+      run: |
+        mkdir -p /home/runner/.xlcore/dalamud/Hooks/dev/
+        if [ "${{ steps.latest_track.outputs.result }}" = "release" ]; then
+          curl -L -o dalamud.zip https://goatcorp.github.io/dalamud-distrib/latest.zip
+        else
+          curl -L -o dalamud.zip https://goatcorp.github.io/dalamud-distrib/${{ steps.latest_track.outputs.result }}/latest.zip
+        fi
+        unzip dalamud.zip -d /home/runner/.xlcore/dalamud/Hooks/dev/
+
+    - name: Build Plugin (Release)
+      run: |
+        cd source
+        dotnet restore
+        dotnet build --configuration Release --no-restore
+
+    - name: Package Plugin Zip
+      run: |
+        cd source/GambaWhere/bin/x64/Release/GambaWhere/
+        zip -r latest.zip *
+        mv latest.zip $GITHUB_WORKSPACE/latest.zip
+
+    - name: Read Plugin Version
+      id: plugin_version
+      run: |
+        version=$(grep -oPm1 '(?<=<Version>)[^<]+' source/GambaWhere/GambaWhere.csproj || echo "0.0.0.1")
+        echo "version=$version" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ steps.plugin_version.outputs.version }}
+        name: GambaWhere v${{ steps.plugin_version.outputs.version }}
+        body: Auto-deployed release from commit ${{ github.sha }}
+        files: latest.zip
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Checkout Public Master Repo
+      uses: actions/checkout@v4
+      with:
+        repository: 'OOFGamesss/OOFGamesPlugins'
+        token: ${{ secrets.PUBLIC_DEPLOY_TOKEN }}
+        path: 'public-repo'
+
+    - name: Update Master JSON
+      run: |
+        cd public-repo
+        jq '.DownloadLinkInstall = "https://github.com/OOFGamesss/GambaWhere/releases/latest/download/latest.zip" | .DownloadLinkUpdate = "https://github.com/OOFGamesss/GambaWhere/releases/latest/download/latest.zip" | .DownloadLinkTesting = "https://github.com/OOFGamesss/GambaWhere/releases/latest/download/latest.zip"' ../source/GambaWhere/bin/x64/Release/GambaWhere/GambaWhere.json > ready_plugin.json
+        jq --slurpfile new ready_plugin.json 'map(if .InternalName == $new[0].InternalName then $new[0] else . end) | if any(.InternalName == $new[0].InternalName) then . else . + [$new[0]] end' pluginmaster.json > temp.json
+        mv temp.json pluginmaster.json
+        rm ready_plugin.json
+
+    - name: Commit and Push to Public Repo
+      run: |
+        cd public-repo
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add .
+        git commit -m "Auto-deploy: Update GambaWhere plugin manifest" || echo "No changes to commit"
+        git push
