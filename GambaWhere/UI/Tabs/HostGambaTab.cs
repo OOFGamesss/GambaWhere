@@ -434,6 +434,7 @@ public class HostGambaTab
         {
             CharacterName = characterName,
             Location = location,
+            Game = gameType,
             Rules = rulesSnapshot,
             Description = _form.Description.Trim(),
             VenueName = venueName

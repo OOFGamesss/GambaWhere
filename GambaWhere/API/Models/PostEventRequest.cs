@@ -14,6 +14,9 @@ public class PostEventRequest
     [JsonPropertyName("rules")]
     public Dictionary<string, object> Rules { get; set; } = new();
 
+    [JsonPropertyName("game")]
+    public string Game { get; set; } = string.Empty;
+
     [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
 

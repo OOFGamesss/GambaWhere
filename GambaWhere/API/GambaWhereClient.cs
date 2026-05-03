@@ -51,17 +51,17 @@ public class GambaWhereClient : IDisposable
         }
     }
 
-    public async Task<EventResponse[]> GetEventsAsync()
+    public async Task<EventResponse[]?> GetEventsAsync()
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<EventResponse[]>("/events", JsonOptions);
-            return result ?? Array.Empty<EventResponse>();
+            return await _http.GetFromJsonAsync<EventResponse[]>("/events", JsonOptions)
+                   ?? Array.Empty<EventResponse>();
         }
         catch (Exception ex)
         {
             _log.Error(ex, "Failed to fetch events.");
-            return Array.Empty<EventResponse>();
+            return null;
         }
     }
 

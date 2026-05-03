@@ -11,6 +11,9 @@ public class PutEventRequest
     [JsonPropertyName("rules")]
     public Dictionary<string, object>? Rules { get; set; }
 
+    [JsonPropertyName("game")]
+    public string? Game { get; set; }
+
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 }

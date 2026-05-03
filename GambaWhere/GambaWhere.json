@@ -4,7 +4,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "Bug Fix:\n- Fixed an issue where it would send the wrong location after 15 minutes of being active.",
+  "Changelog": "Bug Fix:\n- Amended API to include more fields for discord bot.",
   "RepoUrl": "https://github.com/OOFGamesss/GambaWhere  ",
   "ApplicableVersion": "any",
   "Tags": [

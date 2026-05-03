@@ -25,6 +25,7 @@ public class GambaEventsTab
     private List<EventResponse> _events = new();
     private DateTime? _lastUpdated;
     private volatile bool _isRefreshing;
+    private volatile bool _lastRefreshFailed;
 
     private readonly HashSet<string> _expandedCards = new();
     private readonly HashSet<string> _selectedGameTypes = new();
@@ -105,7 +106,16 @@ public class GambaEventsTab
         _ = Task.Run(async () =>
         {
             var results = await _client.GetEventsAsync();
-            _events = new List<EventResponse>(results);
+            if (results == null)
+            {
+                _events = new List<EventResponse>();
+                _lastRefreshFailed = true;
+            }
+            else
+            {
+                _events = new List<EventResponse>(results);
+                _lastRefreshFailed = false;
+            }
             _lastUpdated = DateTime.Now;
             _isRefreshing = false;
         });
@@ -113,6 +123,12 @@ public class GambaEventsTab
 
     private void DrawEventList()
     {
+        if (_lastRefreshFailed)
+        {
+            ImGui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "Server error fetching events, please try again later.");
+            return;
+        }
+
         if (_events.Count == 0)
         {
             ImGui.TextDisabled(_lastUpdated.HasValue
@@ -138,7 +154,7 @@ public class GambaEventsTab
         var query = _events.AsEnumerable();
 
         if (_selectedGameTypes.Count > 0)
-            query = query.Where(ev => _selectedGameTypes.Contains(InferGameType(ev.Rules)));
+            query = query.Where(ev => _selectedGameTypes.Contains(ev.Game));
 
         if (_selectedDataCentres.Count > 0)
             query = query.Where(ev => _selectedDataCentres.Contains(InferDataCentre(ev.Location)));
@@ -163,7 +179,7 @@ public class GambaEventsTab
 
         var scaledImageSize = new Vector2(ImageSize, ImageSize) * ImGuiHelpers.GlobalScale;
         var isExpanded = _expandedCards.Contains(ev.CharacterName);
-        var gameType = InferGameType(ev.Rules);
+        var gameType = ev.Game;
         var (bgColor, gameTypeTextColor) = GetGameTypeColors(gameType);
 
         var cardTopScreen = ImGui.GetCursorScreenPos();
@@ -381,16 +397,4 @@ public class GambaEventsTab
         return isOdds ? formatted + "x" : formatted;
     }
 
-    private static string InferGameType(Dictionary<string, object> rules)
-    {
-        foreach (var key in rules.Keys)
-        {
-            var lower = key.ToLowerInvariant();
-            if (lower.Contains("bingo") || lower.Contains("ticket")) return "Bingo";
-            if (lower.Contains("bet") || lower.Contains("split") || lower.Contains("stands")) return "Blackjack";
-            if (lower.Contains("chocobo") || lower.Contains("race") || lower.Contains("odds")) return "Chocobo Racing";
-        }
-
-        return rules.Count == 0 ? "Mini Games" : "Unknown";
-    }
 }
