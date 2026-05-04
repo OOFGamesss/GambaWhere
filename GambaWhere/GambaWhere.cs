@@ -41,6 +41,12 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly SessionService _sessionService;
     private readonly ImageCache _imageCache;
     private readonly ChocoboRacingGambaIpc _chocoboIpc;
+    private readonly SimpleBingoIpc _bingoIpc;
+    private readonly SimpleRouletteIpc _rouletteIpc;
+    private readonly SimpleBlackjackIpc _blackjackIpc;
+    private readonly SimpleWheelIpc _wheelIpc;
+    private readonly SimplePokerIpc _pokerIpc;
+    private readonly SimpleScratchIpc _scratchIpc;
 
     public GambaWhere()
     {
@@ -48,7 +54,7 @@ public sealed class GambaWhere : IDalamudPlugin
         Configuration.EnsureDefaultPresets();
 
         _client = new GambaWhereClient(Log);
-        _imageCache = new ImageCache(TextureProvider);
+        _imageCache = new ImageCache(PluginInterface, TextureProvider);
 
         var playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager, Log);
         var sessionState = new SessionState();
@@ -58,12 +64,18 @@ public sealed class GambaWhere : IDalamudPlugin
 
         var eventsTab = new GambaEventsTab(_client, _imageCache);
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
-        var settingsTab = new SettingsTab(Configuration);
+        var settingsTab = new SettingsTab(Configuration, _imageCache);
 
         _mainWindow = new MainWindow(eventsTab, hostTab, settingsTab);
         _windowSystem.AddWindow(_mainWindow);
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _bingoIpc = new SimpleBingoIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _rouletteIpc = new SimpleRouletteIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _blackjackIpc = new SimpleBlackjackIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _wheelIpc = new SimpleWheelIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _pokerIpc = new SimplePokerIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _scratchIpc = new SimpleScratchIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
 
         CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
@@ -95,6 +107,12 @@ public sealed class GambaWhere : IDalamudPlugin
         _mainWindow.Dispose();
 
         _chocoboIpc.Dispose();
+        _bingoIpc.Dispose();
+        _rouletteIpc.Dispose();
+        _blackjackIpc.Dispose();
+        _wheelIpc.Dispose();
+        _pokerIpc.Dispose();
+        _scratchIpc.Dispose();
 
         CommandManager.RemoveHandler(MainCommand);
         CommandManager.RemoveHandler(AliasCommand);

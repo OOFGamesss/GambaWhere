@@ -24,6 +24,10 @@ public class Configuration : IPluginConfiguration
         EnsureBlackjackDefaults();
         EnsureChocoboRacingDefaults();
         EnsureMiniGamesDefaults();
+        EnsurePokerDefaults();
+        EnsureRouletteDefaults();
+        EnsureScratchcardsDefaults();
+        EnsureSpinTheWheelDefaults();
     }
 
     private void EnsureBingoDefaults()
@@ -98,6 +102,66 @@ public class Configuration : IPluginConfiguration
             return;
 
         Presets["Mini Games"] = new List<GamePreset>
+        {
+            new()
+            {
+                Name = "Default",
+                RuleValues = new Dictionary<string, object>()
+            }
+        };
+    }
+
+    private void EnsurePokerDefaults()
+    {
+        if (Presets.ContainsKey("Poker") && Presets["Poker"].Count > 0)
+            return;
+
+        Presets["Poker"] = new List<GamePreset>
+        {
+            new()
+            {
+                Name = "Default",
+                RuleValues = new Dictionary<string, object>()
+            }
+        };
+    }
+
+    private void EnsureRouletteDefaults()
+    {
+        if (Presets.ContainsKey("Roulette") && Presets["Roulette"].Count > 0)
+            return;
+
+        Presets["Roulette"] = new List<GamePreset>
+        {
+            new()
+            {
+                Name = "Default",
+                RuleValues = new Dictionary<string, object>()
+            }
+        };
+    }
+
+    private void EnsureScratchcardsDefaults()
+    {
+        if (Presets.ContainsKey("Scratchcards") && Presets["Scratchcards"].Count > 0)
+            return;
+
+        Presets["Scratchcards"] = new List<GamePreset>
+        {
+            new()
+            {
+                Name = "Default",
+                RuleValues = new Dictionary<string, object>()
+            }
+        };
+    }
+
+    private void EnsureSpinTheWheelDefaults()
+    {
+        if (Presets.ContainsKey("Spin the Wheel") && Presets["Spin the Wheel"].Count > 0)
+            return;
+
+        Presets["Spin the Wheel"] = new List<GamePreset>
         {
             new()
             {

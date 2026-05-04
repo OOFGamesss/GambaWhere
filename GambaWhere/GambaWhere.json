@@ -4,7 +4,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "Bug Fix:\n- Amended API to include more fields for discord bot.",
+  "Changelog": "Features:\n-Added all of Asuna's games to the plugin. Including setting up the IPC for each plugin.\n-Added Roulette\n-Added Scratchcards\n-Added Spin the Wheel\n-Added Poker\nImproved Image Cache for faster loading, including a button to clear the cache in settings.",
   "RepoUrl": "https://github.com/OOFGamesss/GambaWhere  ",
   "ApplicableVersion": "any",
   "Tags": [

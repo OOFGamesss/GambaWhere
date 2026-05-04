@@ -26,7 +26,7 @@ public class HostGambaTab
     private readonly Configuration _config;
     private readonly HostFormState _form;
 
-    private static readonly string[] GameTypes = { "Bingo", "Blackjack", "Chocobo Racing", "Mini Games" };
+    private static readonly string[] GameTypes = { "Bingo", "Blackjack", "Chocobo Racing", "Mini Games", "Poker", "Roulette", "Scratchcards", "Spin the Wheel" };
 
     private readonly IRuleConfig[] _ruleConfigs;
 
@@ -59,7 +59,11 @@ public class HostGambaTab
             new BingoRules(),
             new BlackjackRules(),
             new ChocoboRacingRules(),
-            new MiniGamesRules()
+            new MiniGamesRules(),
+            new PokerRules(),
+            new RouletteRules(),
+            new ScratchcardsRules(),
+            new SpinTheWheelRules()
         };
 
         _form.RuleConfig = _ruleConfigs[_form.SelectedGameIndex];
@@ -69,6 +73,66 @@ public class HostGambaTab
     public void SelectChocoboRacing()
     {
         var index = Array.IndexOf(GameTypes, "Chocobo Racing");
+        if (index < 0 || index == _form.SelectedGameIndex)
+            return;
+
+        _form.SelectedGameIndex = index;
+        OnGameTypeChanged();
+    }
+
+    public void SelectBingo()
+    {
+        var index = Array.IndexOf(GameTypes, "Bingo");
+        if (index < 0 || index == _form.SelectedGameIndex)
+            return;
+
+        _form.SelectedGameIndex = index;
+        OnGameTypeChanged();
+    }
+
+    public void SelectBlackjack()
+    {
+        var index = Array.IndexOf(GameTypes, "Blackjack");
+        if (index < 0 || index == _form.SelectedGameIndex)
+            return;
+
+        _form.SelectedGameIndex = index;
+        OnGameTypeChanged();
+    }
+
+    public void SelectPoker()
+    {
+        var index = Array.IndexOf(GameTypes, "Poker");
+        if (index < 0 || index == _form.SelectedGameIndex)
+            return;
+
+        _form.SelectedGameIndex = index;
+        OnGameTypeChanged();
+    }
+
+    public void SelectRoulette()
+    {
+        var index = Array.IndexOf(GameTypes, "Roulette");
+        if (index < 0 || index == _form.SelectedGameIndex)
+            return;
+
+        _form.SelectedGameIndex = index;
+        OnGameTypeChanged();
+    }
+
+    public void SelectScratchcards()
+    {
+        var index = Array.IndexOf(GameTypes, "Scratchcards");
+        if (index < 0 || index == _form.SelectedGameIndex)
+            return;
+
+        _form.SelectedGameIndex = index;
+        OnGameTypeChanged();
+    }
+
+    public void SelectSpinTheWheel()
+    {
+        var index = Array.IndexOf(GameTypes, "Spin the Wheel");
         if (index < 0 || index == _form.SelectedGameIndex)
             return;
 
