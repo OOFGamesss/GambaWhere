@@ -57,27 +57,12 @@ public sealed class ChocoboRacingGambaIpc : IDisposable
         if (!_config.AutoSessionDetection)
             return;
 
-        PrintStartPrompt();
+        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "Chocobo Racing Gamba");
     }
 
     private void OnStartLinkClicked(uint id, SeString message)
     {
         _hostTab.SelectChocoboRacing();
         _mainWindow.OpenHostGambaTab();
-    }
-
-    private void PrintStartPrompt()
-    {
-        var msg = new SeStringBuilder()
-            .AddText("Chocobo Racing Gamba has been opened. Starting a session? Start it ")
-            .AddUiForeground(32)
-            .Add(_linkPayload)
-            .AddText("here")
-            .Add(RawPayload.LinkTerminator)
-            .AddUiForegroundOff()
-            .AddText(".")
-            .Build();
-
-        _chatGui.Print(msg, "GambaWhere");
     }
 }

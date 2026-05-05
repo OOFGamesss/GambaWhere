@@ -103,27 +103,12 @@ public sealed class SimpleBingoIpc : IDisposable
         if (!_config.AutoSessionDetection)
             return;
 
-        PrintStartPrompt();
+        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "SimpleBingo");
     }
 
     private void OnStartLinkClicked(uint id, SeString message)
     {
         _hostTab.SelectBingo();
         _mainWindow.OpenHostGambaTab();
-    }
-
-    private void PrintStartPrompt()
-    {
-        var msg = new SeStringBuilder()
-            .AddText("SimpleBingo has been opened. Starting a session? Start it ")
-            .AddUiForeground(32)
-            .Add(_linkPayload)
-            .AddText("here")
-            .Add(RawPayload.LinkTerminator)
-            .AddUiForegroundOff()
-            .AddText(".")
-            .Build();
-
-        _chatGui.Print(msg, "GambaWhere");
     }
 }

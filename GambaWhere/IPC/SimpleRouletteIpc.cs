@@ -55,27 +55,12 @@ public sealed class SimpleRouletteIpc : IDisposable
         if (!_config.AutoSessionDetection)
             return;
 
-        PrintStartPrompt();
+        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "SimpleRoulette");
     }
 
     private void OnStartLinkClicked(uint id, SeString message)
     {
         _hostTab.SelectRoulette();
         _mainWindow.OpenHostGambaTab();
-    }
-
-    private void PrintStartPrompt()
-    {
-        var msg = new SeStringBuilder()
-            .AddText("SimpleRoulette has been opened. Starting a session? Start it ")
-            .AddUiForeground(32)
-            .Add(_linkPayload)
-            .AddText("here")
-            .Add(RawPayload.LinkTerminator)
-            .AddUiForegroundOff()
-            .AddText(".")
-            .Build();
-
-        _chatGui.Print(msg, "GambaWhere");
     }
 }

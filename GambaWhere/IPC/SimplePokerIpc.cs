@@ -55,27 +55,12 @@ public sealed class SimplePokerIpc : IDisposable
         if (!_config.AutoSessionDetection)
             return;
 
-        PrintStartPrompt();
+        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "SimplePoker");
     }
 
     private void OnStartLinkClicked(uint id, SeString message)
     {
         _hostTab.SelectPoker();
         _mainWindow.OpenHostGambaTab();
-    }
-
-    private void PrintStartPrompt()
-    {
-        var msg = new SeStringBuilder()
-            .AddText("SimplePoker has been opened. Starting a session? Start it ")
-            .AddUiForeground(32)
-            .Add(_linkPayload)
-            .AddText("here")
-            .Add(RawPayload.LinkTerminator)
-            .AddUiForegroundOff()
-            .AddText(".")
-            .Build();
-
-        _chatGui.Print(msg, "GambaWhere");
     }
 }
