@@ -3,68 +3,132 @@ using System.Linq;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using GambaWhere.Utility;
+using SimpleBingo.Data;
 
 namespace GambaWhere.Rules;
 
-public class BingoRules : IRuleConfig
+public class BingoRules : IRuleConfig, IAutomaticHostRuleSource
 {
     public string GameType => "Bingo";
 
-    private int _maxTickets = 10;
-    private int _pricePerTicket = 10000;
-    private int _bingoPot = 100000;
-    private int _maxWinnersPerRound = 1;
+    private string _gameType = "Full Board";
+    private int _cardCost = 100000;
+    private int _boostedPot = 100000;
+    private int _totalPot = 1000000;
+    private bool _chaosMode = false;
+    private bool _multiWinner = false;
 
-    private static readonly string[] Labels =
+    private static readonly string[] RowLabels =
     {
-        "Max Tickets", "Price per Ticket (gil)", "Bingo Pot (gil)", "Max Winners per Round"
+        "Game Type",
+        "Card Cost (gil)",
+        "Boosted Pot (gil)",
+        "Total Pot (gil)",
+        "Chaos Mode",
+        "Multi Winner"
     };
 
     public void Draw()
     {
-        var offset = Labels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
+        var offset = RowLabels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
 
-        ImGui.Text("Max Tickets");
+        ImGui.Text(RowLabels[0]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##MaxTickets", ref _maxTickets);
+        ImGui.InputText("##GameType", ref _gameType, 64);
 
-        ImGui.Text("Price per Ticket (gil)");
+        ImGui.Text(RowLabels[1]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##PricePerTicket", ref _pricePerTicket);
+        ImGui.InputInt("##CardCost", ref _cardCost);
 
-        ImGui.Text("Bingo Pot (gil)");
+        ImGui.Text(RowLabels[2]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##BingoPot", ref _bingoPot);
+        ImGui.InputInt("##BoostedPot", ref _boostedPot);
 
-        ImGui.Text("Max Winners per Round");
+        ImGui.Text(RowLabels[3]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##MaxWinnersPerRound", ref _maxWinnersPerRound);
+        ImGui.InputInt("##TotalPot", ref _totalPot);
 
-        _maxTickets = RuleClamp.Min(_maxTickets, 1);
-        _pricePerTicket = RuleClamp.Min(_pricePerTicket, 0);
-        _bingoPot = RuleClamp.Min(_bingoPot, 0);
-        _maxWinnersPerRound = RuleClamp.Min(_maxWinnersPerRound, 1);
+        ImGui.Text(RowLabels[4]);
+        ImGui.SameLine(offset);
+        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
+        ImGui.Checkbox("##ChaosMode", ref _chaosMode);
+
+        ImGui.Text(RowLabels[5]);
+        ImGui.SameLine(offset);
+        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
+        ImGui.Checkbox("##MultiWinner", ref _multiWinner);
+
+        _boostedPot = RuleClamp.Min(_boostedPot, 0);
+        _totalPot = RuleClamp.Min(_totalPot, 0);
+        _cardCost = RuleClamp.Min(_cardCost, 0);
     }
 
     public Dictionary<string, object> ToApiPayload() => new()
     {
-        { "maxTickets", _maxTickets },
-        { "pricePerTicket", _pricePerTicket },
-        { "bingoPot", _bingoPot },
-        { "maxWinnersPerRound", _maxWinnersPerRound }
+        { "gameType", _gameType },
+        { "cardCost", _cardCost },
+        { "boostedPot", _boostedPot },
+        { "totalPot", _totalPot },
+        { "chaosMode", _chaosMode },
+        { "multiWinner", _multiWinner }
     };
 
     public void LoadFromPreset(Dictionary<string, object> values)
     {
-        _maxTickets = PresetReader.Int(values, "maxTickets", _maxTickets);
-        _pricePerTicket = PresetReader.Int(values, "pricePerTicket", _pricePerTicket);
-        _bingoPot = PresetReader.Int(values, "bingoPot", _bingoPot);
-        _maxWinnersPerRound = PresetReader.Int(values, "maxWinnersPerRound", _maxWinnersPerRound);
+        _gameType = PresetReader.String(values, "gameType", _gameType);
+        _cardCost = PresetReader.Int(values, "cardCost", _cardCost);
+        _boostedPot = PresetReader.Int(values, "boostedPot", _boostedPot);
+        _totalPot = PresetReader.Int(values, "totalPot", _totalPot);
+        _chaosMode = PresetReader.Bool(values, "chaosMode", _chaosMode);
+        _multiWinner = PresetReader.Bool(values, "multiWinner", _multiWinner);
     }
 
     public Dictionary<string, object> SaveToPreset() => ToApiPayload();
+
+    public string AutomaticRulesPluginName => "SimpleBingo";
+
+    public bool TryGetAutomaticApiRules(object? ipcContext, out Dictionary<string, object>? rules)
+    {
+        if (ipcContext is not GameInfoIPC info)
+        {
+            rules = null;
+            return false;
+        }
+
+        rules = new Dictionary<string, object>
+        {
+            ["gameType"] = info.GameType.ToString().Replace("_", " "),
+            ["boostedPot"] = info.BoostedPot,
+            ["totalPot"] = info.TotalPot,
+            ["chaosMode"] = info.ChaosMode,
+            ["multiWinner"] = info.MultiWinner,
+            ["cardCost"] = info.CardCost,
+            ["cardsSold"] = info.CardsSold,
+            ["playerCount"] = info.PlayerCount
+        };
+        return true;
+    }
+
+    public void DrawAutomaticRulesSummary(object? ipcContext)
+    {
+        if (ipcContext is not GameInfoIPC bingoInfo)
+        {
+            ImGui.TextDisabled("No Session has been started");
+            return;
+        }
+
+        ImGui.Text("Bingo Session Info:");
+        ImGui.Text($"Game Type: {bingoInfo.GameType.ToString().Replace("_", " ")}");
+        ImGui.Text($"Boosted Pot: {bingoInfo.BoostedPot:N0}");
+        ImGui.Text($"Total Pot: {bingoInfo.TotalPot:N0}");
+        ImGui.Text($"Chaos Mode: {(bingoInfo.ChaosMode ? "Yes" : "No")}");
+        ImGui.Text($"Multi Winner: {(bingoInfo.MultiWinner ? "Yes" : "No")}");
+        ImGui.Text($"Card Cost: {bingoInfo.CardCost:N0}");
+        ImGui.Text($"Cards Sold: {bingoInfo.CardsSold:N0}");
+        ImGui.Text($"Player Count: {bingoInfo.PlayerCount:N0}");
+    }
 }

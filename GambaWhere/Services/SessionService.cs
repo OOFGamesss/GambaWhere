@@ -104,7 +104,7 @@ public class SessionService : IDisposable
         {
             while (!ct.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromMinutes(15), ct);
+                await Task.Delay(TimeSpan.FromMinutes(1), ct);
 
                 if (ct.IsCancellationRequested)
                     break;

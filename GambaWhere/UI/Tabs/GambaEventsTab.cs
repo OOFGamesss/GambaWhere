@@ -392,8 +392,8 @@ public class GambaEventsTab
                 bool b => b ? "Yes" : "No",
                 int i => i.ToString("N0"),
                 long l => l.ToString("N0"),
-                float f => f.ToString("N2"),
-                double d => d.ToString("N2"),
+                float f => isOdds ? f.ToString("N2") : f.ToString("N0"),
+                double d => isOdds ? d.ToString("N2") : d.ToString("N0"),
                 _ => value?.ToString() ?? "-"
             };
         }

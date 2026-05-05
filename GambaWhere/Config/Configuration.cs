@@ -42,10 +42,12 @@ public class Configuration : IPluginConfiguration
                 Name = "Default",
                 RuleValues = new Dictionary<string, object>
                 {
-                    { "maxTickets", 10 },
-                    { "pricePerTicket", 100000 },
-                    { "bingoPot", 1000000 },
-                    { "maxWinnersPerRound", 1 }
+                    { "gameType", "Full Board" },
+                    { "cardCost", 100000 },
+                    { "boostedPot", 100000 },
+                    { "totalPot", 1000000 },
+                    { "chaosMode", false },
+                    { "multiWinner", false }
                 }
             }
         };

@@ -77,6 +77,8 @@ public sealed class GambaWhere : IDalamudPlugin
         _pokerIpc = new SimplePokerIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _scratchIpc = new SimpleScratchIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
 
+        hostTab.GetHostAutomaticRuleContext = () => (object?)_bingoIpc.GetGameInfo();
+
         CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
             HelpMessage = "Opens the GambaWhere window."

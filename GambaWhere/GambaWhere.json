@@ -4,9 +4,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "Features:\n-Added all of Asuna's games to the plugin. Including setting up the IPC for each plugin.\n-Added Roulette\n-Added Scratchcards\n-Added Spin the Wheel\n-Added Poker\nImproved Image Cache for faster loading, including a button to clear the cache in settings.",
-  "RepoUrl": "https://github.com/OOFGamesss/GambaWhere  ",
-  "ApplicableVersion": "any",
+  "Changelog": "Features:\n -Added auto detection rules for SimpleBingo (Thank you Asuna for the rules!). You can still select to manually input your rules for bingo but auto rules will update every 1 minute so everyone can see how much is in the pot at all times.",
   "Tags": [
     "gambling",
     "events",

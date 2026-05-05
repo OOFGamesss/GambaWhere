@@ -21,6 +21,19 @@ public static class PresetReader
         };
     }
 
+    public static string String(Dictionary<string, object> dict, string key, string fallback)
+    {
+        if (!dict.TryGetValue(key, out var raw))
+            return fallback;
+
+        return raw switch
+        {
+            JsonElement el when el.ValueKind == JsonValueKind.String => el.GetString() ?? fallback,
+            string s => s,
+            _ => fallback
+        };
+    }
+
     public static float Float(Dictionary<string, object> dict, string key, float fallback)
     {
         if (!dict.TryGetValue(key, out var raw))

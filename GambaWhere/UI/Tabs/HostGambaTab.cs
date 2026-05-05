@@ -6,7 +6,6 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
-using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
@@ -14,6 +13,7 @@ using GambaWhere.Rules;
 using GambaWhere.Services;
 using GambaWhere.State;
 using GambaWhere.Utility;
+using GambaWhere.UI.Components;
 
 namespace GambaWhere.UI.Tabs;
 
@@ -38,6 +38,8 @@ public class HostGambaTab
     private bool _showAddPresetInput;
     private bool _showRenamePresetInput;
     private string _renameBuffer = string.Empty;
+
+    public Func<object?>? GetHostAutomaticRuleContext { get; set; }
 
     public HostGambaTab(
         SessionService sessionService,
@@ -175,7 +177,7 @@ public class HostGambaTab
         DrawActiveRules();
 
         ImGuiHelpers.ScaledDummy(8f);
-        ImGui.TextDisabled("Location updates automatically every 15 minutes.");
+        ImGui.TextDisabled("Location updates automatically every 1 minute.");
         ImGuiHelpers.ScaledDummy(8f);
 
         ImGui.PushStyleColor(ImGuiCol.Button, new System.Numerics.Vector4(0.7f, 0.15f, 0.15f, 1f));
@@ -206,7 +208,7 @@ public class HostGambaTab
         {
             ImGui.Text(FormatRuleKey(key) + ":");
             ImGui.SameLine(offset);
-            ImGui.Text(FormatRuleValue(value));
+            ImGui.Text(FormatRuleValue(value, key));
         }
     }
 
@@ -223,13 +225,20 @@ public class HostGambaTab
 
     private static string FormatRuleKey(string camelCase) => RuleKeyFormatting.FormatDisplayKey(camelCase);
 
-    private static string FormatRuleValue(object value) => value switch
+    private static string FormatRuleValue(object value, string key = "")
     {
-        bool b => b ? "Yes" : "No",
-        int i => i.ToString("N0"),
-        float f => f.ToString("N2"),
-        _ => value.ToString() ?? string.Empty
-    };
+        var isOdds = key.Contains("odds", StringComparison.OrdinalIgnoreCase);
+
+        return value switch
+        {
+            bool b => b ? "Yes" : "No",
+            int i => i.ToString("N0"),
+            long l => l.ToString("N0"),
+            float f => isOdds ? f.ToString("N2") + "x" : f.ToString("N0"),
+            double d => isOdds ? d.ToString("N2") + "x" : d.ToString("N0"),
+            _ => value.ToString() ?? string.Empty
+        };
+    }
 
     private static float CalcLabelOffset(string[] labels)
     {
@@ -252,7 +261,18 @@ public class HostGambaTab
         DrawPresetBar(topOffset);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
-        _form.RuleConfig?.Draw();
+
+        if (_form.RuleConfig is IAutomaticHostRuleSource automatic
+            && GetHostAutomaticRuleContext != null)
+        {
+            var ipcContext = GetHostAutomaticRuleContext();
+            ManualVsAutomaticHostRulesDraw.Draw(_form, _form.RuleConfig, automatic, ipcContext);
+        }
+        else
+        {
+            _form.RuleConfig?.Draw();
+        }
+
         ImGuiHelpers.ScaledDummy(8f);
         DrawDescriptionInput();
         ImGuiHelpers.ScaledDummy(8f);
@@ -310,6 +330,8 @@ public class HostGambaTab
         LoadSelectedPreset();
         _showAddPresetInput = false;
         _showRenamePresetInput = false;
+        if (_form.RuleConfig is not IAutomaticHostRuleSource)
+            _form.UseManualHostRules = false;
     }
 
     private void DrawPresetBar(float labelOffset)
@@ -493,6 +515,19 @@ public class HostGambaTab
         var gameType = GameTypes[_form.SelectedGameIndex];
         var venueName = _venueOptions[_form.SelectedVenueIndex];
         var rulesSnapshot = _form.RuleConfig?.ToApiPayload() ?? new();
+
+        if (_form.RuleConfig is IAutomaticHostRuleSource automatic
+            && GetHostAutomaticRuleContext != null
+            && !_form.UseManualHostRules
+            && automatic.TryGetAutomaticApiRules(GetHostAutomaticRuleContext(), out var autoRules)
+            && autoRules != null)
+        {
+            rulesSnapshot = new Dictionary<string, object>(autoRules);
+        }
+        else
+        {
+            rulesSnapshot = ManualRulesApiOmitter.OmitEmptyOrDefault(rulesSnapshot);
+        }
 
         var request = new PostEventRequest
         {
