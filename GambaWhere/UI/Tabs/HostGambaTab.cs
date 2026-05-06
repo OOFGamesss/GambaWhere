@@ -517,6 +517,7 @@ public class HostGambaTab
         var gameType = GameTypes[_form.SelectedGameIndex];
         var venueName = _venueOptions[_form.SelectedVenueIndex];
         var rulesSnapshot = _form.RuleConfig?.ToApiPayload() ?? new();
+        var usedAutomaticIpc = false;
 
         if (_form.RuleConfig is IAutomaticHostRuleSource automatic
             && GetHostAutomaticRuleContext != null
@@ -525,6 +526,7 @@ public class HostGambaTab
             && autoRules != null)
         {
             rulesSnapshot = new Dictionary<string, object>(autoRules);
+            usedAutomaticIpc = true;
         }
         else
         {
@@ -555,6 +557,7 @@ public class HostGambaTab
             _sessionState.GameType = gameType;
             _sessionState.VenueName = venueName;
             _sessionState.ActiveRules = rulesSnapshot;
+            _sessionState.UsesAutomaticHostRules = usedAutomaticIpc;
         });
     }
 

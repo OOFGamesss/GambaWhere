@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Plugin.Services;
@@ -19,6 +20,8 @@ public class SessionService : IDisposable
     private readonly IClientState _clientState;
     private readonly IFramework _framework;
     private readonly IPluginLog _log;
+
+    public Func<string, Dictionary<string, object>?>? RefreshAutomaticRulesFromIpc { get; set; }
 
     public SessionService(
         GambaWhereClient client,
@@ -109,17 +112,7 @@ public class SessionService : IDisposable
                 if (ct.IsCancellationRequested)
                     break;
 
-                var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
-                if (location == null)
-                {
-                    _log.Warning("Heartbeat location update skipped: could not resolve current territory.");
-                    continue;
-                }
-
-                var putRequest = new PutEventRequest { Location = location };
-                await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
-
-                _sessionState.Location = location;
+                await SendHeartbeatPutAsync();
             }
         }
         catch (TaskCanceledException)
@@ -129,6 +122,40 @@ public class SessionService : IDisposable
         {
             _log.Error(ex, "Unexpected error in location heartbeat loop.");
         }
+    }
+
+    private async Task SendHeartbeatPutAsync()
+    {
+        var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
+        if (location == null)
+        {
+            _log.Warning("Heartbeat location update skipped: could not resolve current territory.");
+            return;
+        }
+
+        if (ShouldRefreshRulesFromIpc())
+        {
+            var refreshed = await _framework.RunOnFrameworkThread(() =>
+                RefreshAutomaticRulesFromIpc!.Invoke(_sessionState.GameType));
+            if (refreshed != null)
+                _sessionState.ActiveRules = refreshed;
+        }
+
+        var putRequest = new PutEventRequest
+        {
+            Location = location,
+            Rules = _sessionState.ActiveRules
+        };
+        await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
+
+        _sessionState.Location = location;
+    }
+
+    private bool ShouldRefreshRulesFromIpc()
+    {
+        return _sessionState.UsesAutomaticHostRules
+               && RefreshAutomaticRulesFromIpc != null
+               && (_sessionState.GameType == "Bingo" || _sessionState.GameType == "Roulette");
     }
 
     public void Dispose()

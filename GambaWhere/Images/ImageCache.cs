@@ -85,6 +85,24 @@ public class ImageCache : IDisposable
         }
     }
 
+    public IDalamudTextureWrap? GetBundledPng(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return null;
+
+        var cacheKey = $"bundled:{fileName}";
+        lock (_lock)
+        {
+            if (_cache.TryGetValue(cacheKey, out var tex))
+                return tex;
+
+            if (!_loading.Contains(cacheKey))
+                BeginLoadBundled(cacheKey, fileName.Trim());
+
+            return null;
+        }
+    }
+
     private void BeginLoad(string url)
     {
         _loading.Add(url);
@@ -119,6 +137,49 @@ public class ImageCache : IDisposable
                 {
                     _cache[url] = wrap;
                     _loading.Remove(url);
+                }
+            }
+        });
+    }
+
+    private void BeginLoadBundled(string cacheKey, string fileName)
+    {
+        _loading.Add(cacheKey);
+
+        var pluginDir = _pluginInterface.AssemblyLocation.DirectoryName;
+        if (string.IsNullOrEmpty(pluginDir))
+        {
+            lock (_lock)
+            {
+                _cache[cacheKey] = null;
+                _loading.Remove(cacheKey);
+            }
+
+            return;
+        }
+
+        var fullPath = Path.Combine(pluginDir, "Images", fileName);
+
+        _ = Task.Run(async () =>
+        {
+            IDalamudTextureWrap? wrap = null;
+            try
+            {
+                if (File.Exists(fullPath))
+                {
+                    var bytes = await File.ReadAllBytesAsync(fullPath);
+                    wrap = await _textureProvider.CreateFromImageAsync(bytes);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+                lock (_lock)
+                {
+                    _cache[cacheKey] = wrap;
+                    _loading.Remove(cacheKey);
                 }
             }
         });

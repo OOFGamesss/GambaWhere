@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Plugin;
@@ -7,6 +8,8 @@ using Dalamud.Plugin.Services;
 using GambaWhere.Config;
 using GambaWhere.UI;
 using GambaWhere.UI.Tabs;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SimpleRoulette.Data;
 
 namespace GambaWhere.IPC;
@@ -53,10 +56,10 @@ public sealed class SimpleRouletteIpc : IDisposable
         _gameInfoSubscriber = pluginInterface.GetIpcSubscriber<object>(GameInfoIpcKey);
     }
 
-    public GameInfoIPC? GetGameInfo()
+    public GameInfoIPC? GetGameInfo(bool forceRefresh = false)
     {
         var currentTick = Environment.TickCount64;
-        if (currentTick - _lastCheckTick < 60000)
+        if (!forceRefresh && currentTick - _lastCheckTick < 30000)
         {
             return _cachedGameInfo;
         }
@@ -72,22 +75,37 @@ public sealed class SimpleRouletteIpc : IDisposable
                 return null;
             }
 
-            var jsonStr = rawData.ToString();
-            if (string.IsNullOrEmpty(jsonStr))
-            {
-                _cachedGameInfo = null;
-                return null;
-            }
-
-            var data = Newtonsoft.Json.JsonConvert.DeserializeObject<GameInfoIPC>(jsonStr);
+            var data = DeserializeGameInfo(rawData);
             _cachedGameInfo = data;
             return data;
         }
         catch (Exception ex)
         {
-            _log.Warning($"SimpleRoulette IPC GetGameInfo failed to parse data: {ex.Message}");
+            _log.Warning($"SimpleRoulette IPC GetGameInfo failed: {ex.Message}");
             _cachedGameInfo = null;
             return null;
+        }
+    }
+
+    private GameInfoIPC? DeserializeGameInfo(object raw)
+    {
+        switch (raw)
+        {
+            case GameInfoIPC g:
+                return g;
+            case string s when !string.IsNullOrWhiteSpace(s):
+                return JsonConvert.DeserializeObject<GameInfoIPC>(s);
+            case JObject jo:
+                return jo.ToObject<GameInfoIPC>();
+            case JToken token:
+                return token.ToObject<GameInfoIPC>();
+            case JsonElement je:
+                return JsonConvert.DeserializeObject<GameInfoIPC>(je.GetRawText());
+            default:
+                var json = JsonConvert.SerializeObject(raw);
+                if (string.IsNullOrWhiteSpace(json) || json == "{}")
+                    return null;
+                return JsonConvert.DeserializeObject<GameInfoIPC>(json);
         }
     }
 

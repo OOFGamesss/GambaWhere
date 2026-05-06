@@ -20,7 +20,7 @@ public class BlackjackRules : IRuleConfig
 
     private static readonly string[] Labels =
     {
-        "Max Bet (gil)", "Max Push", "Stands Soft On", "Stands Hard On",
+        "Max Bet (gil)", "Max Push (gil)", "Stands Soft On", "Stands Hard On",
         "Max Splits", "Allow Non-Matching Splits", "Paying x2.5 for Charlie"
     };
 
@@ -28,36 +28,36 @@ public class BlackjackRules : IRuleConfig
     {
         var offset = Labels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
 
-        ImGui.Text("Max Bet (gil)");
+        ImGui.Text(Labels[0]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
         ImGui.InputInt("##MaxBet", ref _maxBet);
 
-        ImGui.Text("Max Push");
+        ImGui.Text(Labels[1]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
         ImGui.InputInt("##MaxPush", ref _maxPush);
 
-        ImGui.Text("Stands Soft On");
+        ImGui.Text(Labels[2]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
         ImGui.InputInt("##StandsSoftOn", ref _standsSoftOn);
 
-        ImGui.Text("Stands Hard On");
+        ImGui.Text(Labels[3]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
         ImGui.InputInt("##StandsHardOn", ref _standsHardOn);
 
-        ImGui.Text("Max Splits");
+        ImGui.Text(Labels[4]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
         ImGui.InputInt("##MaxSplits", ref _maxSplits);
 
-        ImGui.Text("Allow Non-Matching Splits");
+        ImGui.Text(Labels[5]);
         ImGui.SameLine(offset);
         ImGui.Checkbox("##AllowNonMatchingSplits", ref _allowNonMatchingSplits);
 
-        ImGui.Text("Paying x2.5 for Charlie");
+        ImGui.Text(Labels[6]);
         ImGui.SameLine(offset);
         ImGui.Checkbox("##PayingTwoPointFiveCharlie", ref _payingTwoPointFiveCharlie);
 

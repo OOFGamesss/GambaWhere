@@ -53,10 +53,10 @@ public sealed class SimpleBingoIpc : IDisposable
         _gameInfoSubscriber = pluginInterface.GetIpcSubscriber<object>(GameInfoIpcKey);
     }
 
-    public GameInfoIPC? GetGameInfo()
+    public GameInfoIPC? GetGameInfo(bool forceRefresh = false)
     {
         var currentTick = Environment.TickCount64;
-        if (currentTick - _lastCheckTick < 60000)
+        if (!forceRefresh && currentTick - _lastCheckTick < 30000)
         {
             return _cachedGameInfo;
         }

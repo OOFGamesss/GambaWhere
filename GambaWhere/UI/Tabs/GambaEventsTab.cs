@@ -363,7 +363,7 @@ public class GambaEventsTab
         "Chocobo Racing" => (new Vector4(0.85f, 0.80f, 0.15f, 0.18f), new Vector4(1.00f, 0.95f, 0.30f, 1f)),
         "Mini Games" => (new Vector4(0.20f, 0.80f, 0.40f, 0.18f), new Vector4(0.40f, 1.00f, 0.55f, 1f)),
         "Poker" => (new Vector4(0.00f, 0.80f, 0.80f, 0.18f), new Vector4(0.00f, 1.00f, 1.00f, 1f)),
-        "Roulette" => (new Vector4(0.85f, 0.70f, 0.10f, 0.18f), new Vector4(1.00f, 0.84f, 0.00f, 1f)),
+        "Roulette" => (new Vector4(0.52f, 0.38f, 0.78f, 0.18f), new Vector4(0.82f, 0.68f, 1.00f, 1f)),
         "Scratchcards" => (new Vector4(0.85f, 0.45f, 0.00f, 0.18f), new Vector4(1.00f, 0.60f, 0.00f, 1f)),
         "Spin the Wheel" => (new Vector4(0.90f, 0.60f, 0.70f, 0.18f), new Vector4(1.00f, 0.75f, 0.85f, 1f)),
         _ => (new Vector4(0.50f, 0.50f, 0.50f, 0.12f), new Vector4(0.75f, 0.75f, 0.75f, 1f)),
@@ -398,7 +398,52 @@ public class GambaEventsTab
             };
         }
 
-        return isOdds ? formatted + "x" : formatted;
+        var result = isOdds ? formatted + "x" : formatted;
+        if (ShouldAppendGilSuffix(key) && TryGetWholeRuleNumber(value, out var whole) && whole > 1000)
+            result += " gil";
+
+        return result;
+    }
+
+    private static bool ShouldAppendGilSuffix(string key) =>
+        !key.Contains("odds", StringComparison.OrdinalIgnoreCase)
+        && !key.Equals("playerCount", StringComparison.OrdinalIgnoreCase)
+        && !key.Equals("cardsSold", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryGetWholeRuleNumber(object? value, out long whole)
+    {
+        whole = 0;
+        switch (value)
+        {
+            case int i:
+                whole = i;
+                return true;
+            case long l:
+                whole = l;
+                return true;
+            case float f when Math.Abs(f - MathF.Round(f)) < 0.0001f:
+                whole = (long)MathF.Round(f);
+                return true;
+            case double d when Math.Abs(d - Math.Round(d)) < 0.0000001:
+                whole = (long)Math.Round(d);
+                return true;
+            case JsonElement el when el.ValueKind == JsonValueKind.Number:
+                if (el.TryGetInt64(out var li))
+                {
+                    whole = li;
+                    return true;
+                }
+
+                if (el.TryGetDouble(out var du) && Math.Abs(du - Math.Round(du)) < 0.0000001)
+                {
+                    whole = (long)Math.Round(du);
+                    return true;
+                }
+
+                return false;
+            default:
+                return false;
+        }
     }
 
 }

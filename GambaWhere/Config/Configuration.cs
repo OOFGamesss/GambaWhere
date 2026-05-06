@@ -91,6 +91,7 @@ public class Configuration : IPluginConfiguration
                 {
                     { "chocoboRunners", 5 },
                     { "raceTrackLength", 5 },
+                    { "maxBetPerChocobo", 500000 },
                     { "payoutOdds", 5.0f },
                     { "perfectRaceOdds", 10.0f }
                 }

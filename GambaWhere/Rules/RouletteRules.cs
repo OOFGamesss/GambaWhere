@@ -11,6 +11,8 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
 {
     public string GameType => "Roulette";
 
+    private const int IpcMaxBetGilMultiplier = 1000;
+
     public string AutomaticRulesPluginName => "SimpleRoulette";
 
     private int _maxBetInner;
@@ -20,10 +22,10 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
 
     private static readonly string[] RowLabels =
     {
-        "Max Bet Inner",
-        "Max Bet Outer",
-        "Max Bet Inner VIP",
-        "Max Bet Outer VIP"
+        "Max Bet Inner (gil)",
+        "Max Bet Outer (gil)",
+        "Max Bet Inner VIP (gil)",
+        "Max Bet Outer VIP (gil)"
     };
 
     public void Draw()
@@ -88,13 +90,13 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
         };
 
         if (info.MaxBetInner is int maxInner)
-            rules["maxBetInner"] = maxInner;
+            rules["maxBetInner"] = maxInner * IpcMaxBetGilMultiplier;
         if (info.MaxBetOuter is int maxOuter)
-            rules["maxBetOuter"] = maxOuter;
+            rules["maxBetOuter"] = maxOuter * IpcMaxBetGilMultiplier;
         if (info.MaxBetInnerVIP is int maxInnerVip)
-            rules["maxBetInnerVIP"] = maxInnerVip;
+            rules["maxBetInnerVIP"] = maxInnerVip * IpcMaxBetGilMultiplier;
         if (info.MaxBetOuterVIP is int maxOuterVip)
-            rules["maxBetOuterVIP"] = maxOuterVip;
+            rules["maxBetOuterVIP"] = maxOuterVip * IpcMaxBetGilMultiplier;
         return true;
     }
 
@@ -108,11 +110,12 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
 
         ImGui.Text("Roulette session info:");
         ImGui.Text($"Player count: {rouletteInfo.PlayerCount:N0}");
-        ImGui.Text($"Max bet (inner): {FormatOptionalGil(rouletteInfo.MaxBetInner)}");
-        ImGui.Text($"Max bet (outer): {FormatOptionalGil(rouletteInfo.MaxBetOuter)}");
-        ImGui.Text($"Max bet inner (VIP): {FormatOptionalGil(rouletteInfo.MaxBetInnerVIP)}");
-        ImGui.Text($"Max bet outer (VIP): {FormatOptionalGil(rouletteInfo.MaxBetOuterVIP)}");
+        ImGui.Text($"Max bet (inner): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetInner, IpcMaxBetGilMultiplier)}");
+        ImGui.Text($"Max bet (outer): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetOuter, IpcMaxBetGilMultiplier)}");
+        ImGui.Text($"Max bet inner (VIP): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetInnerVIP, IpcMaxBetGilMultiplier)}");
+        ImGui.Text($"Max bet outer (VIP): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetOuterVIP, IpcMaxBetGilMultiplier)}");
     }
 
-    private static string FormatOptionalGil(int? gil) => gil is int v ? v.ToString("N0") : "Not set";
+    private static string FormatIpcMaxBetAsGil(int? ipcUnits, int gilMultiplier) =>
+        ipcUnits is int v ? (v * (long)gilMultiplier).ToString("N0") : "Not set";
 }

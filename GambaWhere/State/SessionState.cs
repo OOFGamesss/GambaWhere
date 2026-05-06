@@ -17,6 +17,8 @@ public class SessionState
 
     public Dictionary<string, object>? ActiveRules { get; set; }
 
+    public bool UsesAutomaticHostRules { get; set; }
+
     public CancellationTokenSource? LoopCts { get; set; }
 
     public void Clear()
@@ -28,6 +30,7 @@ public class SessionState
         GameType = string.Empty;
         VenueName = null;
         ActiveRules = null;
+        UsesAutomaticHostRules = false;
         LoopCts = null;
     }
 }

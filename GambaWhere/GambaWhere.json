@@ -4,7 +4,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "Features:\n- Added Auto Detection rules for Simple Roulette.",
+  "Changelog": "Features:\n- Added Game List tab to easily find where to get plugins to host gamba.\n -Amended some rules.",
   "Tags": [
     "gambling",
     "events",

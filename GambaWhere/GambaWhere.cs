@@ -64,9 +64,10 @@ public sealed class GambaWhere : IDalamudPlugin
 
         var eventsTab = new GambaEventsTab(_client, _imageCache);
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
+        var gameListTab = new GameListTab(_imageCache);
         var settingsTab = new SettingsTab(Configuration, _imageCache);
 
-        _mainWindow = new MainWindow(eventsTab, hostTab, settingsTab);
+        _mainWindow = new MainWindow(eventsTab, hostTab, gameListTab, settingsTab);
         _windowSystem.AddWindow(_mainWindow);
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
@@ -76,6 +77,9 @@ public sealed class GambaWhere : IDalamudPlugin
         _wheelIpc = new SimpleWheelIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _pokerIpc = new SimplePokerIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _scratchIpc = new SimpleScratchIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+
+        _sessionService.RefreshAutomaticRulesFromIpc =
+            new AutomaticRulesIpcRefresher(_bingoIpc, _rouletteIpc).TryRefresh;
 
         hostTab.GetHostAutomaticRuleContext = () => hostTab.GetSelectedGameType() switch
         {
