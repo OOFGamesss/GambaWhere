@@ -55,7 +55,7 @@ public class GameListTab
 
     private static string? GetCreatorAttribution(string displayName) => displayName switch
     {
-        "Mini Games" => null,
+        "Mini Games" => "Created by No One",
         "Chocobo Racing" => "Created by OOF Games",
         _ => "Created by Asuna & Klia"
     };
@@ -76,6 +76,8 @@ public class GameListTab
             "Fully customizable scratcher game with configurable prizes, adjustable odds, and custom images.",
         "Chocobo Racing" =>
             "Fully Customisable racing game with auto detected bets, bank management and much more.",
+        "Mini Games" =>
+            "Casual mini bar-style games designed for quick rounds, simple interactions, and social-friendly gameplay.",
         _ => null
     };
 
