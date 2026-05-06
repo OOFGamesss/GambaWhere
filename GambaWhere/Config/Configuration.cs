@@ -138,7 +138,13 @@ public class Configuration : IPluginConfiguration
             new()
             {
                 Name = "Default",
-                RuleValues = new Dictionary<string, object>()
+                RuleValues = new Dictionary<string, object>
+                {
+                    ["maxBetInner"] = 100000,
+                    ["maxBetOuter"] = 100000,
+                    ["maxBetInnerVIP"] = 100000,
+                    ["maxBetOuterVIP"] = 100000
+                }
             }
         };
     }

@@ -72,6 +72,8 @@ public class HostGambaTab
         LoadSelectedPreset();
     }
 
+    public string GetSelectedGameType() => GameTypes[_form.SelectedGameIndex];
+
     public void SelectChocoboRacing()
     {
         var index = Array.IndexOf(GameTypes, "Chocobo Racing");

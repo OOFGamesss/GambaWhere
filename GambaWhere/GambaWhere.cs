@@ -77,7 +77,12 @@ public sealed class GambaWhere : IDalamudPlugin
         _pokerIpc = new SimplePokerIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _scratchIpc = new SimpleScratchIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
 
-        hostTab.GetHostAutomaticRuleContext = () => (object?)_bingoIpc.GetGameInfo();
+        hostTab.GetHostAutomaticRuleContext = () => hostTab.GetSelectedGameType() switch
+        {
+            "Bingo" => _bingoIpc.GetGameInfo(),
+            "Roulette" => _rouletteIpc.GetGameInfo(),
+            _ => null
+        };
 
         CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
