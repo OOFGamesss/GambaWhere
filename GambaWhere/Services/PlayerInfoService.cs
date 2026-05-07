@@ -55,8 +55,7 @@ public class PlayerInfoService
         }
 
         var rawArea = territory.PlaceName.Value.Name.ToString();
-        var dashIndex = rawArea.LastIndexOf(" - ", StringComparison.Ordinal);
-        var area = dashIndex >= 0 ? rawArea[(dashIndex + 3)..] : rawArea;
+        var area = FormatPlaceAreaName(rawArea);
 
         var mapSheet = _dataManager.GetExcelSheet<Map>();
         var map = mapSheet.TryGetRow(_clientState.MapId, out var activeMap)
@@ -70,6 +69,14 @@ public class PlayerInfoService
         var mapY = RawToMapCoord(player.Position.Z, map.SizeFactor, map.OffsetY);
 
         var housing = TryGetHousingInfo();
+        
+        if (housing.HasValue && string.IsNullOrWhiteSpace(area))
+        {
+            var resolved = ResolveHousingDistrictAreaName();
+            if (!string.IsNullOrWhiteSpace(resolved))
+                area = resolved;
+        }
+
         if (housing.HasValue)
         {
             var (ward, plot) = housing.Value;
@@ -93,6 +100,37 @@ public class PlayerInfoService
     {
         var c = sizeFactor / 100f;
         return MathF.Round(((rawPos + offset) / c + 1024f) / 2048f * 41f + 1f, 1);
+    }
+
+    private static string FormatPlaceAreaName(string rawArea)
+    {
+        var dashIndex = rawArea.LastIndexOf(" - ", StringComparison.Ordinal);
+        return dashIndex >= 0 ? rawArea[(dashIndex + 3)..] : rawArea;
+    }
+
+    // Interior estate territories often have no PlaceName; resolve the district from the linked ward row.
+    private string? ResolveHousingDistrictAreaName()
+    {
+        uint territoryTypeId = HousingManager.GetOriginalHouseTerritoryTypeId();
+
+        if (territoryTypeId == 0)
+        {
+            unsafe
+            {
+                var hm = HousingManager.Instance();
+                if (hm != null)
+                    territoryTypeId = hm->GetCurrentIndoorHouseId().TerritoryTypeId;
+            }
+        }
+
+        if (territoryTypeId == 0)
+            return null;
+
+        if (!_dataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryTypeId, out var estateTerritory))
+            return null;
+
+        var raw = estateTerritory.PlaceName.Value.Name.ToString();
+        return string.IsNullOrWhiteSpace(raw) ? null : FormatPlaceAreaName(raw);
     }
 
     private unsafe (int ward, int plot)? TryGetHousingInfo()
