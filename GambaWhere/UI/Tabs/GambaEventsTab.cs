@@ -6,12 +6,12 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
-using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Images;
+using GambaWhere.Services;
 using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
@@ -21,6 +21,7 @@ public class GambaEventsTab
 {
     private readonly GambaWhereClient _client;
     private readonly ImageCache _imageCache;
+    private readonly EventLocationTeleportService _teleport;
 
     private List<EventResponse> _events = new();
     private DateTime? _lastUpdated;
@@ -44,10 +45,11 @@ public class GambaEventsTab
 
     private static readonly float ImageSize = 70f;
 
-    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache)
+    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport)
     {
         _client = client;
         _imageCache = imageCache;
+        _teleport = teleport;
     }
 
     public void Draw()
@@ -279,7 +281,7 @@ public class GambaEventsTab
         ImGuiHelpers.ScaledDummy(6f);
     }
 
-    private static void DrawExpandedDetails(EventResponse ev)
+    private void DrawExpandedDetails(EventResponse ev)
     {
         ImGuiHelpers.ScaledDummy(4f);
 
@@ -318,18 +320,48 @@ public class GambaEventsTab
             ImGui.TextDisabled("Location");
             ImGui.SameLine();
             ImGui.Text(ev.Location);
+            ImGui.SameLine();
+            ImGui.AlignTextToFramePadding();
+
+            var teleportEnabled = _teleport.IsLifestreamAvailable;
+
+            ImGui.BeginGroup();
+            if (!teleportEnabled)
+                ImGui.BeginDisabled();
+
+            if (ImGui.SmallButton($"Teleport##teleportBtn"))
+                _teleport.RequestTravel(ev);
+
+            if (!teleportEnabled)
+                ImGui.EndDisabled();
+
+            ImGui.EndGroup();
+
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip(
+                    teleportEnabled
+                        ? "Travel through Lifestream using world, housing district, ward, and plot when this listing includes them."
+                        : "Install NightmareXIV Lifestream from the plugin installer, enable it on this character, then reload plugins.");
+            }
 
             if (!string.IsNullOrWhiteSpace(ev.DiscordUrl))
             {
                 ImGuiHelpers.ScaledDummy(4f);
                 ImGui.TextDisabled("Discord");
                 ImGui.SameLine();
-                ImGui.TextColored(new Vector4(0.4f, 0.6f, 1f, 1f), ev.DiscordUrl);
-                ImGui.SameLine();
-                if (ImGuiComponents.IconButton($"##copy_{ev.CharacterName}", FontAwesomeIcon.Copy))
-                    ImGui.SetClipboardText(ev.DiscordUrl);
+                var url = ev.DiscordUrl!;
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.4f, 0.6f, 1f, 1f));
+                ImGui.Text(url);
+                ImGui.PopStyleColor();
                 if (ImGui.IsItemHovered())
-                    ImGui.SetTooltip("Copy to clipboard");
+                {
+                    ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                    ImGui.SetTooltip($"Open in browser:\n{url}");
+                }
+
+                if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
+                    OpenBrowser.TryOpen(url);
             }
 
             ImGui.EndTable();

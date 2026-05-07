@@ -62,7 +62,8 @@ public sealed class GambaWhere : IDalamudPlugin
 
         _sessionService = new SessionService(_client, playerInfo, sessionState, Configuration, ClientState, Framework, Log);
 
-        var eventsTab = new GambaEventsTab(_client, _imageCache);
+        var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
+        var eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport);
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
         var gameListTab = new GameListTab(_imageCache);
         var settingsTab = new SettingsTab(Configuration, _imageCache);

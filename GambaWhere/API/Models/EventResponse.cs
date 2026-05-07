@@ -30,6 +30,27 @@ public class EventResponse
     [JsonPropertyName("discord_url")]
     public string? DiscordUrl { get; set; }
 
+    [JsonPropertyName("data_centre")]
+    public string? DataCentre { get; set; }
+
+    [JsonPropertyName("world")]
+    public string? World { get; set; }
+
+    [JsonPropertyName("area")]
+    public string? Area { get; set; }
+
+    [JsonPropertyName("ward")]
+    public int? Ward { get; set; }
+
+    [JsonPropertyName("plot")]
+    public int? Plot { get; set; }
+
+    [JsonPropertyName("is_apartment")]
+    public bool? IsApartment { get; set; }
+
+    [JsonPropertyName("subdivision")]
+    public bool? Subdivision { get; set; }
+
     [JsonPropertyName("image_url")]
     public string? ImageUrl { get; set; }
 
