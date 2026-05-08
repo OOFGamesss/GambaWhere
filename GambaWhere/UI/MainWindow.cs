@@ -13,10 +13,16 @@ public class MainWindow : Window, IDisposable
     private readonly HostGambaTab _hostTab;
     private readonly GameListTab _gameListTab;
     private readonly SettingsTab _settingsTab;
+    private readonly SupportTab _supportTab;
 
     private string? _pendingTab;
 
-    public MainWindow(GambaEventsTab eventsTab, HostGambaTab hostTab, GameListTab gameListTab, SettingsTab settingsTab)
+    public MainWindow(
+        GambaEventsTab eventsTab,
+        HostGambaTab hostTab,
+        GameListTab gameListTab,
+        SettingsTab settingsTab,
+        SupportTab supportTab)
         : base("Gamba Where##MainWindow")
     {
         SizeConstraints = new WindowSizeConstraints
@@ -29,6 +35,7 @@ public class MainWindow : Window, IDisposable
         _hostTab = hostTab;
         _gameListTab = gameListTab;
         _settingsTab = settingsTab;
+        _supportTab = supportTab;
     }
 
     public void OpenSettingsTab()
@@ -53,6 +60,7 @@ public class MainWindow : Window, IDisposable
         DrawTab("Host Gamba", _hostTab.Draw);
         DrawTab("Game List", _gameListTab.Draw);
         DrawTab("Settings", _settingsTab.Draw);
+        DrawTab("Support", _supportTab.Draw);
 
         _pendingTab = null;
     }

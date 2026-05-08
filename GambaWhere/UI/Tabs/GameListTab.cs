@@ -85,7 +85,7 @@ public class GameListTab
     {
         "Bingo" => "simplebingo.png",
         "Blackjack" => "simpleblackjack.png",
-        "Chocobo Racing" => "chocoboracinggambe.png",
+        "Chocobo Racing" => "chocoboracinggamba.png",
         "Mini Games" => "minigames.png",
         "Poker" => "simplepoker.png",
         "Roulette" => "simpleroulette.png",

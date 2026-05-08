@@ -67,8 +67,9 @@ public sealed class GambaWhere : IDalamudPlugin
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
         var gameListTab = new GameListTab(_imageCache);
         var settingsTab = new SettingsTab(Configuration, _imageCache);
+        var supportTab = new SupportTab(_imageCache);
 
-        _mainWindow = new MainWindow(eventsTab, hostTab, gameListTab, settingsTab);
+        _mainWindow = new MainWindow(eventsTab, hostTab, gameListTab, settingsTab, supportTab);
         _windowSystem.AddWindow(_mainWindow);
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
