@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Plugin;
@@ -7,15 +8,23 @@ using Dalamud.Plugin.Services;
 using GambaWhere.Config;
 using GambaWhere.UI;
 using GambaWhere.UI.Tabs;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace GambaWhere.IPC;
 
 public sealed class ChocoboRacingGambaIpc : IDisposable
 {
     private const string IpcKey = "ChocoboRacingGamba.WindowOpened";
+    private const string GameInfoIpcKey = "ChocoboRacingGamba.GetGameInfo";
     private const uint LinkId = 1;
 
     private readonly ICallGateSubscriber<Action> _subscriber;
+    private readonly ICallGateSubscriber<object> _gameInfoSubscriber;
+
+    private RaceGameInfoIPC? _cachedGameInfo;
+    private long _lastCheckTick;
+
     private readonly MainWindow _mainWindow;
     private readonly HostGambaTab _hostTab;
     private readonly IChatGui _chatGui;
@@ -43,6 +52,60 @@ public sealed class ChocoboRacingGambaIpc : IDisposable
         _subscriber = pluginInterface.GetIpcSubscriber<Action>(IpcKey);
         _subscriber.Subscribe(OnWindowOpened);
 
+        _gameInfoSubscriber = pluginInterface.GetIpcSubscriber<object>(GameInfoIpcKey);
+    }
+
+    public RaceGameInfoIPC? GetGameInfo(bool forceRefresh = false)
+    {
+        var currentTick = Environment.TickCount64;
+        if (!forceRefresh && currentTick - _lastCheckTick < 30000)
+        {
+            return _cachedGameInfo;
+        }
+
+        _lastCheckTick = currentTick;
+
+        try
+        {
+            var rawData = _gameInfoSubscriber.InvokeFunc();
+            if (rawData == null)
+            {
+                _cachedGameInfo = null;
+                return null;
+            }
+
+            var data = DeserializeGameInfo(rawData);
+            _cachedGameInfo = data;
+            return data;
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"ChocoboRacingGamba IPC GetGameInfo failed: {ex.Message}");
+            _cachedGameInfo = null;
+            return null;
+        }
+    }
+
+    private static RaceGameInfoIPC? DeserializeGameInfo(object raw)
+    {
+        switch (raw)
+        {
+            case RaceGameInfoIPC r:
+                return r;
+            case string s when !string.IsNullOrWhiteSpace(s):
+                return JsonConvert.DeserializeObject<RaceGameInfoIPC>(s);
+            case JObject jo:
+                return jo.ToObject<RaceGameInfoIPC>();
+            case JToken token:
+                return token.ToObject<RaceGameInfoIPC>();
+            case JsonElement je:
+                return JsonConvert.DeserializeObject<RaceGameInfoIPC>(je.GetRawText());
+            default:
+                var json = JsonConvert.SerializeObject(raw);
+                if (string.IsNullOrWhiteSpace(json) || json == "{}")
+                    return null;
+                return JsonConvert.DeserializeObject<RaceGameInfoIPC>(json);
+        }
     }
 
     public void Dispose()

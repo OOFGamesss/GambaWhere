@@ -8,13 +8,19 @@ public sealed class AutomaticRulesIpcRefresher
 {
     private readonly SimpleBingoIpc _bingoIpc;
     private readonly SimpleRouletteIpc _rouletteIpc;
+    private readonly ChocoboRacingGambaIpc _chocoboIpc;
     private readonly BingoRules _bingoRules = new();
     private readonly RouletteRules _rouletteRules = new();
+    private readonly ChocoboRacingRules _chocoboRules = new();
 
-    public AutomaticRulesIpcRefresher(SimpleBingoIpc bingoIpc, SimpleRouletteIpc rouletteIpc)
+    public AutomaticRulesIpcRefresher(
+        SimpleBingoIpc bingoIpc,
+        SimpleRouletteIpc rouletteIpc,
+        ChocoboRacingGambaIpc chocoboIpc)
     {
         _bingoIpc = bingoIpc;
         _rouletteIpc = rouletteIpc;
+        _chocoboIpc = chocoboIpc;
     }
 
     public Dictionary<string, object>? TryRefresh(string gameType)
@@ -23,6 +29,7 @@ public sealed class AutomaticRulesIpcRefresher
         {
             "Bingo" => TryFromBingo(),
             "Roulette" => TryFromRoulette(),
+            "Chocobo Racing" => TryFromChocoboRacing(),
             _ => null
         };
     }
@@ -37,5 +44,11 @@ public sealed class AutomaticRulesIpcRefresher
     {
         var info = _rouletteIpc.GetGameInfo(true);
         return _rouletteRules.TryGetAutomaticApiRules(info, out var rules) ? rules : null;
+    }
+
+    private Dictionary<string, object>? TryFromChocoboRacing()
+    {
+        var info = _chocoboIpc.GetGameInfo(true);
+        return _chocoboRules.TryGetAutomaticApiRules(info, out var rules) ? rules : null;
     }
 }

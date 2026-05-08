@@ -2,11 +2,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
+using GambaWhere.IPC;
 using GambaWhere.Utility;
 
 namespace GambaWhere.Rules;
 
-public class ChocoboRacingRules : IRuleConfig
+public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
 {
     public string GameType => "Chocobo Racing";
 
@@ -76,4 +77,47 @@ public class ChocoboRacingRules : IRuleConfig
     }
 
     public Dictionary<string, object> SaveToPreset() => ToApiPayload();
+
+    public string AutomaticRulesPluginName => "ChocoboRacingGamba";
+
+    public bool TryGetAutomaticApiRules(object? ipcContext, out Dictionary<string, object>? rules)
+    {
+        if (ipcContext is not RaceGameInfoIPC info)
+        {
+            rules = null;
+            return false;
+        }
+
+        rules = new Dictionary<string, object>
+        {
+            ["chocoboRunners"] = info.ChocoboRunners,
+            ["raceTrackLength"] = info.RaceTrackLength,
+            ["maxBetPerChocobo"] = (int)System.Math.Min(info.MaxBetPerChocobo, int.MaxValue),
+            ["payoutOdds"] = info.PayoutOdds,
+            ["perfectRaceOdds"] = info.PerfectRaceOdds,
+            ["currentPlayers"] = info.CurrentPlayers
+        };
+        return true;
+    }
+
+    public void DrawAutomaticRulesSummary(object? ipcContext)
+    {
+        if (ipcContext is not RaceGameInfoIPC raceInfo)
+        {
+            ImGui.TextDisabled("No session has been started");
+            return;
+        }
+
+        ImGui.Text("Chocobo Racing session info:");
+        ImGui.Text($"Chocobo runners: {raceInfo.ChocoboRunners}");
+        ImGui.Text($"Race track length: {raceInfo.RaceTrackLength}");
+        ImGui.Text($"Max bet per chocobo: {raceInfo.MaxBetPerChocobo:N0}");
+        ImGui.Text($"Payout odds: {raceInfo.PayoutOdds:N2}x");
+        if (raceInfo.PerfectRaceOdds <= 0f)
+            ImGui.Text("Perfect race: off");
+        else
+            ImGui.Text($"Perfect race odds: {raceInfo.PerfectRaceOdds:N2}x");
+
+        ImGui.Text($"Current players: {raceInfo.CurrentPlayers}");
+    }
 }

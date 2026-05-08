@@ -155,7 +155,9 @@ public class SessionService : IDisposable
     {
         return _sessionState.UsesAutomaticHostRules
                && RefreshAutomaticRulesFromIpc != null
-               && (_sessionState.GameType == "Bingo" || _sessionState.GameType == "Roulette");
+               && (_sessionState.GameType == "Bingo"
+                   || _sessionState.GameType == "Roulette"
+                   || _sessionState.GameType == "Chocobo Racing");
     }
 
     public void Dispose()

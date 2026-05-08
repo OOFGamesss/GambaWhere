@@ -81,12 +81,13 @@ public sealed class GambaWhere : IDalamudPlugin
         _scratchIpc = new SimpleScratchIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
 
         _sessionService.RefreshAutomaticRulesFromIpc =
-            new AutomaticRulesIpcRefresher(_bingoIpc, _rouletteIpc).TryRefresh;
+            new AutomaticRulesIpcRefresher(_bingoIpc, _rouletteIpc, _chocoboIpc).TryRefresh;
 
         hostTab.GetHostAutomaticRuleContext = () => hostTab.GetSelectedGameType() switch
         {
             "Bingo" => _bingoIpc.GetGameInfo(),
             "Roulette" => _rouletteIpc.GetGameInfo(),
+            "Chocobo Racing" => _chocoboIpc.GetGameInfo(),
             _ => null
         };
 
