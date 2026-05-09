@@ -299,6 +299,12 @@ public class GambaEventsTab
         {
             ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
 
+            drawList.AddRectFilled(
+                cardTopScreen,
+                cardRect,
+                ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 0.06f)),
+                4f * ImGuiHelpers.GlobalScale);
+
             if (ImGui.IsMouseClicked(ImGuiMouseButton.Left))
             {
                 if (isExpanded)
