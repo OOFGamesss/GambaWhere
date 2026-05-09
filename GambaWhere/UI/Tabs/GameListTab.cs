@@ -109,6 +109,9 @@ public class GameListTab
         drawList.ChannelsSplit(2);
         drawList.ChannelsSetCurrent(1);
 
+        var iconFile = GetBundledIconFileName(displayName);
+        var tex = iconFile != null ? _imageCache.GetBundledPng(iconFile) : null;
+
         if (ImGui.BeginTable("##gameCard", 3, ImGuiTableFlags.None))
         {
             ImGui.TableSetupColumn("##img", ImGuiTableColumnFlags.WidthFixed, scaledImageSize.X);
@@ -117,12 +120,7 @@ public class GameListTab
             ImGui.TableNextRow();
 
             ImGui.TableSetColumnIndex(0);
-            var iconFile = GetBundledIconFileName(displayName);
-            var tex = iconFile != null ? _imageCache.GetBundledPng(iconFile) : null;
-            if (tex != null)
-                ImGui.Image(tex.Handle, scaledImageSize);
-            else
-                DrawImagePlaceholder(scaledImageSize);
+            ImGui.Dummy(scaledImageSize);
 
             ImGui.TableSetColumnIndex(1);
 
@@ -200,6 +198,19 @@ public class GameListTab
 
         var cardBottomScreen = ImGui.GetCursorScreenPos();
 
+        var rowHeight = cardBottomScreen.Y - cardTopScreen.Y;
+        var iconY = cardTopScreen.Y + Math.Max(0f, (rowHeight - scaledImageSize.Y) * 0.5f);
+        var iconMin = new Vector2(cardTopScreen.X, iconY);
+        var iconMax = iconMin + scaledImageSize;
+        if (tex != null)
+            drawList.AddImage(tex.Handle, iconMin, iconMax);
+        else
+            drawList.AddRectFilled(
+                iconMin,
+                iconMax,
+                ImGui.GetColorU32(new Vector4(0.18f, 0.18f, 0.18f, 1f)),
+                4f * ImGuiHelpers.GlobalScale);
+
         drawList.ChannelsSetCurrent(0);
         drawList.AddRectFilled(
             cardTopScreen,
@@ -211,17 +222,6 @@ public class GameListTab
         ImGuiHelpers.ScaledDummy(4f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(6f);
-    }
-
-    private static void DrawImagePlaceholder(Vector2 size)
-    {
-        var pos = ImGui.GetCursorScreenPos();
-        ImGui.GetWindowDrawList().AddRectFilled(
-            pos,
-            pos + size,
-            ImGui.GetColorU32(new Vector4(0.18f, 0.18f, 0.18f, 1f)),
-            4f * ImGuiHelpers.GlobalScale);
-        ImGui.Dummy(size);
     }
 
     private static (Vector4 bg, Vector4 text) GetGameTypeColors(string gameType) => gameType switch
