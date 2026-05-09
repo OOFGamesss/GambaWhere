@@ -222,7 +222,6 @@ public class GambaEventsTab
 
         var cardTopScreen = ImGui.GetCursorScreenPos();
         var availWidth = ImGui.GetContentRegionAvail().X;
-        var headerBottomScreenY = cardTopScreen.Y;
 
         var drawList = ImGui.GetWindowDrawList();
         drawList.ChannelsSplit(2);
@@ -274,22 +273,14 @@ public class GambaEventsTab
                 ImGui.TextWrapped(ev.Description);
             }
 
-            headerBottomScreenY = ImGui.GetCursorScreenPos().Y;
-
             if (isExpanded)
             {
-                ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 6f * ImGuiHelpers.GlobalScale);
-                ImGui.Separator();
-                ImGuiHelpers.ScaledDummy(2f);
                 DrawExpandedDetails(ev);
                 ImGuiHelpers.ScaledDummy(4f);
             }
 
             ImGui.EndTable();
         }
-
-        if (!isExpanded)
-            headerBottomScreenY = Math.Max(headerBottomScreenY, cardTopScreen.Y + scaledImageSize.Y);
 
         var cardBottomScreen = ImGui.GetCursorScreenPos();
 
@@ -301,18 +292,12 @@ public class GambaEventsTab
             4f * ImGuiHelpers.GlobalScale);
         drawList.ChannelsMerge();
 
-        var headerRect = new Vector2(cardTopScreen.X + availWidth, headerBottomScreenY);
+        var cardRect = new Vector2(cardTopScreen.X + availWidth, cardBottomScreen.Y);
         var popupIsOpen = ImGui.IsPopupOpen(string.Empty, ImGuiPopupFlags.AnyPopupId | ImGuiPopupFlags.AnyPopupLevel);
 
-        if (!popupIsOpen && ImGui.IsMouseHoveringRect(cardTopScreen, headerRect))
+        if (!popupIsOpen && ImGui.IsMouseHoveringRect(cardTopScreen, cardRect) && !ImGui.IsAnyItemHovered())
         {
             ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-
-            drawList.AddRectFilled(
-                cardTopScreen,
-                headerRect,
-                ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 0.06f)),
-                4f * ImGuiHelpers.GlobalScale);
 
             if (ImGui.IsMouseClicked(ImGuiMouseButton.Left))
             {
