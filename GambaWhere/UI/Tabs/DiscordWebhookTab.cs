@@ -6,6 +6,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin.Services;
 using GambaWhere.Config;
 using GambaWhere.Discord;
@@ -19,9 +20,6 @@ public sealed class DiscordWebhookTab
 
     private static readonly Vector4 GuideAccentColour = new(0.35f, 0.62f, 0.92f, 1f);
     private static readonly Vector4 GuideMutedColour = new(0.78f, 0.82f, 0.92f, 1f);
-
-    /// <summary>Subtle warm panel, same visual weight as <see cref="DrawSetupGuide"/> / preview child bg.</summary>
-    private static readonly Vector4 VenueServicePanelBg = new(0.13f, 0.10f, 0.076f, 1f);
 
     private static readonly Vector4 VenueServiceTextColour = new(0.86f, 0.82f, 0.76f, 1f);
 
@@ -68,12 +66,13 @@ public sealed class DiscordWebhookTab
 
         if (DiscordWebhookService.TabShouldWarn(_config))
         {
-            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.42f, 1f));
-            ImGui.TextWrapped(
-                "One or more webhooks failed to deliver. The row stays highlighted in red until a send succeeds "
-                    + "again. Turn Enable off then on on that row to retry (PATCH, then POST if the message no longer exists). "
-                    + "Check that the webhook URL still works in Discord.");
-            ImGui.PopStyleColor();
+            using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.42f, 1f)))
+            {
+                ImGui.TextWrapped(
+                    "One or more webhooks failed to deliver. The row stays highlighted in red until a send succeeds "
+                        + "again. Turn Enable off then on on that row to retry (PATCH, then POST if the message no longer exists). "
+                        + "Check that the webhook URL still works in Discord.");
+            }
 
             ImGui.Spacing();
         }
@@ -85,15 +84,7 @@ public sealed class DiscordWebhookTab
             snapshot = [.. _config.DiscordWebhooks];
         }
 
-        ImGui.PushStyleColor(ImGuiCol.Text, GuideAccentColour);
-        ImGui.TextUnformatted("Webhook API URLs");
-        ImGui.PopStyleColor();
-
-        ImGuiHelpers.ScaledDummy(2f);
-        ImGui.PushStyleColor(ImGuiCol.Separator, new Vector4(0.25f, 0.32f, 0.45f, 0.9f));
-        ImGui.Separator();
-        ImGui.PopStyleColor();
-        ImGuiHelpers.ScaledDummy(6f);
+        DrawSectionHeader("Webhook API URLs");
 
         var rowCount = snapshot.Length;
         for (var i = 0; i < snapshot.Length; i++)
@@ -105,11 +96,13 @@ public sealed class DiscordWebhookTab
 
     private void DrawDiscordHeader()
     {
+        ImGuiHelpers.ScaledDummy(10f);
+
         var scale = ImGuiHelpers.GlobalScale;
         var maxW = DiscordLogoMaxWidth * scale;
 
         Vector2 drawSize;
-        var tex = _imageCache.GetBundledImage("discordlogo.webp");
+        var tex = _imageCache.GetBundledImage("discordlogo.png");
         if (tex != null && tex.Width > 0 && tex.Height > 0)
         {
             var ratio = tex.Height / (float)tex.Width;
@@ -127,68 +120,48 @@ public sealed class DiscordWebhookTab
         ImGuiHelpers.ScaledDummy(10f);
     }
 
+    private static void DrawSectionHeader(string label)
+    {
+        using (ImRaii.PushColor(ImGuiCol.Text, GuideAccentColour))
+            ImGui.TextUnformatted(label);
+
+        ImGuiHelpers.ScaledDummy(2f);
+        using (ImRaii.PushColor(ImGuiCol.Separator, new Vector4(0.25f, 0.32f, 0.45f, 0.9f)))
+            ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(6f);
+    }
+
     private void DrawSetupGuide()
     {
-        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, 6f);
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.09f, 0.09f, 0.11f, 1f));
+        DrawSectionHeader("Webhook setup");
 
-        var scale = ImGuiHelpers.GlobalScale;
-        var guideH = scale * 210f;
+        GuideBullet(
+            "In Discord, open the channel that should show your host card, then open "
+                + "Channel settings (the gear icon).");
 
-        if (ImGui.BeginChild(
-                "DiscordWebhookGuide",
-                new Vector2(-1f, guideH),
-                true,
-                ImGuiWindowFlags.NoScrollbar))
-        {
-            ImGuiHelpers.ScaledDummy(6f);
+        GuideBullet(
+            "Go to Integrations → Webhooks. Create a new webhook or pick an existing one, then copy its URL "
+                + "(it starts with https://discord.com/api/webhooks/…).");
 
-            ImGui.PushStyleColor(ImGuiCol.Text, GuideAccentColour);
-            ImGui.TextUnformatted("Webhook setup");
-            ImGui.PopStyleColor();
+        GuideBullet(
+            "Paste the URL below. New rows start with Enable off — turn it on when the URL looks correct so "
+                + "the plugin can create or refresh the Discord message.");
 
-            ImGuiHelpers.ScaledDummy(4f);
-            ImGui.PushStyleColor(ImGuiCol.Separator, new Vector4(0.25f, 0.32f, 0.45f, 0.9f));
-            ImGui.Separator();
-            ImGui.PopStyleColor();
-            ImGuiHelpers.ScaledDummy(6f);
+        GuideBullet(
+            "Use the + button to add another webhook row. Use the bin to remove a row — at least one row always "
+                + "stays (the bin is disabled when only one row remains).");
 
-            GuideBullet(
-                "In Discord, open the channel that should show your host card, then open "
-                    + "Channel settings (the gear icon).");
-
-            GuideBullet(
-                "Go to Integrations → Webhooks. Create a new webhook or pick an existing one, then copy its URL "
-                    + "(it starts with https://discord.com/api/webhooks/…).");
-
-            GuideBullet(
-                "Paste the URL below. New rows start with Enable off — turn it on when the URL looks correct so "
-                    + "the plugin can create or refresh the Discord message.");
-
-            GuideBullet(
-                "Use the + button to add another webhook row. Use the bin to remove a row — at least one row always "
-                    + "stays (the bin is disabled when only one row remains).");
-
-            GuideBullet(
-                "While you host a session, the embed updates with your activity. When you stop hosting, the card "
-                    + "returns to the idle \"No gamba available\" state.");
-
-            ImGuiHelpers.ScaledDummy(6f);
-        }
-
-        ImGui.EndChild();
-
-        ImGui.PopStyleColor();
-        ImGui.PopStyleVar();
+        GuideBullet(
+            "While you host a session, the embed updates with your activity. When you stop hosting, the card "
+                + "returns to the idle \"No gamba available\" state.");
 
         ImGuiHelpers.ScaledDummy(8f);
     }
 
     private static void GuideBullet(string text)
     {
-        ImGui.PushStyleColor(ImGuiCol.Text, GuideMutedColour);
-        ImGui.BulletText(text);
-        ImGui.PopStyleColor();
+        using (ImRaii.PushColor(ImGuiCol.Text, GuideMutedColour))
+            ImGui.BulletText(text);
         ImGuiHelpers.ScaledDummy(2f);
     }
 
@@ -196,114 +169,63 @@ public sealed class DiscordWebhookTab
     {
         ImGuiHelpers.ScaledDummy(10f);
 
-        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, 6f);
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, VenueServicePanelBg);
-
         var scale = ImGuiHelpers.GlobalScale;
-        var style = ImGui.GetStyle();
+        var avail = ImGui.GetContentRegionAvail().X;
+        var drawWrap = Math.Max(avail - scale * 16f, 32f);
 
-        var parentAvailX = ImGui.GetContentRegionAvail().X;
-        var innerApprox =
-            Math.Max(parentAvailX - 2f * style.ChildBorderSize - 2f * style.WindowPadding.X - 2f, 32f);
-        var wrapForVenue = Math.Max(innerApprox - scale * 16f, 32f);
+        var textSize = ImGui.CalcTextSize(VenueServiceMessage, false, drawWrap);
+        var centreGap = Math.Max(0f, (avail - textSize.X) * 0.5f);
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + centreGap);
 
-        var textBlockH = ImGui.CalcTextSize(VenueServiceMessage, false, wrapForVenue).Y;
-        var childH = style.WindowPadding.Y * 2f + scale * 12f + textBlockH + scale * 4f;
-
-        if (ImGui.BeginChild(
-                "DiscordVenueServiceInfo",
-                new Vector2(-1f, childH),
-                true,
-                ImGuiWindowFlags.NoScrollbar))
+        using (ImRaii.PushColor(ImGuiCol.Text, VenueServiceTextColour))
         {
-            ImGuiHelpers.ScaledDummy(6f);
-
-            var innerAvail = ImGui.GetContentRegionAvail().X;
-            var drawWrap = Math.Max(innerAvail - scale * 16f, 32f);
-
-            var textSize = ImGui.CalcTextSize(VenueServiceMessage, false, drawWrap);
-
-            var x0 = ImGui.GetCursorPosX();
-            var centreGap = Math.Max(0f, (innerAvail - textSize.X) * 0.5f);
-            ImGui.SetCursorPosX(x0 + centreGap);
-
-            ImGui.PushStyleColor(ImGuiCol.Text, VenueServiceTextColour);
             ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + drawWrap);
             ImGui.TextUnformatted(VenueServiceMessage);
             ImGui.PopTextWrapPos();
-            ImGui.PopStyleColor();
-
-            ImGuiHelpers.ScaledDummy(6f);
         }
 
-        ImGui.EndChild();
-
-        ImGui.PopStyleColor();
-        ImGui.PopStyleVar();
+        ImGuiHelpers.ScaledDummy(6f);
     }
 
     private void DrawWebhookEmbedPreview()
     {
         ImGuiHelpers.ScaledDummy(8f);
 
-        ImGui.PushStyleColor(ImGuiCol.Text, GuideAccentColour);
-        ImGui.TextUnformatted("Discord preview example");
-        ImGui.PopStyleColor();
-
-        ImGuiHelpers.ScaledDummy(2f);
-        ImGui.PushStyleColor(ImGuiCol.Separator, new Vector4(0.25f, 0.32f, 0.45f, 0.9f));
-        ImGui.Separator();
-        ImGui.PopStyleColor();
-        ImGuiHelpers.ScaledDummy(6f);
-
-        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, 6f);
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.09f, 0.09f, 0.11f, 1f));
+        DrawSectionHeader("Discord preview example");
 
         var scale = ImGuiHelpers.GlobalScale;
-        var previewH = scale * 480f;
+        var tex = _imageCache.GetBundledImage("discordwebhookexample.png");
+        var innerW = ImGui.GetContentRegionAvail().X;
 
-        if (ImGui.BeginChild(
-                "DiscordWebhookEmbedPreview",
-                new Vector2(-1f, previewH),
-                true,
-                ImGuiWindowFlags.None))
+        if (tex != null && tex.Width > 0 && tex.Height > 0 && innerW > 1f)
         {
-            ImGuiHelpers.ScaledDummy(6f);
+            var w = innerW - scale * 8f;
+            var h = w * tex.Height / tex.Width;
 
-            var tex = _imageCache.GetBundledImage("discordwebhookexample.png");
-            var innerW = ImGui.GetContentRegionAvail().X;
+            var availY = ImGui.GetContentRegionAvail().Y - scale * 16f;
+            var maxH = Math.Min(scale * 520f, Math.Max(availY, scale * 120f));
 
-            if (tex != null && tex.Width > 0 && tex.Height > 0 && innerW > 1f)
+            if (h > maxH && maxH > 1f)
             {
-                var w = innerW - scale * 8f;
-                var h = w * tex.Height / (float)tex.Width;
-                var maxH = scale * 520f;
-                if (h > maxH && maxH > 1f)
-                {
-                    var s = maxH / h;
-                    h = maxH;
-                    w *= s;
-                }
-
-                CentreForWidth(w);
-                ImGui.Image(tex.Handle, new Vector2(w, h));
-                ImGuiHelpers.ScaledDummy(8f);
+                var s = maxH / h;
+                h = maxH;
+                w *= s;
             }
-            else
+
+            CentreForWidth(w);
+            ImGui.Image(tex.Handle, new Vector2(w, h));
+            ImGuiHelpers.ScaledDummy(8f);
+        }
+        else
+        {
+            using (ImRaii.PushColor(ImGuiCol.Text, GuideMutedColour))
             {
-                ImGui.PushStyleColor(ImGuiCol.Text, GuideMutedColour);
                 ImGui.TextWrapped(tex == null
                     ? "Preview image is still loading; switch away and back if it does not appear."
                     : "Preview image has no usable size.");
-                ImGui.PopStyleColor();
-                ImGuiHelpers.ScaledDummy(8f);
             }
+            ImGuiHelpers.ScaledDummy(8f);
         }
-
-        ImGui.EndChild();
-
-        ImGui.PopStyleColor();
-        ImGui.PopStyleVar();
 
         ImGuiHelpers.ScaledDummy(6f);
     }
@@ -357,30 +279,27 @@ public sealed class DiscordWebhookTab
 
     private void DrawWebhookRow(DiscordWebhookEntry entry, int index, int rowCount)
     {
-        ImGui.PushID(index);
+        using var id = ImRaii.PushId(index);
+        using var group = ImRaii.Group();
 
         var enabledFlag = entry.Enabled;
-        ImGui.BeginGroup();
 
-        if (entry.PostFailed)
-            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.32f, 0.34f, 1f));
-
-        if (ImGui.Checkbox("##DiscordEnabled", ref enabledFlag))
-            ToggleEnabled(entry, enabledFlag, index);
-
-        if (ImGui.IsItemHovered())
+        using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.32f, 0.34f, 1f), entry.PostFailed))
         {
-            var tip = entry.PostFailed
-                ? "Delivery failed recently: turn Enable off and on again to retry the webhook (PATCH, or POST "
-                    + "if the Discord message was removed). Tick Enable whenever you want this URL to receive idle "
-                    + "and session embeds."
-                : "New rows start disabled: paste the webhook URL, then enable when ready. "
-                    + "Enable must stay on for this URL to receive idle and session embeds.";
-            ImGui.SetTooltip(tip);
-        }
+            if (ImGui.Checkbox("##DiscordEnabled", ref enabledFlag))
+                ToggleEnabled(entry, enabledFlag, index);
 
-        if (entry.PostFailed)
-            ImGui.PopStyleColor();
+            if (ImGui.IsItemHovered())
+            {
+                var tip = entry.PostFailed
+                    ? "Delivery failed recently: turn Enable off and on again to retry the webhook (PATCH, or POST "
+                        + "if the Discord message was removed). Tick Enable whenever you want this URL to receive idle "
+                        + "and session embeds."
+                    : "New rows start disabled: paste the webhook URL, then enable when ready. "
+                        + "Enable must stay on for this URL to receive idle and session embeds.";
+                ImGui.SetTooltip(tip);
+            }
+        }
 
         ImGui.SameLine();
 
@@ -392,17 +311,14 @@ public sealed class DiscordWebhookTab
 
         ImGui.SetNextItemWidth(controlWidth);
 
-        if (entry.PostFailed)
-            ImGui.PushStyleColor(ImGuiCol.FrameBg, new Vector4(0.48f, 0.06f, 0.06f, 1f));
+        using (ImRaii.PushColor(ImGuiCol.FrameBg, new Vector4(0.48f, 0.06f, 0.06f, 1f), entry.PostFailed))
+        {
+            var mutableUrl = _urlDrafts[index];
+            ImGui.InputText("##DiscordUrl", ref mutableUrl, UrlBufferLength);
 
-        var mutableUrl = _urlDrafts[index];
-        ImGui.InputText("##DiscordUrl", ref mutableUrl, UrlBufferLength);
-
-        _urlDrafts[index] = mutableUrl;
-        EvaluateUrlCommitted(entry, index);
-
-        if (entry.PostFailed)
-            ImGui.PopStyleColor();
+            _urlDrafts[index] = mutableUrl;
+            EvaluateUrlCommitted(entry, index);
+        }
 
         ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
 
@@ -412,15 +328,14 @@ public sealed class DiscordWebhookTab
         ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
 
         var canRemove = rowCount > 1;
-        if (!canRemove)
-            ImGui.BeginDisabled();
-
-        if (ImGuiComponents.IconButton("##DiscordRemoveRow", FontAwesomeIcon.TrashAlt))
-            _pendingRowRemovalIndex = index;
+        using (ImRaii.Disabled(!canRemove))
+        {
+            if (ImGuiComponents.IconButton("##DiscordRemoveRow", FontAwesomeIcon.TrashAlt))
+                _pendingRowRemovalIndex = index;
+        }
 
         if (!canRemove)
         {
-            ImGui.EndDisabled();
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                 ImGui.SetTooltip("At least one webhook URL row must remain.");
         }
@@ -428,10 +343,6 @@ public sealed class DiscordWebhookTab
         {
             ImGui.SetTooltip("Remove this webhook row.");
         }
-
-        ImGui.EndGroup();
-
-        ImGui.PopID();
 
         ImGui.Spacing();
     }
