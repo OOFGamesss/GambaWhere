@@ -85,12 +85,15 @@ public class ImageCache : IDisposable
         }
     }
 
-    public IDalamudTextureWrap? GetBundledPng(string fileName)
+    public IDalamudTextureWrap? GetBundledPng(string fileName) => GetBundledImage(fileName, "bundled");
+
+    /// <summary>Loads any image file from the plugin <c>Images</c> directory (e.g. PNG or WebP).</summary>
+    public IDalamudTextureWrap? GetBundledImage(string fileName, string cacheNamespace = "bundledimg")
     {
         if (string.IsNullOrWhiteSpace(fileName))
             return null;
 
-        var cacheKey = $"bundled:{fileName}";
+        var cacheKey = $"{cacheNamespace}:{fileName.Trim()}";
         lock (_lock)
         {
             if (_cache.TryGetValue(cacheKey, out var tex))

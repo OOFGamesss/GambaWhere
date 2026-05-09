@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.0.8.0</Version>
+    <Version>0.0.9.0</Version>
     <PackageProjectUrl>https://github.com/OOFGamesss/GambaWhere</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <None Include="Images\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Images\**\*.webp" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ECommons.IPC" Version="1.0.0.19" />

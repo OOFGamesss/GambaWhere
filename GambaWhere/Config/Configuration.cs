@@ -16,6 +16,8 @@ public class Configuration : IPluginConfiguration
 
     public Dictionary<string, List<GamePreset>> Presets { get; set; } = new();
 
+    public List<DiscordWebhookEntry> DiscordWebhooks { get; set; } = new();
+
     public void Save() => global::GambaWhere.GambaWhere.PluginInterface.SavePluginConfig(this);
 
     public void EnsureDefaultPresets()

@@ -7,6 +7,7 @@ using Dalamud.Game;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
+using GambaWhere.Discord;
 using GambaWhere.State;
 
 namespace GambaWhere.Services;
@@ -20,6 +21,7 @@ public class SessionService : IDisposable
     private readonly IClientState _clientState;
     private readonly IFramework _framework;
     private readonly IPluginLog _log;
+    private readonly DiscordWebhookService _discordWebhook;
 
     public Func<string, Dictionary<string, object>?>? RefreshAutomaticRulesFromIpc { get; set; }
 
@@ -30,7 +32,8 @@ public class SessionService : IDisposable
         Configuration config,
         IClientState clientState,
         IFramework framework,
-        IPluginLog log)
+        IPluginLog log,
+        DiscordWebhookService discordWebhook)
     {
         _client = client;
         _playerInfo = playerInfo;
@@ -39,6 +42,7 @@ public class SessionService : IDisposable
         _clientState = clientState;
         _framework = framework;
         _log = log;
+        _discordWebhook = discordWebhook;
 
         _clientState.TerritoryChanged += OnTerritoryChanged;
     }
@@ -53,6 +57,11 @@ public class SessionService : IDisposable
         _sessionState.SessionToken = response.SessionToken;
         _sessionState.CharacterName = response.CharacterName;
         _sessionState.Location = response.Location;
+        _sessionState.GameType = request.Game;
+        _sessionState.VenueName = request.VenueName;
+        _sessionState.ActiveRules = request.Rules;
+        _sessionState.DiscordUrl = response.DiscordUrl;
+        _sessionState.ImageUrl = response.ImageUrl;
 
         _config.ActiveSessionToken = response.SessionToken;
         _config.ActiveCharacterName = response.CharacterName;
@@ -62,6 +71,11 @@ public class SessionService : IDisposable
         _sessionState.LoopCts = cts;
 
         _ = Task.Run(() => RunHeartbeatLoopAsync(cts.Token));
+
+        QueueDiscordWebhook(async () =>
+        {
+            await _discordWebhook.SyncActiveSessionEmbedsAsync();
+        });
 
         return null;
     }
@@ -79,6 +93,11 @@ public class SessionService : IDisposable
         _config.ActiveSessionToken = null;
         _config.ActiveCharacterName = null;
         _config.Save();
+
+        QueueDiscordWebhook(async () =>
+        {
+            await _discordWebhook.PublishIdleEmbedsAsync();
+        });
     }
 
     private void OnTerritoryChanged(uint territoryId)
@@ -146,9 +165,39 @@ public class SessionService : IDisposable
             Location = location,
             Rules = _sessionState.ActiveRules
         };
-        await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
+        var putResponse =
+            await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
 
         _sessionState.Location = location;
+
+        if (putResponse != null)
+        {
+            if (!string.IsNullOrWhiteSpace(putResponse.DiscordUrl))
+                _sessionState.DiscordUrl = putResponse.DiscordUrl;
+
+            if (!string.IsNullOrWhiteSpace(putResponse.ImageUrl))
+                _sessionState.ImageUrl = putResponse.ImageUrl;
+        }
+
+        QueueDiscordWebhook(async () =>
+        {
+            await _discordWebhook.SyncActiveSessionEmbedsAsync();
+        });
+    }
+
+    private void QueueDiscordWebhook(Func<Task> workload)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await workload.Invoke();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "Discord webhook update task failed unexpectedly.");
+            }
+        });
     }
 
     private bool ShouldRefreshRulesFromIpc()

@@ -64,6 +64,11 @@ public class SupportTab
             "Create a post in #add_venue with your venue name, Discord invite link and venue logo. We aim to list suitable venues as soon as possible.");
 
         DrawFaqSection(
+            "##faq_discord_bot",
+            "Is there a Discord bot for this?",
+            "Yes. An accompanying Discord bot is available. You can use your venue image, set a nickname of your choice, and filter which events appear in your server using a configurable list of host names.\nJoin the Discord linked below and get in touch for further details.");
+
+        DrawFaqSection(
             "##faq_bug",
             "How do I report a bug?",
             "Post in #report_bugs with a clear description of what you were doing when the problem occurred. Screenshots help us reproduce and fix issues.");

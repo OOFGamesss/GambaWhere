@@ -554,9 +554,6 @@ public class HostGambaTab
                 return;
             }
 
-            _sessionState.GameType = gameType;
-            _sessionState.VenueName = venueName;
-            _sessionState.ActiveRules = rulesSnapshot;
             _sessionState.UsesAutomaticHostRules = usedAutomaticIpc;
         });
     }

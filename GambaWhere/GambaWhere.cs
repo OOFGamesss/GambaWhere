@@ -7,6 +7,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 using GambaWhere.API;
 using GambaWhere.Config;
+using GambaWhere.Discord;
 using GambaWhere.IPC;
 using GambaWhere.Images;
 using GambaWhere.Services;
@@ -39,6 +40,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
     private readonly GambaWhereClient _client;
     private readonly SessionService _sessionService;
+    private readonly DiscordWebhookService _discordWebhook;
     private readonly ImageCache _imageCache;
     private readonly ChocoboRacingGambaIpc _chocoboIpc;
     private readonly SimpleBingoIpc _bingoIpc;
@@ -60,7 +62,14 @@ public sealed class GambaWhere : IDalamudPlugin
         var sessionState = new SessionState();
         var hostFormState = new HostFormState();
 
-        _sessionService = new SessionService(_client, playerInfo, sessionState, Configuration, ClientState, Framework, Log);
+        var pluginDirectory =
+            PluginInterface.AssemblyLocation.DirectoryName ?? PluginInterface.AssemblyLocation.FullName;
+
+        _discordWebhook = new DiscordWebhookService(Log, Configuration, sessionState, pluginDirectory);
+
+        _sessionService = new SessionService(_client, playerInfo, sessionState, Configuration, ClientState, Framework,
+            Log,
+            _discordWebhook);
 
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
         var eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport);
@@ -68,8 +77,10 @@ public sealed class GambaWhere : IDalamudPlugin
         var gameListTab = new GameListTab(_imageCache);
         var settingsTab = new SettingsTab(Configuration, _imageCache);
         var supportTab = new SupportTab(_imageCache);
+        var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log);
 
-        _mainWindow = new MainWindow(eventsTab, hostTab, gameListTab, settingsTab, supportTab);
+        _mainWindow =
+            new MainWindow(eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab);
         _windowSystem.AddWindow(_mainWindow);
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
@@ -133,6 +144,7 @@ public sealed class GambaWhere : IDalamudPlugin
         CommandManager.RemoveHandler(ConfigCommand);
 
         _sessionService.Dispose();
+        _discordWebhook.Dispose();
         _client.Dispose();
         _imageCache.Dispose();
     }

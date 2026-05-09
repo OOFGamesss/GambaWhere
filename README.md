@@ -10,10 +10,13 @@ Find and host FFXIV gambling events near you.
 
 - **Browse active events** in a card-based feed with host name, venue, description, rules, location, and Discord copy helper.
 - **Filter quickly** by game type and data centre from the main events list.
-- **Host your own session** for Bingo, Blackjack, Chocobo Racing, or Mini Games.
+- **Host your own session** for Bingo, Blackjack, Chocobo Racing, Mini Games and much more!
 - **Save and reuse presets** per game type (add, rename, update, delete).
-- **Auto-maintain your listing** with a background location refresh every 15 minutes while your session is active.
-- **Use companion plugin detection** for Chocobo Racing Gamba via IPC, with clickable chat prompts to jump directly into hosting.
+- **Auto-maintain your listing** with a background location/auto rules refresh every 1 minute while your session is active.
+- **Auto-detect rules** from companion plugins such as SimpleBingo, Simple Roulette, and Chocobo Racing Gamba, with clickable chat prompts where supported.
+- **Lifestream integration** (optional): one click takes you straight to the gamba. The Lifestream plugin is required for this feature.
+- **Game list**: find information on plugins that can help you host certain games.
+- **Support tab**: FAQ answers and a Discord link if you need help with this plugin.
 
 ## Commands
 
@@ -27,13 +30,27 @@ Find and host FFXIV gambling events near you.
 
 Discover active gambling events, refresh data from the API, apply filters, and expand cards to inspect full rule and location details.
 
-![Gamba Events Tab - screenshot placeholder](GambaWhere/Images/gamba-events-tab.png)
+![Gamba Events Tab - screenshot placeholder](GambaWhere/Images/gamba-events-tab.png?v=2)
 
 ### Host Gamba Tab
 
 Create and manage sessions with venue selection, game-specific rule controls, preset management, description input, and start/stop controls.
 
-![Host Gamba Tab - screenshot placeholder](GambaWhere/Images/host-gamba-tab.png)
+![Host Gamba Tab - screenshot placeholder](GambaWhere/Images/host-gamba-tab.png?v=2)
+
+### Discord Webhook Tab
+
+Configure Discord webhooks for your session announcements from the plugin window.
+
+![Discord Webhook Tab](GambaWhere/Images/discord-webhook-tab.png)
+
+### Game List
+
+Browse plugins that pair with hosting: see what each one does and how it fits your events.
+
+### Support Tab
+
+Read common questions and follow the Discord link for support specific to Gamba Where.
 
 ## How to Install Gamba Where
 

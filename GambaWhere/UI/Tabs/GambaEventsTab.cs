@@ -33,7 +33,10 @@ public class GambaEventsTab
     private readonly HashSet<string> _selectedDataCentres = new();
 
     private static readonly string[] KnownGameTypes =
-        { "Bingo", "Blackjack", "Chocobo Racing", "Mini Games", "Unknown" };
+    {
+        "Bingo", "Blackjack", "Chocobo Racing", "Mini Games",
+        "Poker", "Roulette", "Scratchcards", "Spin the Wheel"
+    };
 
     private static readonly string[] KnownDataCentres =
     {

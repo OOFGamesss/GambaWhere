@@ -17,6 +17,10 @@ public class SessionState
 
     public Dictionary<string, object>? ActiveRules { get; set; }
 
+    public string? DiscordUrl { get; set; }
+
+    public string? ImageUrl { get; set; }
+
     public bool UsesAutomaticHostRules { get; set; }
 
     public CancellationTokenSource? LoopCts { get; set; }
@@ -30,6 +34,8 @@ public class SessionState
         GameType = string.Empty;
         VenueName = null;
         ActiveRules = null;
+        DiscordUrl = null;
+        ImageUrl = null;
         UsesAutomaticHostRules = false;
         LoopCts = null;
     }

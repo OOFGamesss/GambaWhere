@@ -12,6 +12,7 @@ public class MainWindow : Window, IDisposable
     private readonly GambaEventsTab _eventsTab;
     private readonly HostGambaTab _hostTab;
     private readonly GameListTab _gameListTab;
+    private readonly DiscordWebhookTab _discordWebhookTab;
     private readonly SettingsTab _settingsTab;
     private readonly SupportTab _supportTab;
 
@@ -22,7 +23,8 @@ public class MainWindow : Window, IDisposable
         HostGambaTab hostTab,
         GameListTab gameListTab,
         SettingsTab settingsTab,
-        SupportTab supportTab)
+        SupportTab supportTab,
+        DiscordWebhookTab discordWebhookTab)
         : base("Gamba Where##MainWindow")
     {
         SizeConstraints = new WindowSizeConstraints
@@ -36,6 +38,9 @@ public class MainWindow : Window, IDisposable
         _gameListTab = gameListTab;
         _settingsTab = settingsTab;
         _supportTab = supportTab;
+
+        _discordWebhookTab = discordWebhookTab;
+
     }
 
     public void OpenSettingsTab()
@@ -59,20 +64,28 @@ public class MainWindow : Window, IDisposable
         DrawTab("Gamba Events", _eventsTab.Draw);
         DrawTab("Host Gamba", _hostTab.Draw);
         DrawTab("Game List", _gameListTab.Draw);
+
+        DrawTab("Discord Webhook", _discordWebhookTab.Draw);
+
         DrawTab("Settings", _settingsTab.Draw);
         DrawTab("Support", _supportTab.Draw);
 
         _pendingTab = null;
     }
 
-    private void DrawTab(string label, Action drawContent)
+    private void DrawTab(string labelId, Action drawContent)
     {
-        var flags = _pendingTab == label ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
-        using var tab = ImRaii.TabItem(label, flags);
+        var flags =
+            (_pendingTab == labelId ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None);
+
+        var tabItemLabel = $"{labelId}##GambaWhereTab_{labelId.Replace(" ", "")}";
+
+        using var tab = ImRaii.TabItem(tabItemLabel, flags);
         if (!tab.Success)
             return;
 
         ImGui.Spacing();
+
         drawContent();
     }
 
