@@ -9,6 +9,12 @@ namespace GambaWhere.Rules;
 
 public class BlackjackRules : IRuleConfig
 {
+    public const string FiveCardCharlieRuleKey = "5 Card Charlie";
+
+    private const string LegacyCompactFiveCardCharlieKey = "5CardCharlie";
+
+    private const string LegacyPayingTwoPointFiveCharlieKey = "payingTwoPointFiveCharlie";
+
     public string GameType => "Blackjack";
 
     private int _maxBet = 100000;
@@ -17,7 +23,7 @@ public class BlackjackRules : IRuleConfig
     private int _standsHardOn = 17;
     private int _maxSplits = 2;
     private bool _allowNonMatchingSplits = false;
-    private bool _payingTwoPointFiveCharlie = false;
+    private bool _fiveCardCharlie = false;
 
     private static readonly string[] Labels =
     {
@@ -61,7 +67,7 @@ public class BlackjackRules : IRuleConfig
 
         ImGui.Text(Labels[6]);
         ImGui.SameLine(offset);
-        ImGui.Checkbox("##PayingTwoPointFiveCharlie", ref _payingTwoPointFiveCharlie);
+        ImGui.Checkbox("##FiveCardCharlie", ref _fiveCardCharlie);
 
         _maxBet = RuleClamp.Min(_maxBet, 0);
         _maxPush = RuleClamp.Min(_maxPush, 0);
@@ -78,7 +84,7 @@ public class BlackjackRules : IRuleConfig
         { "standsHardOn", _standsHardOn },
         { "maxSplits", _maxSplits },
         { "allowNonMatchingSplits", _allowNonMatchingSplits },
-        { "payingTwoPointFiveCharlie", _payingTwoPointFiveCharlie }
+        { FiveCardCharlieRuleKey, _fiveCardCharlie }
     };
 
     public void LoadFromPreset(Dictionary<string, object> values)
@@ -89,7 +95,13 @@ public class BlackjackRules : IRuleConfig
         _standsHardOn = PresetReader.Int(values, "standsHardOn", _standsHardOn);
         _maxSplits = PresetReader.Int(values, "maxSplits", _maxSplits);
         _allowNonMatchingSplits = PresetReader.Bool(values, "allowNonMatchingSplits", _allowNonMatchingSplits);
-        _payingTwoPointFiveCharlie = PresetReader.Bool(values, "payingTwoPointFiveCharlie", _payingTwoPointFiveCharlie);
+        _fiveCardCharlie = false;
+        if (values.ContainsKey(FiveCardCharlieRuleKey))
+            _fiveCardCharlie = PresetReader.Bool(values, FiveCardCharlieRuleKey, false);
+        else if (values.ContainsKey(LegacyCompactFiveCardCharlieKey))
+            _fiveCardCharlie = PresetReader.Bool(values, LegacyCompactFiveCardCharlieKey, false);
+        else if (values.ContainsKey(LegacyPayingTwoPointFiveCharlieKey))
+            _fiveCardCharlie = PresetReader.Bool(values, LegacyPayingTwoPointFiveCharlieKey, false);
     }
 
     public Dictionary<string, object> SaveToPreset() => ToApiPayload();

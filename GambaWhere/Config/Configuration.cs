@@ -1,5 +1,6 @@
 using Dalamud.Configuration;
 using GambaWhere.Alerting;
+using GambaWhere.Rules;
 using System;
 using System.Collections.Generic;
 
@@ -78,7 +79,7 @@ public class Configuration : IPluginConfiguration
                     { "standsHardOn", 17 },
                     { "maxSplits", 2 },
                     { "allowNonMatchingSplits", false },
-                    { "payingTwoPointFiveCharlie", false }
+                    { BlackjackRules.FiveCardCharlieRuleKey, false }
                 }
             }
         };
