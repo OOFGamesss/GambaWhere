@@ -14,6 +14,12 @@
         "resolved": "1.2.39",
         "contentHash": "fcFN01tDTIQqDuTwr1jUQK/geofiwjG5DycJQOnC72i1SsLAk1ELe+apBOuZ11UMQG8YKFZG1FgvjZPbqHyatg=="
       },
+      "ECommons": {
+        "type": "Direct",
+        "requested": "[3.2.0.18, )",
+        "resolved": "3.2.0.18",
+        "contentHash": "esPIjfuveuw05c4PI7gqpRcifaUaUZ9sf7JnN90CBM1Ah2emxTBrKQl6A+ghHobwQOOe+yflN03TJnv32NEkVw=="
+      },
       "ECommons.IPC": {
         "type": "Direct",
         "requested": "[1.0.0.19, )",
@@ -22,11 +28,6 @@
         "dependencies": {
           "ECommons": "3.2.0.11"
         }
-      },
-      "ECommons": {
-        "type": "Transitive",
-        "resolved": "3.2.0.11",
-        "contentHash": "6W3Slgp4A+H0OtLcW7tlmtDG7dhJIZw7LzPKvskWa+6K1RPXDa9GsuPkNgDj6ww8Y3OrMbebebfuU9vnglnm+A=="
       }
     }
   }

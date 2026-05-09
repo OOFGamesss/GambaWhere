@@ -15,9 +15,11 @@ public sealed class SimpleBingoIpc : IDisposable
 {
     private const string IpcKey = "SimpleBingo.WindowOpened";
     private const string GameInfoIpcKey = "SimpleBingo.GetGameInfo";
+    private const string GameJoinedIpcKey = "SimpleBingo.GameJoined";
     private const uint LinkId = 2;
 
     private readonly ICallGateSubscriber<Action> _subscriber;
+    private readonly ICallGateSubscriber<Action> _gameJoinedSubscriber;
     private readonly ICallGateSubscriber<object> _gameInfoSubscriber;
 
     private GameInfoIPC? _cachedGameInfo;
@@ -50,13 +52,26 @@ public sealed class SimpleBingoIpc : IDisposable
         _subscriber = pluginInterface.GetIpcSubscriber<Action>(IpcKey);
         _subscriber.Subscribe(OnWindowOpened);
 
+        _gameJoinedSubscriber = pluginInterface.GetIpcSubscriber<Action>(GameJoinedIpcKey);
+        _gameJoinedSubscriber.Subscribe(OnGameJoined);
+
         _gameInfoSubscriber = pluginInterface.GetIpcSubscriber<object>(GameInfoIpcKey);
     }
+
+    private void OnGameJoined()
+    {
+        _log.Verbose("[GambaWhere/Bingo] OnGameJoined fired; invalidating GetGameInfo cache.");
+        _lastCheckTick = 0;
+    }
+
+    private const long ValidCacheMs = 30_000;
+    private const long EmptyCacheMs = 1_000;
 
     public GameInfoIPC? GetGameInfo(bool forceRefresh = false)
     {
         var currentTick = Environment.TickCount64;
-        if (!forceRefresh && currentTick - _lastCheckTick < 30000)
+        var ttl = _cachedGameInfo == null ? EmptyCacheMs : ValidCacheMs;
+        if (!forceRefresh && currentTick - _lastCheckTick < ttl)
         {
             return _cachedGameInfo;
         }
@@ -68,19 +83,23 @@ public sealed class SimpleBingoIpc : IDisposable
             var rawData = _gameInfoSubscriber.InvokeFunc();
             if (rawData == null)
             {
+                _log.Verbose("[GambaWhere/Bingo] GetGameInfo IPC returned null.");
                 _cachedGameInfo = null;
                 return null;
             }
-            
+
             var jsonStr = rawData.ToString();
             if (string.IsNullOrEmpty(jsonStr))
             {
+                _log.Verbose("[GambaWhere/Bingo] GetGameInfo IPC returned empty string.");
                 _cachedGameInfo = null;
                 return null;
             }
-            
+
+            _log.Verbose($"[GambaWhere/Bingo] GetGameInfo IPC returned: {jsonStr}");
+
             var data = Newtonsoft.Json.JsonConvert.DeserializeObject<GameInfoIPC>(jsonStr);
-            
+
             _cachedGameInfo = data;
             return data;
         }
@@ -95,6 +114,7 @@ public sealed class SimpleBingoIpc : IDisposable
     public void Dispose()
     {
         _subscriber.Unsubscribe(OnWindowOpened);
+        _gameJoinedSubscriber.Unsubscribe(OnGameJoined);
         _chatGui.RemoveChatLinkHandler(LinkId);
     }
 

@@ -17,6 +17,7 @@ Find and host FFXIV gambling events near you.
 - **Lifestream integration** (optional): one click takes you straight to the gamba. The Lifestream plugin is required for this feature.
 - **Game list**: find information on plugins that can help you host certain games.
 - **Support tab**: FAQ answers and a Discord link if you need help with this plugin.
+- **Alerts**: get an in-game chat line (and optional toast or sound) when a new event matches data centres, games, or venues you choose.
 
 ## Commands
 
@@ -51,6 +52,19 @@ Browse plugins that pair with hosting: see what each one does and how it fits yo
 ### Support Tab
 
 Read common questions and follow the Discord link for support specific to Gamba Where.
+
+### Alerts Tab
+
+Set up in-game chat alerts for specific **data centres**, **games**, or **venues** from this tab.
+
+Click **+ Add alert**, name the rule, then use the three multi-select rows:
+
+- **Games**, **Data Centres**, **Venues**: leave a row on **Any** if you do not want to filter on that axis.
+- Within one row, choosing several values means "match any of these". Across rows, filters combine with AND (for example Chaos under Data Centres and Blackjack under Games both apply).
+
+Each rule needs at least one concrete choice somewhere; an alert with only **Any** everywhere will not fire.
+
+After the first events refresh, matching sessions produce a coloured chat line tagged **GambaWhere** with game, venue or location, and host. Click that line to open **Gamba Events** with the relevant card expanded. Optional quest toasts and chat sound effects are on the **Settings** tab.
 
 ## How to Install Gamba Where
 

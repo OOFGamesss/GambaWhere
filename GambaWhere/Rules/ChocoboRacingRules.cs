@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
+using ECommons.ImGuiMethods;
 using GambaWhere.IPC;
 using GambaWhere.Utility;
 
@@ -39,7 +40,7 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
         ImGui.Text(Labels[2]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##MaxBetPerChocobo", ref _maxBetPerChocobo);
+        ImGuiEx.InputFancyNumeric("##MaxBetPerChocobo", ref _maxBetPerChocobo,0);
 
         ImGui.Text(Labels[3]);
         ImGui.SameLine(offset);

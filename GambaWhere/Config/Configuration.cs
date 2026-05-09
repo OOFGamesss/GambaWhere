@@ -1,4 +1,6 @@
 using Dalamud.Configuration;
+using GambaWhere.Alerting;
+using GambaWhere.Rules;
 using System;
 using System.Collections.Generic;
 
@@ -17,6 +19,10 @@ public class Configuration : IPluginConfiguration
     public Dictionary<string, List<GamePreset>> Presets { get; set; } = new();
 
     public List<DiscordWebhookEntry> DiscordWebhooks { get; set; } = new();
+    public List<AlertRule> Alerts { get; set; } = new();
+    public bool AlertToastEnabled { get; set; } = false;
+    public bool AlertSoundEnabled { get; set; } = false;
+    public int AlertSoundEffectId { get; set; } = 1;
 
     public void Save() => global::GambaWhere.GambaWhere.PluginInterface.SavePluginConfig(this);
 
@@ -73,7 +79,7 @@ public class Configuration : IPluginConfiguration
                     { "standsHardOn", 17 },
                     { "maxSplits", 2 },
                     { "allowNonMatchingSplits", false },
-                    { "payingTwoPointFiveCharlie", false }
+                    { BlackjackRules.FiveCardCharlieRuleKey, false }
                 }
             }
         };

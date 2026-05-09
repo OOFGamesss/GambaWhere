@@ -19,6 +19,8 @@ namespace GambaWhere.UI.Tabs;
 
 public class GambaEventsTab
 {
+    private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(30);
+
     private readonly GambaWhereClient _client;
     private readonly ImageCache _imageCache;
     private readonly EventLocationTeleportService _teleport;
@@ -27,18 +29,20 @@ public class GambaEventsTab
     private DateTime? _lastUpdated;
     private volatile bool _isRefreshing;
     private volatile bool _lastRefreshFailed;
+    private DateTime _nextAutoRefreshUtc;
 
     private readonly HashSet<string> _expandedCards = new();
+    private string? _pendingScrollCharacter;
     private readonly HashSet<string> _selectedGameTypes = new();
     private readonly HashSet<string> _selectedDataCentres = new();
 
-    private static readonly string[] KnownGameTypes =
+    public static readonly string[] KnownGameTypes =
     {
         "Bingo", "Blackjack", "Chocobo Racing", "Mini Games",
         "Poker", "Roulette", "Scratchcards", "Spin the Wheel"
     };
 
-    private static readonly string[] KnownDataCentres =
+    public static readonly string[] KnownDataCentres =
     {
         "Aether", "Crystal", "Dynamis", "Primal",
         "Chaos", "Light",
@@ -53,6 +57,27 @@ public class GambaEventsTab
         _client = client;
         _imageCache = imageCache;
         _teleport = teleport;
+
+        TriggerRefresh();
+    }
+
+    public Action<IReadOnlyList<EventResponse>>? OnEventsRefreshed { get; set; }
+
+    public void ExpandAndScrollTo(string characterName)
+    {
+        _expandedCards.Add(characterName);
+        _pendingScrollCharacter = characterName;
+    }
+
+    public void Tick()
+    {
+        if (_isRefreshing)
+            return;
+
+        if (DateTime.UtcNow < _nextAutoRefreshUtc)
+            return;
+
+        TriggerRefresh();
     }
 
     public void Draw()
@@ -65,14 +90,12 @@ public class GambaEventsTab
 
     private void DrawHeader()
     {
-        if (_isRefreshing)
-            ImGui.BeginDisabled();
-
-        if (ImGui.Button(_isRefreshing ? "Refreshing..." : "Refresh"))
-            TriggerRefresh();
-
-        if (_isRefreshing)
-            ImGui.EndDisabled();
+        var refreshing = _isRefreshing;
+        using (ImRaii.Disabled(refreshing))
+        {
+            if (ImGui.Button(refreshing ? "Refreshing..." : "Refresh"))
+                TriggerRefresh();
+        }
 
         ImGui.SameLine();
         ImGui.TextDisabled(_lastUpdated.HasValue
@@ -108,9 +131,11 @@ public class GambaEventsTab
     private void TriggerRefresh()
     {
         _isRefreshing = true;
+        _nextAutoRefreshUtc = DateTime.UtcNow + AutoRefreshInterval;
         _ = Task.Run(async () =>
         {
             var results = await _client.GetEventsAsync();
+            IReadOnlyList<EventResponse>? successSnapshot = null;
             if (results == null)
             {
                 _events = new List<EventResponse>();
@@ -118,11 +143,16 @@ public class GambaEventsTab
             }
             else
             {
-                _events = new List<EventResponse>(results);
+                var snapshot = new List<EventResponse>(results);
+                _events = snapshot;
                 _lastRefreshFailed = false;
+                successSnapshot = snapshot;
             }
             _lastUpdated = DateTime.Now;
             _isRefreshing = false;
+
+            if (successSnapshot != null)
+                OnEventsRefreshed?.Invoke(successSnapshot);
         });
     }
 
@@ -167,8 +197,11 @@ public class GambaEventsTab
         return query.ToList();
     }
 
-    private static string InferDataCentre(string location)
+    public static string InferDataCentre(string location)
     {
+        if (string.IsNullOrEmpty(location))
+            return "Unknown";
+
         foreach (var dc in KnownDataCentres)
         {
             if (location.Contains(dc, StringComparison.OrdinalIgnoreCase))
@@ -240,18 +273,13 @@ public class GambaEventsTab
                 ImGui.TextWrapped(ev.Description);
             }
 
+            if (isExpanded)
+            {
+                DrawExpandedDetails(ev);
+                ImGuiHelpers.ScaledDummy(4f);
+            }
+
             ImGui.EndTable();
-        }
-
-        var headerBottomScreen = ImGui.GetCursorScreenPos();
-
-        if (isExpanded)
-        {
-            var indent = scaledImageSize.X + ImGui.GetStyle().ItemSpacing.X;
-            ImGui.Indent(indent);
-            DrawExpandedDetails(ev);
-            ImGui.Unindent(indent);
-            ImGuiHelpers.ScaledDummy(4f);
         }
 
         var cardBottomScreen = ImGui.GetCursorScreenPos();
@@ -264,12 +292,19 @@ public class GambaEventsTab
             4f * ImGuiHelpers.GlobalScale);
         drawList.ChannelsMerge();
 
-        var headerRect = new Vector2(cardTopScreen.X + availWidth, headerBottomScreen.Y);
+        var cardRect = new Vector2(cardTopScreen.X + availWidth, cardBottomScreen.Y);
         var popupIsOpen = ImGui.IsPopupOpen(string.Empty, ImGuiPopupFlags.AnyPopupId | ImGuiPopupFlags.AnyPopupLevel);
 
-        if (!popupIsOpen && ImGui.IsMouseHoveringRect(cardTopScreen, headerRect))
+        if (!popupIsOpen && ImGui.IsMouseHoveringRect(cardTopScreen, cardRect) && !ImGui.IsAnyItemHovered())
         {
             ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+            drawList.AddRectFilled(
+                cardTopScreen,
+                cardRect,
+                ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 0.06f)),
+                4f * ImGuiHelpers.GlobalScale);
+
             if (ImGui.IsMouseClicked(ImGuiMouseButton.Left))
             {
                 if (isExpanded)
@@ -282,12 +317,16 @@ public class GambaEventsTab
         ImGuiHelpers.ScaledDummy(4f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(6f);
+
+        if (_pendingScrollCharacter == ev.CharacterName)
+        {
+            ImGui.SetScrollHereY(0.2f);
+            _pendingScrollCharacter = null;
+        }
     }
 
     private void DrawExpandedDetails(EventResponse ev)
     {
-        ImGuiHelpers.ScaledDummy(4f);
-
         if (ImGui.BeginTable("##details", 2, ImGuiTableFlags.None))
         {
             ImGui.TableSetupColumn("##left", ImGuiTableColumnFlags.WidthStretch, 1f);
@@ -298,20 +337,25 @@ public class GambaEventsTab
 
             if (ev.Rules.Count > 0)
             {
-                var keyColWidth = ev.Rules.Keys.Max(k => ImGui.CalcTextSize(RuleKeyFormatting.FormatDisplayKey(k)).X) + 12f * ImGuiHelpers.GlobalScale;
+                var availForRules = ImGui.GetContentRegionAvail().X;
+                var rawKeyWidth = ev.Rules.Keys.Max(k => ImGui.CalcTextSize(RuleKeyFormatting.FormatDisplayKey(k)).X) + 12f * ImGuiHelpers.GlobalScale;
+                var minKeyWidth = 60f * ImGuiHelpers.GlobalScale;
+                var keyColWidth = Math.Min(rawKeyWidth, Math.Max(availForRules * 0.55f, minKeyWidth));
 
                 if (ImGui.BeginTable("##rules", 2, ImGuiTableFlags.None))
                 {
                     ImGui.TableSetupColumn("##rk", ImGuiTableColumnFlags.WidthFixed, keyColWidth);
                     ImGui.TableSetupColumn("##rv", ImGuiTableColumnFlags.WidthStretch);
 
+                    var disabledColour = ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled];
                     foreach (var rule in ev.Rules)
                     {
                         ImGui.TableNextRow();
                         ImGui.TableSetColumnIndex(0);
-                        ImGui.TextDisabled(RuleKeyFormatting.FormatDisplayKey(rule.Key));
+                        using (ImRaii.PushColor(ImGuiCol.Text, disabledColour))
+                            ImGui.TextWrapped(RuleKeyFormatting.FormatDisplayKey(rule.Key));
                         ImGui.TableSetColumnIndex(1);
-                        ImGui.Text(FormatRuleValue(rule.Value, rule.Key));
+                        ImGui.TextWrapped(FormatRuleValue(rule.Value, rule.Key));
                     }
 
                     ImGui.EndTable();
@@ -322,25 +366,17 @@ public class GambaEventsTab
 
             ImGui.TextDisabled("Location");
             ImGui.SameLine();
-            ImGui.Text(ev.Location);
-            ImGui.SameLine();
-            ImGui.AlignTextToFramePadding();
+            ImGui.TextWrapped(ev.Location);
 
             var teleportEnabled = _teleport.IsLifestreamAvailable;
 
-            ImGui.BeginGroup();
-            if (!teleportEnabled)
-                ImGui.BeginDisabled();
+            using (ImRaii.Disabled(!teleportEnabled))
+            {
+                if (ImGui.SmallButton($"Teleport##teleportBtn"))
+                    _teleport.RequestTravel(ev);
+            }
 
-            if (ImGui.SmallButton($"Teleport##teleportBtn"))
-                _teleport.RequestTravel(ev);
-
-            if (!teleportEnabled)
-                ImGui.EndDisabled();
-
-            ImGui.EndGroup();
-
-            if (ImGui.IsItemHovered())
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             {
                 ImGui.SetTooltip(
                     teleportEnabled
@@ -354,9 +390,8 @@ public class GambaEventsTab
                 ImGui.TextDisabled("Discord");
                 ImGui.SameLine();
                 var url = ev.DiscordUrl!;
-                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.4f, 0.6f, 1f, 1f));
-                ImGui.Text(url);
-                ImGui.PopStyleColor();
+                using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(0.4f, 0.6f, 1f, 1f)))
+                    ImGui.TextWrapped(url);
                 if (ImGui.IsItemHovered())
                 {
                     ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);

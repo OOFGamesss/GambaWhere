@@ -5,33 +5,30 @@ namespace GambaWhere.Utility;
 
 public static class RuleKeyFormatting
 {
-    private const string PayingTwoPointFiveCharlieId = "payingTwoPointFiveCharlie";
-    private const string CharliePayoutDisplay = "Paying x2.5 for Charlie";
-
     public static string FormatDisplayKey(string key)
     {
         if (string.IsNullOrEmpty(key))
             return key;
 
-        if (MatchesPayingTwoPointFiveCharlieKey(key.AsSpan()))
-            return CharliePayoutDisplay;
+        if (MatchesKeyIgnoringWhitespace(key.AsSpan(), "5CardCharlie"))
+            return "5 Card Charlie";
 
         return key.AsSpan().IndexOf(' ') < 0
             ? CamelCaseToSpacedTitle(key.AsSpan())
             : key;
     }
 
-    private static bool MatchesPayingTwoPointFiveCharlieKey(ReadOnlySpan<char> key)
+    private static bool MatchesKeyIgnoringWhitespace(ReadOnlySpan<char> key, ReadOnlySpan<char> canonical)
     {
         Span<char> buffer = stackalloc char[key.Length];
         var w = 0;
         foreach (var c in key)
         {
             if (!char.IsWhiteSpace(c))
-                buffer[w++] = c;
+                buffer[w++] = char.ToLowerInvariant(c);
         }
 
-        return buffer[..w].Equals(PayingTwoPointFiveCharlieId.AsSpan(), StringComparison.OrdinalIgnoreCase);
+        return buffer[..w].Equals(canonical, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string CamelCaseToSpacedTitle(ReadOnlySpan<char> camelCase)
