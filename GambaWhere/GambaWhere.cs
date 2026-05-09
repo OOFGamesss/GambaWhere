@@ -12,6 +12,7 @@ using GambaWhere.IPC;
 using GambaWhere.Images;
 using GambaWhere.Services;
 using GambaWhere.State;
+using GambaWhere.Alerting;
 using GambaWhere.UI;
 using GambaWhere.UI.Tabs;
 
@@ -28,6 +29,7 @@ public sealed class GambaWhere : IDalamudPlugin
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IFramework Framework { get; private set; } = null!;
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
+    [PluginService] internal static IToastGui Toasts { get; private set; } = null!;
 
     private const string MainCommand = "/gambawhere";
     private const string AliasCommand = "/gw";
@@ -50,6 +52,7 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly SimpleWheelIpc _wheelIpc;
     private readonly SimplePokerIpc _pokerIpc;
     private readonly SimpleScratchIpc _scratchIpc;
+    private readonly AlertingService _alertingService;
 
     public GambaWhere()
     {
@@ -76,13 +79,23 @@ public sealed class GambaWhere : IDalamudPlugin
         _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport);
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
         var gameListTab = new GameListTab(_imageCache);
-        var settingsTab = new SettingsTab(Configuration, _imageCache);
+        var settingsTab = new SettingsTab(Configuration, _imageCache, Log);
         var supportTab = new SupportTab(_imageCache);
         var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log);
+        var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =
-            new MainWindow(_eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab);
+            new MainWindow(_eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab, alertsTab);
         _windowSystem.AddWindow(_mainWindow);
+
+        _alertingService = new AlertingService(
+            Configuration,
+            ChatGui,
+            Toasts,
+            Framework,
+            Log,
+            _mainWindow.OpenEventsTabExpanded);
+        _eventsTab.OnEventsRefreshed = _alertingService.OnEventsRefreshed;
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _bingoIpc = new SimpleBingoIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
@@ -127,6 +140,7 @@ public sealed class GambaWhere : IDalamudPlugin
     public void Dispose()
     {
         Framework.Update -= OnFrameworkUpdate;
+        _alertingService.Dispose();
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfigUi;

@@ -15,6 +15,7 @@ public class MainWindow : Window, IDisposable
     private readonly DiscordWebhookTab _discordWebhookTab;
     private readonly SettingsTab _settingsTab;
     private readonly SupportTab _supportTab;
+    private readonly AlertsTab _alertsTab;
 
     private string? _pendingTab;
 
@@ -24,7 +25,8 @@ public class MainWindow : Window, IDisposable
         GameListTab gameListTab,
         SettingsTab settingsTab,
         SupportTab supportTab,
-        DiscordWebhookTab discordWebhookTab)
+        DiscordWebhookTab discordWebhookTab,
+        AlertsTab alertsTab)
         : base("Gamba Where##MainWindow")
     {
         SizeConstraints = new WindowSizeConstraints
@@ -40,6 +42,7 @@ public class MainWindow : Window, IDisposable
         _supportTab = supportTab;
 
         _discordWebhookTab = discordWebhookTab;
+        _alertsTab = alertsTab;
 
     }
 
@@ -55,6 +58,13 @@ public class MainWindow : Window, IDisposable
         _pendingTab = "Host Gamba";
     }
 
+    public void OpenEventsTabExpanded(string characterName)
+    {
+        IsOpen = true;
+        _pendingTab = "Gamba Events";
+        _eventsTab.ExpandAndScrollTo(characterName);
+    }
+
     public override void Draw()
     {
         using var tabBar = ImRaii.TabBar("##GambaWhereTabs");
@@ -66,6 +76,8 @@ public class MainWindow : Window, IDisposable
         DrawTab("Game List", _gameListTab.Draw);
 
         DrawTab("Discord Webhook", _discordWebhookTab.Draw);
+
+        DrawTab("Alerts", _alertsTab.Draw);
 
         DrawTab("Settings", _settingsTab.Draw);
         DrawTab("Support", _supportTab.Draw);
