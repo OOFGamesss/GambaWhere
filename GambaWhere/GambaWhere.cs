@@ -37,6 +37,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
     private readonly WindowSystem _windowSystem = new("GambaWhere");
     private readonly MainWindow _mainWindow;
+    private readonly GambaEventsTab _eventsTab;
 
     private readonly GambaWhereClient _client;
     private readonly SessionService _sessionService;
@@ -72,7 +73,7 @@ public sealed class GambaWhere : IDalamudPlugin
             _discordWebhook);
 
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
-        var eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport);
+        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport);
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
         var gameListTab = new GameListTab(_imageCache);
         var settingsTab = new SettingsTab(Configuration, _imageCache);
@@ -80,7 +81,7 @@ public sealed class GambaWhere : IDalamudPlugin
         var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log);
 
         _mainWindow =
-            new MainWindow(eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab);
+            new MainWindow(_eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab);
         _windowSystem.AddWindow(_mainWindow);
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
@@ -118,12 +119,14 @@ public sealed class GambaWhere : IDalamudPlugin
         PluginInterface.UiBuilder.Draw += _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMainUi;
         PluginInterface.UiBuilder.OpenConfigUi += OpenConfigUi;
+        Framework.Update += OnFrameworkUpdate;
 
         Log.Information("GambaWhere loaded.");
     }
 
     public void Dispose()
     {
+        Framework.Update -= OnFrameworkUpdate;
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfigUi;
@@ -148,6 +151,8 @@ public sealed class GambaWhere : IDalamudPlugin
         _client.Dispose();
         _imageCache.Dispose();
     }
+
+    private void OnFrameworkUpdate(IFramework framework) => _eventsTab.Tick();
 
     private void OnCommand(string command, string args) => _mainWindow.Toggle();
 

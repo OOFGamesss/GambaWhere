@@ -19,6 +19,8 @@ namespace GambaWhere.UI.Tabs;
 
 public class GambaEventsTab
 {
+    private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(30);
+
     private readonly GambaWhereClient _client;
     private readonly ImageCache _imageCache;
     private readonly EventLocationTeleportService _teleport;
@@ -27,6 +29,7 @@ public class GambaEventsTab
     private DateTime? _lastUpdated;
     private volatile bool _isRefreshing;
     private volatile bool _lastRefreshFailed;
+    private DateTime _nextAutoRefreshUtc;
 
     private readonly HashSet<string> _expandedCards = new();
     private readonly HashSet<string> _selectedGameTypes = new();
@@ -53,6 +56,19 @@ public class GambaEventsTab
         _client = client;
         _imageCache = imageCache;
         _teleport = teleport;
+
+        TriggerRefresh();
+    }
+
+    public void Tick()
+    {
+        if (_isRefreshing)
+            return;
+
+        if (DateTime.UtcNow < _nextAutoRefreshUtc)
+            return;
+
+        TriggerRefresh();
     }
 
     public void Draw()
@@ -106,6 +122,7 @@ public class GambaEventsTab
     private void TriggerRefresh()
     {
         _isRefreshing = true;
+        _nextAutoRefreshUtc = DateTime.UtcNow + AutoRefreshInterval;
         _ = Task.Run(async () =>
         {
             var results = await _client.GetEventsAsync();
