@@ -87,7 +87,7 @@ public sealed class AlertingService : IDisposable
         {
             _initialised = true;
             if (matches.Count > 0)
-                _log.Information("[GambaWhere/Alerts] First refresh seeded dedup state; suppressing initial alerts.");
+                _log.Verbose("[GambaWhere/Alerts] First refresh seeded dedup state; suppressing initial alerts.");
             return;
         }
 
@@ -127,7 +127,7 @@ public sealed class AlertingService : IDisposable
         try
         {
             _toasts.ShowQuest(text);
-            _log.Information("[GambaWhere/Alerts] Quest toast issued: {Text}", text);
+            _log.Verbose("[GambaWhere/Alerts] Quest toast issued: {Text}", text);
         }
         catch (Exception ex)
         {

@@ -60,7 +60,7 @@ public sealed class SimpleBingoIpc : IDisposable
 
     private void OnGameJoined()
     {
-        _log.Information("[GambaWhere/Bingo] OnGameJoined fired; invalidating GetGameInfo cache.");
+        _log.Verbose("[GambaWhere/Bingo] OnGameJoined fired; invalidating GetGameInfo cache.");
         _lastCheckTick = 0;
     }
 
@@ -83,7 +83,7 @@ public sealed class SimpleBingoIpc : IDisposable
             var rawData = _gameInfoSubscriber.InvokeFunc();
             if (rawData == null)
             {
-                _log.Information("[GambaWhere/Bingo] GetGameInfo IPC returned null.");
+                _log.Verbose("[GambaWhere/Bingo] GetGameInfo IPC returned null.");
                 _cachedGameInfo = null;
                 return null;
             }
@@ -91,12 +91,12 @@ public sealed class SimpleBingoIpc : IDisposable
             var jsonStr = rawData.ToString();
             if (string.IsNullOrEmpty(jsonStr))
             {
-                _log.Information("[GambaWhere/Bingo] GetGameInfo IPC returned empty string.");
+                _log.Verbose("[GambaWhere/Bingo] GetGameInfo IPC returned empty string.");
                 _cachedGameInfo = null;
                 return null;
             }
 
-            _log.Information($"[GambaWhere/Bingo] GetGameInfo IPC returned: {jsonStr}");
+            _log.Verbose($"[GambaWhere/Bingo] GetGameInfo IPC returned: {jsonStr}");
 
             var data = Newtonsoft.Json.JsonConvert.DeserializeObject<GameInfoIPC>(jsonStr);
 
