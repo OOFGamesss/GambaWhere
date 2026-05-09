@@ -21,7 +21,7 @@ public class BlackjackRules : IRuleConfig
     private static readonly string[] Labels =
     {
         "Max Bet (gil)", "Max Push (gil)", "Stands Soft On", "Stands Hard On",
-        "Max Splits", "Allow Non-Matching Splits", "Paying x2.5 for Charlie"
+        "Max Splits", "Allow Non-Matching Splits", "5 Card Charlie"
     };
 
     public void Draw()

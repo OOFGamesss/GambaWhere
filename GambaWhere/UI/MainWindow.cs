@@ -86,6 +86,11 @@ public class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
+        var childId = $"##GambaWhereTabContent_{labelId.Replace(" ", "")}";
+        using var child = ImRaii.Child(childId, Vector2.Zero, false, ImGuiWindowFlags.None);
+        if (!child.Success)
+            return;
+
         drawContent();
     }
 

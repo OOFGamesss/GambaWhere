@@ -161,7 +161,11 @@ public sealed class DiscordWebhookTab
     private static void GuideBullet(string text)
     {
         using (ImRaii.PushColor(ImGuiCol.Text, GuideMutedColour))
-            ImGui.BulletText(text);
+        {
+            ImGui.Bullet();
+            ImGui.SameLine();
+            ImGui.TextWrapped(text);
+        }
         ImGuiHelpers.ScaledDummy(2f);
     }
 
@@ -199,18 +203,9 @@ public sealed class DiscordWebhookTab
 
         if (tex != null && tex.Width > 0 && tex.Height > 0 && innerW > 1f)
         {
-            var w = innerW - scale * 8f;
+            var maxW = scale * 480f;
+            var w = Math.Min(innerW - scale * 8f, maxW);
             var h = w * tex.Height / tex.Width;
-
-            var availY = ImGui.GetContentRegionAvail().Y - scale * 16f;
-            var maxH = Math.Min(scale * 520f, Math.Max(availY, scale * 120f));
-
-            if (h > maxH && maxH > 1f)
-            {
-                var s = maxH / h;
-                h = maxH;
-                w *= s;
-            }
 
             CentreForWidth(w);
             ImGui.Image(tex.Handle, new Vector2(w, h));
