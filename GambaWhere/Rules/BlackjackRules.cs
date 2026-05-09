@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
+using ECommons.ImGuiMethods;
 using GambaWhere.Utility;
 
 namespace GambaWhere.Rules;
@@ -31,17 +32,18 @@ public class BlackjackRules : IRuleConfig
         ImGui.Text(Labels[0]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##MaxBet", ref _maxBet);
+        ImGuiEx.InputFancyNumeric("##MaxBet", ref _maxBet,0);
+        
 
         ImGui.Text(Labels[1]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##MaxPush", ref _maxPush);
+        ImGuiEx.InputFancyNumeric("##MaxPush", ref _maxPush,0);
 
         ImGui.Text(Labels[2]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##StandsSoftOn", ref _standsSoftOn);
+        ImGuiEx.InputFancyNumeric("##StandsSoftOn", ref _standsSoftOn,0);
 
         ImGui.Text(Labels[3]);
         ImGui.SameLine(offset);

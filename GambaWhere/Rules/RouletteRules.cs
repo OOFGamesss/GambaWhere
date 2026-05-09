@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
+using ECommons.ImGuiMethods;
 using GambaWhere.Utility;
 using SimpleRoulette.Data;
 
@@ -35,22 +36,22 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
         ImGui.Text(RowLabels[0]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##RouletteMaxInner", ref _maxBetInner);
+        ImGuiEx.InputFancyNumeric("##RouletteMaxInner", ref _maxBetInner,0);
 
         ImGui.Text(RowLabels[1]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##RouletteMaxOuter", ref _maxBetOuter);
+        ImGuiEx.InputFancyNumeric("##RouletteMaxOuter", ref _maxBetOuter,0);
 
         ImGui.Text(RowLabels[2]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##RouletteMaxInnerVip", ref _maxBetInnerVip);
+        ImGuiEx.InputFancyNumeric("##RouletteMaxInnerVip", ref _maxBetInnerVip,0);
 
         ImGui.Text(RowLabels[3]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##RouletteMaxOuterVip", ref _maxBetOuterVip);
+        ImGuiEx.InputFancyNumeric("##RouletteMaxOuterVip", ref _maxBetOuterVip,0);
 
         _maxBetInner = RuleClamp.Min(_maxBetInner, 0);
         _maxBetOuter = RuleClamp.Min(_maxBetOuter, 0);

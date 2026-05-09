@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
+using ECommons.ImGuiMethods;
 using GambaWhere.Utility;
 using SimpleBingo.Data;
 
@@ -40,17 +41,17 @@ public class BingoRules : IRuleConfig, IAutomaticHostRuleSource
         ImGui.Text(RowLabels[1]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##CardCost", ref _cardCost);
+        ImGuiEx.InputFancyNumeric("##CardCost", ref _cardCost,0);
 
         ImGui.Text(RowLabels[2]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##BoostedPot", ref _boostedPot);
+        ImGuiEx.InputFancyNumeric("##BoostedPot", ref _boostedPot,0);
 
         ImGui.Text(RowLabels[3]);
         ImGui.SameLine(offset);
         ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##TotalPot", ref _totalPot);
+        ImGuiEx.InputFancyNumeric("##TotalPot", ref _totalPot,0);
 
         ImGui.Text(RowLabels[4]);
         ImGui.SameLine(offset);

@@ -11,6 +11,7 @@
     <None Include="Images\**\*.webp" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="ECommons" Version="3.2.0.18" />
     <PackageReference Include="ECommons.IPC" Version="1.0.0.19" />
   </ItemGroup>
 </Project>
