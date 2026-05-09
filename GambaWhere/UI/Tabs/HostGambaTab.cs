@@ -6,6 +6,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
@@ -297,13 +298,14 @@ public class HostGambaTab
         if (ImGui.Combo("##VenuePicker", ref venueIdx, options, options.Length))
             _form.SelectedVenueIndex = Math.Min(venueIdx, options.Length - 1);
         ImGui.SameLine();
-        if (_isFetchingVenues)
-            ImGui.BeginDisabled();
-        if (ImGuiComponents.IconButton("##RefreshVenues", FontAwesomeIcon.Sync))
-            FetchVenues();
-        if (_isFetchingVenues)
+        var fetching = _isFetchingVenues;
+        using (ImRaii.Disabled(fetching))
         {
-            ImGui.EndDisabled();
+            if (ImGuiComponents.IconButton("##RefreshVenues", FontAwesomeIcon.Sync))
+                FetchVenues();
+        }
+        if (fetching)
+        {
             ImGui.SameLine();
             ImGui.TextDisabled("Fetching latest venues...");
         }

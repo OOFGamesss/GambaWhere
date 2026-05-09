@@ -18,9 +18,11 @@ public sealed class SimpleRouletteIpc : IDisposable
 {
     private const string IpcKey = "SimpleRoulette.WindowOpened";
     private const string GameInfoIpcKey = "SimpleRoulette.GetGameInfo";
+    private const string GameJoinedIpcKey = "SimpleRoulette.GameJoined";
     private const uint LinkId = 3;
 
     private readonly ICallGateSubscriber<Action> _subscriber;
+    private readonly ICallGateSubscriber<Action> _gameJoinedSubscriber;
     private readonly ICallGateSubscriber<object> _gameInfoSubscriber;
 
     private GameInfoIPC? _cachedGameInfo;
@@ -53,13 +55,25 @@ public sealed class SimpleRouletteIpc : IDisposable
         _subscriber = pluginInterface.GetIpcSubscriber<Action>(IpcKey);
         _subscriber.Subscribe(OnWindowOpened);
 
+        _gameJoinedSubscriber = pluginInterface.GetIpcSubscriber<Action>(GameJoinedIpcKey);
+        _gameJoinedSubscriber.Subscribe(OnGameJoined);
+
         _gameInfoSubscriber = pluginInterface.GetIpcSubscriber<object>(GameInfoIpcKey);
     }
+
+    private void OnGameJoined()
+    {
+        _lastCheckTick = 0;
+    }
+
+    private const long ValidCacheMs = 30_000;
+    private const long EmptyCacheMs = 1_000;
 
     public GameInfoIPC? GetGameInfo(bool forceRefresh = false)
     {
         var currentTick = Environment.TickCount64;
-        if (!forceRefresh && currentTick - _lastCheckTick < 30000)
+        var ttl = _cachedGameInfo == null ? EmptyCacheMs : ValidCacheMs;
+        if (!forceRefresh && currentTick - _lastCheckTick < ttl)
         {
             return _cachedGameInfo;
         }
@@ -112,6 +126,7 @@ public sealed class SimpleRouletteIpc : IDisposable
     public void Dispose()
     {
         _subscriber.Unsubscribe(OnWindowOpened);
+        _gameJoinedSubscriber.Unsubscribe(OnGameJoined);
         _chatGui.RemoveChatLinkHandler(LinkId);
     }
 
