@@ -60,7 +60,7 @@ public class SettingsTab
         ImGui.Text("Alerts");
 
         var toastEnabled = _config.AlertToastEnabled;
-        if (ImGui.Checkbox("Show desktop notification when an alert fires", ref toastEnabled))
+        if (ImGui.Checkbox("Show popup notification when an alert fires", ref toastEnabled))
         {
             _config.AlertToastEnabled = toastEnabled;
             _config.Save();
