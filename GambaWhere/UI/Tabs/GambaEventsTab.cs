@@ -65,14 +65,12 @@ public class GambaEventsTab
 
     private void DrawHeader()
     {
-        if (_isRefreshing)
-            ImGui.BeginDisabled();
-
-        if (ImGui.Button(_isRefreshing ? "Refreshing..." : "Refresh"))
-            TriggerRefresh();
-
-        if (_isRefreshing)
-            ImGui.EndDisabled();
+        var refreshing = _isRefreshing;
+        using (ImRaii.Disabled(refreshing))
+        {
+            if (ImGui.Button(refreshing ? "Refreshing..." : "Refresh"))
+                TriggerRefresh();
+        }
 
         ImGui.SameLine();
         ImGui.TextDisabled(_lastUpdated.HasValue
