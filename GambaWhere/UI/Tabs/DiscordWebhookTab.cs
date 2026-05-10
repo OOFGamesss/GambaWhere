@@ -135,25 +135,15 @@ public sealed class DiscordWebhookTab
     {
         DrawSectionHeader("Webhook setup");
 
-        GuideBullet(
-            "In Discord, open the channel that should show your host card, then open "
-                + "Channel settings (the gear icon).");
+        GuideBullet("In Discord, open the settings (gear icon) for the channel where your host card should appear.");
 
-        GuideBullet(
-            "Go to Integrations → Webhooks. Create a new webhook or pick an existing one, then copy its URL "
-                + "(it starts with https://discord.com/api/webhooks/…).");
+        GuideBullet("Go to Integrations → Webhooks. Create or select a webhook, then copy its URL.");
 
-        GuideBullet(
-            "Paste the URL below. New rows start with Enable off — turn it on when the URL looks correct so "
-                + "the plugin can create or refresh the Discord message.");
+        GuideBullet("Paste the URL below. Tick 'Enable' when ready so the plugin can manage the message.");
 
-        GuideBullet(
-            "Use the + button to add another webhook row. Use the bin to remove a row — at least one row always "
-                + "stays (the bin is disabled when only one row remains).");
+        GuideBullet("Use the + button to add webhooks and the bin to remove them. One row must always remain.");
 
-        GuideBullet(
-            "While you host a session, the embed updates with your activity. When you stop hosting, the card "
-                + "returns to the idle \"No gamba available\" state.");
+        GuideBullet("The embed updates during your session and reverts to 'No gamba available' when stopped.");
 
         ImGuiHelpers.ScaledDummy(8f);
     }

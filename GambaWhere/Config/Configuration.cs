@@ -51,9 +51,9 @@ public class Configuration : IPluginConfiguration
                 RuleValues = new Dictionary<string, object>
                 {
                     { "gameType", "Full Board" },
-                    { "cardCost", 100000 },
-                    { "boostedPot", 100000 },
-                    { "totalPot", 1000000 },
+                    { "cardCost", 200000 },
+                    { "boostedPot", 10000000 },
+                    { "totalPot", 10000000 },
                     { "chaosMode", false },
                     { "multiWinner", false }
                 }
@@ -101,7 +101,7 @@ public class Configuration : IPluginConfiguration
                     { "raceTrackLength", 5 },
                     { "maxBetPerChocobo", 500000 },
                     { "payoutOdds", 5.0f },
-                    { "perfectRaceOdds", 10.0f }
+                    { "perfectRaceOdds", 25.0f }
                 }
             }
         };
@@ -132,7 +132,12 @@ public class Configuration : IPluginConfiguration
             new()
             {
                 Name = "Default",
-                RuleValues = new Dictionary<string, object>()
+                RuleValues = new Dictionary<string, object>
+                {
+                    { "gameType", "Sit N Go" },
+                    { "minBuyin", 1000000 },
+                    { "maxBuyin", 5000000 }
+                }
             }
         };
     }
@@ -151,8 +156,8 @@ public class Configuration : IPluginConfiguration
                 {
                     ["maxBetInner"] = 100000,
                     ["maxBetOuter"] = 100000,
-                    ["maxBetInnerVIP"] = 100000,
-                    ["maxBetOuterVIP"] = 100000
+                    ["maxBetInnerVIP"] = 200000,
+                    ["maxBetOuterVIP"] = 200000
                 }
             }
         };
@@ -168,7 +173,11 @@ public class Configuration : IPluginConfiguration
             new()
             {
                 Name = "Default",
-                RuleValues = new Dictionary<string, object>()
+                RuleValues = new Dictionary<string, object>
+                {
+                    { "cardCost", 200000 },
+                    { "jackpot", 3000000 }
+                }
             }
         };
     }
