@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "Features:\n- Asuna \"Fixed a lot shit\" xD\n- Added Alerts tab to allow you to set up alerts for specific games, data centres, and venues. (Asunas idea)",
+  "Changelog": "- Removed .gitignore from repo reeeeeee\n- Added new work in progress mini games plugin to games list",
   "Tags": [
     "gambling",
     "events",

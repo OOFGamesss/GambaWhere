@@ -24,7 +24,7 @@ public class GameListTab
         ("Bingo", "SimpleBingo"),
         ("Blackjack", "SimpleBlackjack"),
         ("Chocobo Racing", "Chocobo Racing Gamba"),
-        ("Mini Games", null),
+        ("Mini Games", "Mini Games Emporium"),
         ("Poker", "SimplePoker"),
         ("Roulette", "SimpleRoulette"),
         ("Scratchcards", "SimpleScratch"),
@@ -55,7 +55,7 @@ public class GameListTab
 
     private static string? GetCreatorAttribution(string displayName) => displayName switch
     {
-        "Mini Games" => "Created by No One",
+        "Mini Games" => "Created by OOF Games",
         "Chocobo Racing" => "Created by OOF Games",
         _ => "Created by Asuna & Klia"
     };
@@ -130,7 +130,9 @@ public class GameListTab
 
             var description = GetGameDescription(displayName);
             var companionLine = !string.IsNullOrEmpty(companionPlugin)
-                ? $"Companion plugin: {companionPlugin}"
+                ? displayName == "Mini Games"
+                    ? $"Companion plugin: {companionPlugin} (WIP)"
+                    : $"Companion plugin: {companionPlugin}"
                 : "No Plugin Available at this time.";
 
             var companionColWidth = ImGui.CalcTextSize(companionLine).X + ImGui.GetStyle().CellPadding.X;
