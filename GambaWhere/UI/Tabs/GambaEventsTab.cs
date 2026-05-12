@@ -50,6 +50,9 @@ public class GambaEventsTab
         "Materia"
     };
 
+    private static readonly string[] SortOptions = { "Venue Name", "Host Name", "Game Type" };
+    private int _sortBy = 0;
+
     private static readonly float ImageSize = 70f;
 
     public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport)
@@ -109,11 +112,26 @@ public class GambaEventsTab
     {
         const float FilterWidth = 140f;
         var spacing = ImGui.GetStyle().ItemSpacing.X;
-        var totalWidth = FilterWidth * 2 * ImGuiHelpers.GlobalScale + spacing;
+        var totalWidth = FilterWidth * 3 * ImGuiHelpers.GlobalScale + spacing * 2;
         var rightEdge = ImGui.GetContentRegionMax().X;
         var filtersStart = rightEdge - totalWidth;
 
         ImGui.SameLine(filtersStart);
+        ImGui.SetNextItemWidth(FilterWidth * ImGuiHelpers.GlobalScale);
+        if (ImGui.BeginCombo("##sortBy", "Sort: " + SortOptions[_sortBy]))
+        {
+            for (var i = 0; i < SortOptions.Length; i++)
+            {
+                if (ImGui.Selectable(SortOptions[i], _sortBy == i))
+                    _sortBy = i;
+            }
+            ImGui.EndCombo();
+        }
+
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Sort events");
+
+        ImGui.SameLine();
         ImGui.SetNextItemWidth(FilterWidth * ImGuiHelpers.GlobalScale);
         MultiSelectCombo.Draw("##gameTypeFilter", "Game Type", KnownGameTypes, _selectedGameTypes);
 
@@ -194,6 +212,16 @@ public class GambaEventsTab
         if (_selectedDataCentres.Count > 0)
             query = query.Where(ev => _selectedDataCentres.Contains(InferDataCentre(ev.Location)));
 
+        query = _sortBy switch
+        {
+            1 => query.OrderBy(ev => ev.CharacterName, StringComparer.OrdinalIgnoreCase),
+            2 => query.OrderBy(ev => ev.Game, StringComparer.OrdinalIgnoreCase)
+                      .ThenBy(ev => ev.CharacterName, StringComparer.OrdinalIgnoreCase),
+            _ => query.OrderBy(ev => string.IsNullOrWhiteSpace(ev.VenueName) || ev.VenueName == "No Venue" ? 1 : 0)
+                      .ThenBy(ev => ev.VenueName, StringComparer.OrdinalIgnoreCase)
+                      .ThenBy(ev => ev.CharacterName, StringComparer.OrdinalIgnoreCase),
+        };
+
         return query.ToList();
     }
 
@@ -270,7 +298,42 @@ public class GambaEventsTab
             if (!string.IsNullOrWhiteSpace(ev.Description))
             {
                 ImGuiHelpers.ScaledDummy(2f);
-                ImGui.TextWrapped(ev.Description);
+                if (isExpanded)
+                {
+                    ImGui.TextWrapped(ev.Description);
+                }
+                else
+                {
+                    var descWidth = ImGui.GetContentRegionAvail().X;
+                    var lineHeight = ImGui.GetTextLineHeightWithSpacing();
+                    var isTruncated = ImGui.CalcTextSize(ev.Description, false, descWidth).Y > 5f * lineHeight;
+
+                    if (isTruncated)
+                    {
+                        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+                        using var clip = ImRaii.Child("##descClip", new Vector2(descWidth, 6f * lineHeight), false, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoNav);
+                        ImGui.PopStyleVar();
+                        if (clip)
+                        {
+                            var clipStart = ImGui.GetCursorScreenPos();
+                            ImGui.PushClipRect(clipStart, clipStart + new Vector2(descWidth, 5f * lineHeight), true);
+                            ImGui.TextWrapped(ev.Description);
+                            ImGui.PopClipRect();
+                            ImGui.SetCursorPosY(5f * lineHeight);
+                            ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
+                        }
+                    }
+                    else
+                    {
+                        ImGui.TextWrapped(ev.Description);
+                        ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
+                    }
+                }
+            }
+            else if (!isExpanded)
+            {
+                ImGuiHelpers.ScaledDummy(2f);
+                ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
             }
 
             if (isExpanded)

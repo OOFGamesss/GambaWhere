@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Updated some rule config values.\n- Added new rules for Poker and Scratchcards.",
+  "Changelog": "- Added a sort option to the events tab to stop the events from being in a random order.\n- Changed description to show max 5 lines to stop massive events from taking over the view.",
   "Tags": [
     "gambling",
     "events",

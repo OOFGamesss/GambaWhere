@@ -481,7 +481,7 @@ public class HostGambaTab
         if (ImGui.InputTextMultiline("##Description", ref desc, 512,
             new System.Numerics.Vector2(0, 60 * ImGuiHelpers.GlobalScale)))
             _form.Description = desc;
-        ImGui.TextDisabled("No URLs or HTML permitted.");
+        ImGui.TextDisabled("No URLs or HTML permitted.\n\nPlease use the rules provided above to describe your session.\nI will add any rules to the plugin, just let me know!");
     }
 
     private void DrawStartButton()
