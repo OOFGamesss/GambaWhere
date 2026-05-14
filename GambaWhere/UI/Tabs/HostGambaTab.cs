@@ -486,15 +486,10 @@ public class HostGambaTab
 
     private void DrawStartButton()
     {
-        if (_form.IsStarting)
-            ImGui.BeginDisabled();
-
+        using var _ = ImRaii.Disabled(_form.IsStarting);
         var label = _form.IsStarting ? "Starting..." : "Start Hosting";
         if (ImGui.Button(label, new System.Numerics.Vector2(160, 0)))
             TriggerStartSession();
-
-        if (_form.IsStarting)
-            ImGui.EndDisabled();
     }
 
     private void TriggerStartSession()

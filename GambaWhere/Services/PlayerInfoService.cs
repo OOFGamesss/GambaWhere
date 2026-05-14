@@ -46,6 +46,11 @@ public class PlayerInfoService
 
         var world = player.CurrentWorld.Value.Name.ToString();
         var dc = player.CurrentWorld.Value.DataCenter.Value.Name.ToString();
+        if (string.IsNullOrWhiteSpace(world))
+        {
+            world = player.HomeWorld.Value.Name.ToString();
+            dc = player.HomeWorld.Value.DataCenter.Value.Name.ToString();
+        }
 
         var territoryId = _clientState.TerritoryType;
         if (!_dataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryId, out var territory))
@@ -54,40 +59,21 @@ public class PlayerInfoService
             return $"{world} [{dc}]";
         }
 
-        var rawArea = territory.PlaceName.Value.Name.ToString();
-        var area = FormatPlaceAreaName(rawArea);
+        var area = ResolveAreaName(territory);
 
         var mapSheet = _dataManager.GetExcelSheet<Map>();
         var map = mapSheet.TryGetRow(_clientState.MapId, out var activeMap)
             ? activeMap
             : territory.Map.Value;
 
-        var intendedUseId = territory.TerritoryIntendedUse.RowId;
-        var isHousingInterior = intendedUseId == 14;
-
         var mapX = RawToMapCoord(player.Position.X, map.SizeFactor, map.OffsetX);
         var mapY = RawToMapCoord(player.Position.Z, map.SizeFactor, map.OffsetY);
 
         var housing = TryGetHousingInfo();
-        
-        if (housing.HasValue && string.IsNullOrWhiteSpace(area))
-        {
-            var resolved = ResolveHousingDistrictAreaName();
-            if (!string.IsNullOrWhiteSpace(resolved))
-                area = resolved;
-        }
 
         if (housing.HasValue)
         {
             var (ward, plot) = housing.Value;
-
-            if (isHousingInterior)
-            {
-                return plot > 0
-                    ? $"{dc} • {world} • {area} • Ward {ward} • Plot {plot}"
-                    : $"{dc} • {world} • {area} • Ward {ward}";
-            }
-
             return plot > 0
                 ? $"{dc} • {world} • {area} • Ward {ward} • Plot {plot}"
                 : $"{dc} • {world} • {area} • Ward {ward}";
@@ -108,7 +94,19 @@ public class PlayerInfoService
         return dashIndex >= 0 ? rawArea[(dashIndex + 3)..] : rawArea;
     }
 
-    // Interior estate territories often have no PlaceName; resolve the district from the linked ward row.
+    private unsafe string ResolveAreaName(TerritoryType territory)
+    {
+        var hm = HousingManager.Instance();
+        if (hm != null && hm->IsInside())
+        {
+            var resolved = ResolveHousingDistrictAreaName();
+            if (!string.IsNullOrWhiteSpace(resolved))
+                return resolved;
+        }
+
+        return FormatPlaceAreaName(territory.PlaceName.Value.Name.ToString());
+    }
+    
     private string? ResolveHousingDistrictAreaName()
     {
         uint territoryTypeId = HousingManager.GetOriginalHouseTerritoryTypeId();
@@ -126,10 +124,10 @@ public class PlayerInfoService
         if (territoryTypeId == 0)
             return null;
 
-        if (!_dataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryTypeId, out var estateTerritory))
+        if (!_dataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryTypeId, out var wardTerritory))
             return null;
 
-        var raw = estateTerritory.PlaceName.Value.Name.ToString();
+        var raw = wardTerritory.PlaceName.Value.Name.ToString();
         return string.IsNullOrWhiteSpace(raw) ? null : FormatPlaceAreaName(raw);
     }
 
@@ -148,7 +146,6 @@ public class PlayerInfoService
         }
         catch (Exception)
         {
-
             return null;
         }
     }
