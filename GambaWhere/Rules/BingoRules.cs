@@ -122,7 +122,6 @@ public class BingoRules : IRuleConfig, IAutomaticHostRuleSource
             return;
         }
 
-        ImGui.Text("Bingo Session Info:");
         ImGui.Text($"Game Type: {bingoInfo.GameType.ToString().Replace("_", " ")}");
         ImGui.Text($"Boosted Pot: {bingoInfo.BoostedPot:N0}");
         ImGui.Text($"Total Pot: {bingoInfo.TotalPot:N0}");

@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Added IPC to Mini Games Emporium, alert on window open and session game info detection.\n- Fixed location bug where it was trying to send the location names based on client language.",
+  "Changelog": "- No more forgetting to end your session! Introducing a brand new stylish pill overlay when a session is in progress. Easily stop your session within the new pill overlay without re-opening gamba where! (Go to settings to activate and move the pill around your screen)\n- Added a pause button to the new pill overlay. This will keep your post active but temporarily replace your description with an \"On Break\" label, allowing you to quickly go toilet and get drinks without people expecting you to be there!",
   "Tags": [
     "gambling",
     "events",

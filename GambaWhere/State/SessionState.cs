@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -23,7 +24,17 @@ public class SessionState
 
     public bool UsesAutomaticHostRules { get; set; }
 
+    public DateTime? StartedAt { get; set; }
+
     public CancellationTokenSource? LoopCts { get; set; }
+
+    public bool IsPaused { get; set; }
+
+    public string Description { get; set; } = string.Empty;
+
+    public DateTime? PausedAt { get; set; }
+
+    public TimeSpan TotalPausedDuration { get; set; }
 
     public void Clear()
     {
@@ -37,6 +48,11 @@ public class SessionState
         DiscordUrl = null;
         ImageUrl = null;
         UsesAutomaticHostRules = false;
+        StartedAt = null;
         LoopCts = null;
+        IsPaused = false;
+        Description = string.Empty;
+        PausedAt = null;
+        TotalPausedDuration = TimeSpan.Zero;
     }
 }

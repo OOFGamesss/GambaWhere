@@ -109,7 +109,6 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
             return;
         }
 
-        ImGui.Text("Chocobo Racing session info:");
         ImGui.Text($"Chocobo runners: {raceInfo.ChocoboRunners}");
         ImGui.Text($"Race track length: {raceInfo.RaceTrackLength}");
         ImGui.Text($"Max bet per chocobo: {raceInfo.MaxBetPerChocobo:N0}");

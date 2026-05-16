@@ -109,7 +109,6 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
             return;
         }
 
-        ImGui.Text("Roulette session info:");
         ImGui.Text($"Player count: {rouletteInfo.PlayerCount:N0}");
         ImGui.Text($"Max bet (inner): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetInner, IpcMaxBetGilMultiplier)}");
         ImGui.Text($"Max bet (outer): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetOuter, IpcMaxBetGilMultiplier)}");

@@ -24,6 +24,10 @@ public class Configuration : IPluginConfiguration
     public bool AlertSoundEnabled { get; set; } = false;
     public int AlertSoundEffectId { get; set; } = 1;
 
+    public bool PillOverlayEnabled { get; set; } = true;
+    public float PillPositionX { get; set; } = 50f;
+    public float PillPositionY { get; set; } = 50f;
+
     public void Save() => global::GambaWhere.GambaWhere.PluginInterface.SavePluginConfig(this);
 
     public void EnsureDefaultPresets()

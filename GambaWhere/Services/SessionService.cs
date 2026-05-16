@@ -9,6 +9,7 @@ using GambaWhere.API.Models;
 using GambaWhere.Config;
 using GambaWhere.Discord;
 using GambaWhere.State;
+using GambaWhere.Utility;
 
 namespace GambaWhere.Services;
 
@@ -54,6 +55,7 @@ public class SessionService : IDisposable
             return "Failed to create session. Check the log for details.";
 
         _sessionState.IsActive = true;
+        _sessionState.StartedAt = DateTime.UtcNow;
         _sessionState.SessionToken = response.SessionToken;
         _sessionState.CharacterName = response.CharacterName;
         _sessionState.Location = response.Location;
@@ -62,6 +64,7 @@ public class SessionService : IDisposable
         _sessionState.ActiveRules = request.Rules;
         _sessionState.DiscordUrl = response.DiscordUrl;
         _sessionState.ImageUrl = response.ImageUrl;
+        _sessionState.Description = request.Description;
 
         _config.ActiveSessionToken = response.SessionToken;
         _config.ActiveCharacterName = response.CharacterName;
@@ -78,6 +81,51 @@ public class SessionService : IDisposable
         });
 
         return null;
+    }
+
+    public async Task TogglePauseAsync()
+    {
+        if (_sessionState.IsPaused)
+            await ResumeSessionAsync();
+        else
+            await PauseSessionAsync();
+    }
+
+    public async Task PauseSessionAsync()
+    {
+        if (!_sessionState.IsActive || _sessionState.IsPaused)
+            return;
+
+        _sessionState.IsPaused = true;
+        _sessionState.PausedAt = DateTime.UtcNow;
+
+        var putRequest = new PutEventRequest
+        {
+            Location = _sessionState.Location,
+            Rules = _sessionState.ActiveRules,
+            Description = SessionConstants.BreakMessage
+        };
+        await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
+    }
+
+    public async Task ResumeSessionAsync()
+    {
+        if (!_sessionState.IsActive || !_sessionState.IsPaused)
+            return;
+
+        if (_sessionState.PausedAt.HasValue)
+            _sessionState.TotalPausedDuration += DateTime.UtcNow - _sessionState.PausedAt.Value;
+
+        _sessionState.IsPaused = false;
+        _sessionState.PausedAt = null;
+
+        var putRequest = new PutEventRequest
+        {
+            Location = _sessionState.Location,
+            Rules = _sessionState.ActiveRules,
+            Description = _sessionState.Description
+        };
+        await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
     }
 
     public async Task StopSessionAsync()
@@ -163,7 +211,8 @@ public class SessionService : IDisposable
         var putRequest = new PutEventRequest
         {
             Location = location,
-            Rules = _sessionState.ActiveRules
+            Rules = _sessionState.ActiveRules,
+            Description = _sessionState.IsPaused ? SessionConstants.BreakMessage : _sessionState.Description
         };
         var putResponse =
             await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);

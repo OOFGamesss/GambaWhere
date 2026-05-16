@@ -39,7 +39,9 @@ public sealed class GambaWhere : IDalamudPlugin
 
     private readonly WindowSystem _windowSystem = new("GambaWhere");
     private readonly MainWindow _mainWindow;
+    private readonly SessionPillOverlay _pillOverlay;
     private readonly GambaEventsTab _eventsTab;
+    private readonly SessionState _sessionState;
 
     private readonly GambaWhereClient _client;
     private readonly SessionService _sessionService;
@@ -64,23 +66,26 @@ public sealed class GambaWhere : IDalamudPlugin
         _imageCache = new ImageCache(PluginInterface, TextureProvider);
 
         var playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager, Log);
-        var sessionState = new SessionState();
+        _sessionState = new SessionState();
         var hostFormState = new HostFormState();
 
         var pluginDirectory =
             PluginInterface.AssemblyLocation.DirectoryName ?? PluginInterface.AssemblyLocation.FullName;
 
-        _discordWebhook = new DiscordWebhookService(Log, Configuration, sessionState, pluginDirectory);
+        _discordWebhook = new DiscordWebhookService(Log, Configuration, _sessionState, pluginDirectory);
 
-        _sessionService = new SessionService(_client, playerInfo, sessionState, Configuration, ClientState, Framework,
+        _sessionService = new SessionService(_client, playerInfo, _sessionState, Configuration, ClientState, Framework,
             Log,
             _discordWebhook);
 
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
         _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport);
-        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, sessionState, Configuration, hostFormState);
+        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState);
         var gameListTab = new GameListTab(_imageCache);
-        var settingsTab = new SettingsTab(Configuration, _imageCache, Log);
+
+        _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
+
+        var settingsTab = new SettingsTab(Configuration, _imageCache, Log, _pillOverlay);
         var supportTab = new SupportTab(_imageCache);
         var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log);
         var alertsTab = new AlertsTab(Configuration, _client);
@@ -88,6 +93,7 @@ public sealed class GambaWhere : IDalamudPlugin
         _mainWindow =
             new MainWindow(_eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab, alertsTab);
         _windowSystem.AddWindow(_mainWindow);
+        _windowSystem.AddWindow(_pillOverlay);
 
         _alertingService = new AlertingService(
             Configuration,
@@ -150,6 +156,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
         _windowSystem.RemoveAllWindows();
         _mainWindow.Dispose();
+        _pillOverlay.Dispose();
 
         _chocoboIpc.Dispose();
         _bingoIpc.Dispose();
@@ -170,7 +177,11 @@ public sealed class GambaWhere : IDalamudPlugin
         _imageCache.Dispose();
     }
 
-    private void OnFrameworkUpdate(IFramework framework) => _eventsTab.Tick();
+    private void OnFrameworkUpdate(IFramework framework)
+    {
+        _eventsTab.Tick();
+        _pillOverlay.IsOpen = (_sessionState.IsActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
+    }
 
     private void OnCommand(string command, string args) => _mainWindow.Toggle();
 

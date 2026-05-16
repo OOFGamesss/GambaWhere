@@ -5,6 +5,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using GambaWhere.Config;
 using GambaWhere.Images;
+using GambaWhere.UI;
 
 namespace GambaWhere.UI.Tabs;
 
@@ -15,17 +16,23 @@ public class SettingsTab
     private readonly Configuration _config;
     private readonly ImageCache _imageCache;
     private readonly IPluginLog _log;
+    private readonly SessionPillOverlay _pillOverlay;
 
-    public SettingsTab(Configuration config, ImageCache imageCache, IPluginLog log)
+    public SettingsTab(Configuration config, ImageCache imageCache, IPluginLog log, SessionPillOverlay pillOverlay)
     {
         _config = config;
         _imageCache = imageCache;
         _log = log;
+        _pillOverlay = pillOverlay;
     }
 
     public void Draw()
     {
         DrawAutoSessionDetection();
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        DrawPillOverlaySettings();
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
@@ -52,6 +59,57 @@ public class SettingsTab
                 "When a supported companion plugin opens (e.g. Chocobo Racing Gamba), a chat\n" +
                 "message will appear reminding you to start a session, with a clickable link\n" +
                 "that opens GambaWhere and pre-selects the correct game type for you.");
+        }
+    }
+
+    private void DrawPillOverlaySettings()
+    {
+        ImGui.Text("Session Overlay Pill");
+
+        var enabled = _config.PillOverlayEnabled;
+        if (ImGui.Checkbox("Show overlay pill during active sessions", ref enabled))
+        {
+            _config.PillOverlayEnabled = enabled;
+            _config.Save();
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(
+                "Displays a floating pill showing the session timer, game name,\n" +
+                "and session controls while a session is active.");
+        }
+
+        using (ImRaii.Disabled(!_config.PillOverlayEnabled))
+        {
+            ImGui.Indent();
+
+            if (_pillOverlay.IsMoving)
+            {
+                if (ImGui.Button("Lock Pill in Place"))
+                    _pillOverlay.ExitMoveMode();
+
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip("Click to lock the overlay at its current position.");
+
+                ImGui.SameLine();
+
+                if (ImGui.Button("Reset Pill Position"))
+                    _pillOverlay.ResetPosition();
+
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip("Snaps the overlay to the centre of your screen.");
+            }
+            else
+            {
+                if (ImGui.Button("Move Pill"))
+                    _pillOverlay.EnterMoveMode();
+
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip("Drag the overlay to reposition it, then return here to lock it in place.");
+            }
+
+            ImGui.Unindent();
         }
     }
 

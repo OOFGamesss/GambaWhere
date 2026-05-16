@@ -295,7 +295,13 @@ public class GambaEventsTab
             if (!string.IsNullOrWhiteSpace(ev.VenueName) && ev.VenueName != "No Venue")
                 ImGui.TextDisabled($"@ {ev.VenueName}");
 
-            if (!string.IsNullOrWhiteSpace(ev.Description))
+            if (ev.Description == SessionConstants.BreakMessage)
+            {
+                DrawBreakBadge();
+                if (!isExpanded)
+                    ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
+            }
+            else if (!string.IsNullOrWhiteSpace(ev.Description))
             {
                 ImGuiHelpers.ScaledDummy(2f);
                 if (isExpanded)
@@ -469,6 +475,29 @@ public class GambaEventsTab
         }
 
         ImGuiHelpers.ScaledDummy(4f);
+    }
+
+    private static void DrawBreakBadge()
+    {
+        ImGuiHelpers.ScaledDummy(4f);
+
+        const string badgeText = "On Break";
+        var textSize = ImGui.CalcTextSize(badgeText);
+        var hPad = 6f * ImGuiHelpers.GlobalScale;
+        var vPad = 3f * ImGuiHelpers.GlobalScale;
+        var badgeWidth = textSize.X + hPad * 2f;
+        var badgeHeight = textSize.Y + vPad * 2f;
+
+        var pos = ImGui.GetCursorScreenPos();
+        ImGui.GetWindowDrawList().AddRectFilled(
+            pos,
+            pos + new Vector2(badgeWidth, badgeHeight),
+            ImGui.GetColorU32(new Vector4(0.85f, 0.55f, 0.05f, 0.92f)),
+            3f * ImGuiHelpers.GlobalScale);
+        ImGui.GetWindowDrawList().AddText(pos + new Vector2(hPad, vPad), ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 1f)), badgeText);
+
+        ImGui.Dummy(new Vector2(badgeWidth, badgeHeight));
+        ImGuiHelpers.ScaledDummy(2f);
     }
 
     private static void DrawImagePlaceholder(Vector2 size)
