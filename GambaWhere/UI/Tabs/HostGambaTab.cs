@@ -524,6 +524,20 @@ public class HostGambaTab
         DrawPreviewSection();
     }
 
+    private Dictionary<string, object> BuildPreviewRules()
+    {
+        if (_form.RuleConfig is IAutomaticHostRuleSource automatic
+            && GetHostAutomaticRuleContext != null
+            && !_form.UseManualHostRules
+            && automatic.TryGetAutomaticApiRules(GetHostAutomaticRuleContext(), out var autoRules)
+            && autoRules != null)
+        {
+            return new Dictionary<string, object>(autoRules);
+        }
+
+        return ManualRulesApiOmitter.OmitEmptyOrDefault(_form.RuleConfig?.ToApiPayload() ?? new());
+    }
+
     private void DrawPreviewSection()
     {
         var characterName = _playerInfo.IsLoggedIn
@@ -532,7 +546,7 @@ public class HostGambaTab
 
         var gameType = GameTypes[_form.SelectedGameIndex];
         var venueName = _venueOptions[_form.SelectedVenueIndex];
-        var rules = ManualRulesApiOmitter.OmitEmptyOrDefault(_form.RuleConfig?.ToApiPayload() ?? new());
+        var rules = BuildPreviewRules();
 
         EventCardRenderer.DrawPreviewCard(characterName, gameType, venueName, _form.Description, rules, _imageCache);
 
