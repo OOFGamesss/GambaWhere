@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 namespace GambaWhere.Utility;
 
-/// <summary>Strips manual rule entries that are blank, numeric zero, or false before sending to the API.</summary>
 public static class ManualRulesApiOmitter
 {
     public static Dictionary<string, object> OmitEmptyOrDefault(Dictionary<string, object> source)

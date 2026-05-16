@@ -4,16 +4,13 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using GambaWhere.Rules;
 using GambaWhere.State;
+using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Components;
 
 /// <summary>Host UI: manual fields versus automatic IPC rules, with active-side highlighting.</summary>
 public static class ManualVsAutomaticHostRulesDraw
 {
-    private static readonly Vector4 SectionActiveBg = new(0.20f, 0.23f, 0.30f, 1f);
-
-    private static readonly Vector4 SectionInactiveBg = new(0.12f, 0.12f, 0.13f, 1f);
-
     private static float s_naturalHeightManual;
     private static float s_naturalHeightAuto;
 
@@ -24,7 +21,9 @@ public static class ManualVsAutomaticHostRulesDraw
         HostFormState form,
         IRuleConfig manualRules,
         IAutomaticHostRuleSource automaticSource,
-        object? ipcContext)
+        object? ipcContext,
+        Vector4 primary,
+        Vector4 secondary)
     {
         if (ipcContext == null)
             form.UseManualHostRules = true;
@@ -51,9 +50,9 @@ public static class ManualVsAutomaticHostRulesDraw
         ImGui.TableNextRow();
 
         ImGui.TableSetColumnIndex(0);
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, manualSectionActive ? SectionActiveBg : SectionInactiveBg);
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, manualSectionActive ? ThemeColours.SectionActiveBg(primary) : ThemeColours.SectionInactiveBg(primary));
         ImGui.BeginChild("gw_host_manual_rules", new Vector2(-1, rowH), true, ImGuiWindowFlags.NoScrollbar);
-        PushWidgetColoursForSection(manualSectionActive);
+        PushWidgetColoursForSection(manualSectionActive, primary, secondary);
         var manualY0 = ImGui.GetCursorPosY();
         {
             var manualCb = useManual;
@@ -87,9 +86,9 @@ public static class ManualVsAutomaticHostRulesDraw
         ImGui.PopStyleColor();
 
         ImGui.TableSetColumnIndex(1);
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, autoSectionActive ? SectionActiveBg : SectionInactiveBg);
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, autoSectionActive ? ThemeColours.SectionActiveBg(primary) : ThemeColours.SectionInactiveBg(primary));
         ImGui.BeginChild("gw_host_auto_rules", new Vector2(-1, rowH), true, ImGuiWindowFlags.NoScrollbar);
-        PushWidgetColoursForSection(autoSectionActive);
+        PushWidgetColoursForSection(autoSectionActive, primary, secondary);
         var autoY0 = ImGui.GetCursorPosY();
         {
             var autoCb = canUseAuto && !useManual;
@@ -119,23 +118,23 @@ public static class ManualVsAutomaticHostRulesDraw
         s_lockedRulesRowOuterHeight = Math.Max(needOuterManual, needOuterAuto);
     }
 
-    private static void PushWidgetColoursForSection(bool sectionActive)
+    private static void PushWidgetColoursForSection(bool sectionActive, Vector4 primary, Vector4 secondary)
     {
         if (sectionActive)
         {
-            ImGui.PushStyleColor(ImGuiCol.FrameBg, new Vector4(0.09f, 0.10f, 0.12f, 1f));
-            ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, new Vector4(0.12f, 0.14f, 0.17f, 1f));
-            ImGui.PushStyleColor(ImGuiCol.FrameBgActive, new Vector4(0.14f, 0.16f, 0.19f, 1f));
-            ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.48f, 0.58f, 0.72f, 0.9f));
-            ImGui.PushStyleColor(ImGuiCol.CheckMark, new Vector4(0.40f, 0.85f, 1f, 1f));
+            ImGui.PushStyleColor(ImGuiCol.FrameBg, ThemeColours.ActiveFrameBg(primary));
+            ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, ThemeColours.ActiveFrameBgHovered(primary));
+            ImGui.PushStyleColor(ImGuiCol.FrameBgActive, ThemeColours.ActiveFrameBgActive(primary));
+            ImGui.PushStyleColor(ImGuiCol.Border, ThemeColours.ActiveBorder(primary));
+            ImGui.PushStyleColor(ImGuiCol.CheckMark, ThemeColours.ActiveCheckMark(secondary));
         }
         else
         {
             ImGui.PushStyleColor(ImGuiCol.FrameBg, new Vector4(0.18f, 0.18f, 0.20f, 1f));
             ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, new Vector4(0.24f, 0.24f, 0.27f, 1f));
             ImGui.PushStyleColor(ImGuiCol.FrameBgActive, new Vector4(0.28f, 0.28f, 0.32f, 1f));
-            ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.38f, 0.38f, 0.44f, 0.75f));
-            ImGui.PushStyleColor(ImGuiCol.CheckMark, new Vector4(0.50f, 0.72f, 0.95f, 1f));
+            ImGui.PushStyleColor(ImGuiCol.Border, ThemeColours.InactiveBorder(primary));
+            ImGui.PushStyleColor(ImGuiCol.CheckMark, ThemeColours.InactiveCheckMark(secondary));
         }
     }
 

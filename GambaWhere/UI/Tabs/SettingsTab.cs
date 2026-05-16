@@ -1,5 +1,7 @@
 using System;
+using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -28,26 +30,52 @@ public class SettingsTab
 
     public void Draw()
     {
-        DrawAutoSessionDetection();
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        DrawPillOverlaySettings();
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        DrawAlertOptions();
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        DrawImageCacheSettings();
+        using var tabBar = ImRaii.TabBar("SettingsTabs");
+        if (!tabBar) return;
+
+        using (var uiTab = ImRaii.TabItem("UI"))
+        {
+            if (uiTab)
+            {
+                ImGui.Spacing();
+                DrawPillOverlaySettings();
+                ImGui.Spacing();
+                ImGui.Separator();
+                ImGui.Spacing();
+                DrawThemeColours();
+            }
+        }
+
+        using (var chatTab = ImRaii.TabItem("Chat"))
+        {
+            if (chatTab)
+            {
+                ImGui.Spacing();
+                DrawCompanionPluginDetection();
+                ImGui.Spacing();
+                ImGui.Separator();
+                ImGui.Spacing();
+                DrawAlertOptions();
+            }
+        }
+
+        using (var otherTab = ImRaii.TabItem("Other"))
+        {
+            if (otherTab)
+            {
+                ImGui.Spacing();
+                DrawImageCacheSettings();
+            }
+        }
     }
 
-    private void DrawAutoSessionDetection()
+    private void DrawCompanionPluginDetection()
     {
+        ImGui.Text("Companion Plugin Detection");
+
         var enabled = _config.AutoSessionDetection;
 
-        if (ImGui.Checkbox("Auto Session Detection", ref enabled))
+        if (ImGui.Checkbox("Remind to start a session on companion plugin open", ref enabled))
         {
             _config.AutoSessionDetection = enabled;
             _config.Save();
@@ -151,6 +179,57 @@ public class SettingsTab
                 PlaySoundEffect(Math.Clamp(_config.AlertSoundEffectId, 1, 16));
 
             ImGui.Unindent();
+        }
+    }
+
+    private void DrawThemeColours()
+    {
+        ImGui.Text("Theme Colours");
+        ImGui.Spacing();
+
+        var labelOffset = 100f * ImGuiHelpers.GlobalScale;
+        var pickerWidth = 200f * ImGuiHelpers.GlobalScale;
+
+        var primary = _config.PrimaryColour;
+        ImGui.Text("Primary");
+        ImGui.SameLine(labelOffset);
+        ImGui.SetNextItemWidth(pickerWidth);
+        if (ImGui.ColorEdit4("##PrimaryColour", ref primary, ImGuiColorEditFlags.NoAlpha | ImGuiColorEditFlags.DisplayHex))
+        {
+            primary.W = 1f;
+            _config.PrimaryColour = primary;
+            _config.Save();
+        }
+
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Used for card backgrounds, section panels, and borders.");
+
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Reset##ResetPrimary"))
+        {
+            _config.PrimaryColour = Configuration.DefaultPrimaryColour;
+            _config.Save();
+        }
+
+        var secondary = _config.SecondaryColour;
+        ImGui.Text("Secondary");
+        ImGui.SameLine(labelOffset);
+        ImGui.SetNextItemWidth(pickerWidth);
+        if (ImGui.ColorEdit4("##SecondaryColour", ref secondary, ImGuiColorEditFlags.NoAlpha | ImGuiColorEditFlags.DisplayHex))
+        {
+            secondary.W = 1f;
+            _config.SecondaryColour = secondary;
+            _config.Save();
+        }
+
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Used for accent text, headings, and highlighted labels.");
+
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Reset##ResetSecondary"))
+        {
+            _config.SecondaryColour = Configuration.DefaultSecondaryColour;
+            _config.Save();
         }
     }
 

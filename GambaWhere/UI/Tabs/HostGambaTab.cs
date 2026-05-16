@@ -14,6 +14,7 @@ using GambaWhere.Rules;
 using GambaWhere.Services;
 using GambaWhere.State;
 using GambaWhere.Utility;
+using GambaWhere.Images;
 using GambaWhere.UI.Components;
 
 namespace GambaWhere.UI.Tabs;
@@ -26,6 +27,7 @@ public class HostGambaTab
     private readonly SessionState _sessionState;
     private readonly Configuration _config;
     private readonly HostFormState _form;
+    private readonly ImageCache _imageCache;
 
     private static readonly string[] GameTypes = { "Bingo", "Blackjack", "Chocobo Racing", "Mini Games", "Poker", "Roulette", "Scratchcards", "Spin the Wheel" };
 
@@ -48,7 +50,8 @@ public class HostGambaTab
         GambaWhereClient client,
         SessionState sessionState,
         Configuration config,
-        HostFormState form)
+        HostFormState form,
+        ImageCache imageCache)
     {
         _sessionService = sessionService;
         _playerInfo = playerInfo;
@@ -56,6 +59,7 @@ public class HostGambaTab
         _sessionState = sessionState;
         _config = config;
         _form = form;
+        _imageCache = imageCache;
 
         _ruleConfigs = new IRuleConfig[]
         {
@@ -169,6 +173,18 @@ public class HostGambaTab
     private void DrawActiveSession()
     {
         ImGui.TextColored(new System.Numerics.Vector4(0.4f, 1f, 0.4f, 1f), "Session Active");
+
+        var stopBtnWidth = 120f * ImGuiHelpers.GlobalScale;
+        ImGui.SameLine(ImGui.GetContentRegionMax().X - stopBtnWidth);
+        using (ImRaii.PushColor(ImGuiCol.Button, new System.Numerics.Vector4(0.7f, 0.15f, 0.15f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new System.Numerics.Vector4(0.85f, 0.25f, 0.25f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, new System.Numerics.Vector4(0.6f, 0.1f, 0.1f, 1f)))
+        using (ImRaii.Disabled(_form.IsStarting))
+        {
+            if (ImGui.Button("Stop Session", new System.Numerics.Vector2(stopBtnWidth, 0)))
+                TriggerStopSession();
+        }
+
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
@@ -185,18 +201,13 @@ public class HostGambaTab
         ImGui.Text(_sessionState.VenueName ?? "No Venue");
 
         ImGui.Text("Location:");
+        ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
         ImGui.TextWrapped(_sessionState.Location);
 
         DrawActiveRules();
 
         ImGuiHelpers.ScaledDummy(8f);
-        ImGui.TextDisabled("Location updates automatically every 1 minute.");
-        ImGuiHelpers.ScaledDummy(8f);
-
-        ImGui.PushStyleColor(ImGuiCol.Button, new System.Numerics.Vector4(0.7f, 0.15f, 0.15f, 1f));
-        if (ImGui.Button("Stop Session", new System.Numerics.Vector2(140, 0)))
-            TriggerStopSession();
-        ImGui.PopStyleColor();
+        ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Location updates automatically every 1 minute.");
 
         if (!string.IsNullOrEmpty(_form.StatusMessage))
         {
@@ -279,7 +290,7 @@ public class HostGambaTab
             && GetHostAutomaticRuleContext != null)
         {
             var ipcContext = GetHostAutomaticRuleContext();
-            ManualVsAutomaticHostRulesDraw.Draw(_form, _form.RuleConfig, automatic, ipcContext);
+            ManualVsAutomaticHostRulesDraw.Draw(_form, _form.RuleConfig, automatic, ipcContext, _config.PrimaryColour, _config.SecondaryColour);
         }
         else
         {
@@ -288,8 +299,6 @@ public class HostGambaTab
 
         ImGuiHelpers.ScaledDummy(8f);
         DrawDescriptionInput();
-        ImGuiHelpers.ScaledDummy(8f);
-        DrawStartButton();
 
         if (!string.IsNullOrEmpty(_form.StatusMessage))
         {
@@ -398,6 +407,18 @@ public class HostGambaTab
                 DeleteCurrentPreset(gameType, presets);
         }
 
+        var startBtnWidth = 120f * ImGuiHelpers.GlobalScale;
+        ImGui.SameLine(ImGui.GetContentRegionMax().X - startBtnWidth);
+        using (ImRaii.PushColor(ImGuiCol.Button, new System.Numerics.Vector4(0.2f, 0.6f, 0.2f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new System.Numerics.Vector4(0.3f, 0.75f, 0.3f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, new System.Numerics.Vector4(0.15f, 0.5f, 0.15f, 1f)))
+        using (ImRaii.Disabled(_form.IsStarting))
+        {
+            var startLabel = _form.IsStarting ? "Starting..." : "Start Hosting";
+            if (ImGui.Button(startLabel, new System.Numerics.Vector2(startBtnWidth, 0)))
+                TriggerStartSession();
+        }
+
         if (_showAddPresetInput)
             DrawAddPresetInput(gameType, presets);
 
@@ -491,15 +512,34 @@ public class HostGambaTab
         if (ImGui.InputTextMultiline("##Description", ref desc, 512,
             new System.Numerics.Vector2(0, 60 * ImGuiHelpers.GlobalScale)))
             _form.Description = desc;
-        ImGui.TextDisabled("No URLs or HTML permitted.\n\nPlease use the rules provided above to describe your session.\nI will add any rules to the plugin, just let me know!");
+        ImGui.TextDisabled("No URLs or HTML permitted.");
+        ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Please use the rules provided above to describe your session. I will add any rules to the plugin, just let me know!");
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Text("Preview");
+        ImGuiHelpers.ScaledDummy(4f);
+
+        DrawPreviewSection();
     }
 
-    private void DrawStartButton()
+    private void DrawPreviewSection()
     {
-        using var _ = ImRaii.Disabled(_form.IsStarting);
-        var label = _form.IsStarting ? "Starting..." : "Start Hosting";
-        if (ImGui.Button(label, new System.Numerics.Vector2(160, 0)))
-            TriggerStartSession();
+        var characterName = _playerInfo.IsLoggedIn
+            ? EventCardRenderer.FormatDisplayName(_playerInfo.GetCharacterName() ?? "Your Character")
+            : "Your Character";
+
+        var gameType = GameTypes[_form.SelectedGameIndex];
+        var venueName = _venueOptions[_form.SelectedVenueIndex];
+        var rules = ManualRulesApiOmitter.OmitEmptyOrDefault(_form.RuleConfig?.ToApiPayload() ?? new());
+
+        EventCardRenderer.DrawPreviewCard(characterName, gameType, venueName, _form.Description, rules, _imageCache);
+
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.TextColored(
+            new System.Numerics.Vector4(1f, 1f, 0f, 1f),
+            "Venue image and Discord will load upon posting. Use this preview to see how your rules and description will look.");
     }
 
     private void TriggerStartSession()

@@ -3,7 +3,9 @@ using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
+using GambaWhere.Config;
 using GambaWhere.UI.Tabs;
+using GambaWhere.Utility;
 
 namespace GambaWhere.UI;
 
@@ -16,8 +18,10 @@ public class MainWindow : Window, IDisposable
     private readonly SettingsTab _settingsTab;
     private readonly SupportTab _supportTab;
     private readonly AlertsTab _alertsTab;
+    private readonly Configuration _config;
 
     private string? _pendingTab;
+    private int _pushedColours;
 
     public MainWindow(
         GambaEventsTab eventsTab,
@@ -26,7 +30,8 @@ public class MainWindow : Window, IDisposable
         SettingsTab settingsTab,
         SupportTab supportTab,
         DiscordWebhookTab discordWebhookTab,
-        AlertsTab alertsTab)
+        AlertsTab alertsTab,
+        Configuration config)
         : base("Gamba Where##MainWindow")
     {
         SizeConstraints = new WindowSizeConstraints
@@ -40,10 +45,9 @@ public class MainWindow : Window, IDisposable
         _gameListTab = gameListTab;
         _settingsTab = settingsTab;
         _supportTab = supportTab;
-
         _discordWebhookTab = discordWebhookTab;
         _alertsTab = alertsTab;
-
+        _config = config;
     }
 
     public void OpenSettingsTab()
@@ -63,6 +67,48 @@ public class MainWindow : Window, IDisposable
         IsOpen = true;
         _pendingTab = "Gamba Events";
         _eventsTab.ExpandAndScrollTo(characterName);
+    }
+
+    public override void PreDraw()
+    {
+        _pushedColours = 0;
+        var p = _config.PrimaryColour;
+        var s = _config.SecondaryColour;
+
+        ImGui.PushStyleColor(ImGuiCol.WindowBg,              ThemeColours.TintedWindowBg(p));
+        ImGui.PushStyleColor(ImGuiCol.PopupBg,               ThemeColours.TintedPopupBg(p));
+        ImGui.PushStyleColor(ImGuiCol.FrameBg,               ThemeColours.ActiveFrameBg(p));
+        ImGui.PushStyleColor(ImGuiCol.FrameBgHovered,        ThemeColours.ActiveFrameBgHovered(p));
+        ImGui.PushStyleColor(ImGuiCol.FrameBgActive,         ThemeColours.ActiveFrameBgActive(p));
+        ImGui.PushStyleColor(ImGuiCol.Tab,                   ThemeColours.TabNormal(p));
+        ImGui.PushStyleColor(ImGuiCol.TabHovered,            ThemeColours.TabHovered(p));
+        ImGui.PushStyleColor(ImGuiCol.TabActive,             ThemeColours.TabSelected(p));
+        ImGui.PushStyleColor(ImGuiCol.TabUnfocused,          ThemeColours.TabUnfocused(p));
+        ImGui.PushStyleColor(ImGuiCol.TabUnfocusedActive,    ThemeColours.TabSelected(p));
+        ImGui.PushStyleColor(ImGuiCol.Button,                ThemeColours.ButtonNormal(p));
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered,         ThemeColours.ButtonHovered(p));
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive,          ThemeColours.ButtonPressed(p));
+        ImGui.PushStyleColor(ImGuiCol.Header,                ThemeColours.CardBackground(p));
+        ImGui.PushStyleColor(ImGuiCol.HeaderHovered,         ThemeColours.FaqHeaderHovered(p));
+        ImGui.PushStyleColor(ImGuiCol.HeaderActive,          ThemeColours.FaqHeaderActive(p));
+        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrab,         ThemeColours.ScrollbarGrab(p));
+        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabHovered,  ThemeColours.ScrollbarGrabHovered(p));
+        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabActive,   ThemeColours.ScrollbarGrabActive(p));
+        ImGui.PushStyleColor(ImGuiCol.Border,                ThemeColours.InactiveBorder(p));
+        ImGui.PushStyleColor(ImGuiCol.Separator,             ThemeColours.SectionSeparator(p));
+        ImGui.PushStyleColor(ImGuiCol.TitleBg,               ThemeColours.TitleBg(p));
+        ImGui.PushStyleColor(ImGuiCol.TitleBgActive,         ThemeColours.TitleBgActive(p));
+        ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed,      ThemeColours.TitleBg(p));
+        ImGui.PushStyleColor(ImGuiCol.CheckMark,             ThemeColours.ActiveCheckMark(s));
+        ImGui.PushStyleColor(ImGuiCol.SliderGrab,            s);
+        ImGui.PushStyleColor(ImGuiCol.SliderGrabActive,      s);
+        _pushedColours = 27;
+    }
+
+    public override void PostDraw()
+    {
+        if (_pushedColours > 0)
+            ImGui.PopStyleColor(_pushedColours);
     }
 
     public override void Draw()

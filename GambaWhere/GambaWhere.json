@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Pause button now properly aligned and vertically centered in the pill overlay.",
+  "Changelog": "- Making the UI more pretty :3 Added colour picker to the settings tab.\n- Re-arranged the settings tab to accomodate the new settings.\n- Host gamba tab that now shows you what your event will look like on the gamba events tab.\n- Moved start hosting button top right to make space for new preview section.",
   "Tags": [
     "gambling",
     "events",

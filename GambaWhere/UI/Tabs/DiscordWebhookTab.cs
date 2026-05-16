@@ -11,6 +11,7 @@ using Dalamud.Plugin.Services;
 using GambaWhere.Config;
 using GambaWhere.Discord;
 using GambaWhere.Images;
+using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
@@ -18,8 +19,6 @@ public sealed class DiscordWebhookTab
 {
     private const int UrlBufferLength = 1536;
 
-    private static readonly Vector4 GuideAccentColour = new(0.35f, 0.62f, 0.92f, 1f);
-    private static readonly Vector4 GuideMutedColour = new(0.78f, 0.82f, 0.92f, 1f);
 
     private static readonly Vector4 VenueServiceTextColour = new(0.86f, 0.82f, 0.76f, 1f);
 
@@ -38,7 +37,6 @@ public sealed class DiscordWebhookTab
     private readonly List<string> _lastCommittedUrls = new();
     private readonly List<string> _urlDrafts = new();
 
-    // Row delete runs at start of next Draw so drafts stay aligned mid-frame.
     private int? _pendingRowRemovalIndex;
 
     public DiscordWebhookTab(
@@ -120,13 +118,13 @@ public sealed class DiscordWebhookTab
         ImGuiHelpers.ScaledDummy(10f);
     }
 
-    private static void DrawSectionHeader(string label)
+    private void DrawSectionHeader(string label)
     {
-        using (ImRaii.PushColor(ImGuiCol.Text, GuideAccentColour))
+        using (ImRaii.PushColor(ImGuiCol.Text, _config.PrimaryColour))
             ImGui.TextUnformatted(label);
 
         ImGuiHelpers.ScaledDummy(2f);
-        using (ImRaii.PushColor(ImGuiCol.Separator, new Vector4(0.25f, 0.32f, 0.45f, 0.9f)))
+        using (ImRaii.PushColor(ImGuiCol.Separator, ThemeColours.SectionSeparator(_config.PrimaryColour)))
             ImGui.Separator();
         ImGuiHelpers.ScaledDummy(6f);
     }
@@ -148,9 +146,9 @@ public sealed class DiscordWebhookTab
         ImGuiHelpers.ScaledDummy(8f);
     }
 
-    private static void GuideBullet(string text)
+    private void GuideBullet(string text)
     {
-        using (ImRaii.PushColor(ImGuiCol.Text, GuideMutedColour))
+        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentTextMuted(_config.SecondaryColour)))
         {
             ImGui.Bullet();
             ImGui.SameLine();
@@ -203,7 +201,7 @@ public sealed class DiscordWebhookTab
         }
         else
         {
-            using (ImRaii.PushColor(ImGuiCol.Text, GuideMutedColour))
+            using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentTextMuted(_config.SecondaryColour)))
             {
                 ImGui.TextWrapped(tex == null
                     ? "Preview image is still loading; switch away and back if it does not appear."

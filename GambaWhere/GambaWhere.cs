@@ -79,19 +79,19 @@ public sealed class GambaWhere : IDalamudPlugin
             _discordWebhook);
 
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
-        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport);
-        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState);
-        var gameListTab = new GameListTab(_imageCache);
+        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration);
+        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache);
+        var gameListTab = new GameListTab(_imageCache, Configuration);
 
         _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
 
         var settingsTab = new SettingsTab(Configuration, _imageCache, Log, _pillOverlay);
-        var supportTab = new SupportTab(_imageCache);
+        var supportTab = new SupportTab(_imageCache, Configuration);
         var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log);
         var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =
-            new MainWindow(_eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab, alertsTab);
+            new MainWindow(_eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab, alertsTab, Configuration);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_pillOverlay);
 

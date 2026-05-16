@@ -41,7 +41,6 @@ internal static class DiscordWebhookRateLimit
         }
         catch
         {
-            // Ignored; fall through.
         }
 
         return TimeSpan.FromSeconds(3);
@@ -69,7 +68,6 @@ internal static class DiscordWebhookRateLimit
         }
         catch
         {
-            // Body may already be consumed.
         }
     }
 

@@ -10,6 +10,7 @@ using GambaWhere.Config;
 using GambaWhere.Services;
 using GambaWhere.State;
 using GambaWhere.Utility;
+using static GambaWhere.Utility.ThemeColours;
 
 namespace GambaWhere.UI;
 
@@ -80,8 +81,9 @@ public class SessionPillOverlay : Window, IDisposable
             ? GameTypeColours.PillBorderForGame(_sessionState.GameType)
             : GameTypeColours.PillBorderForGame(null);
 
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, TintedWindowBg(_config.PrimaryColour));
         ImGui.PushStyleColor(ImGuiCol.Border, borderColour);
-        _pushedStyleColours = 1;
+        _pushedStyleColours = 2;
 
         if (_pendingReset)
         {

@@ -4,6 +4,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
+using GambaWhere.Config;
 using GambaWhere.Images;
 using GambaWhere.Utility;
 
@@ -12,6 +13,7 @@ namespace GambaWhere.UI.Tabs;
 public class SupportTab
 {
     private readonly ImageCache _imageCache;
+    private readonly Configuration _config;
 
     private const string OofGamesDiscordUrl = "https://discord.gg/vM6ff4h5Ym";
 
@@ -19,11 +21,10 @@ public class SupportTab
 
     private const float LogoSide = 160f;
 
-    private static readonly Vector4 FaqHeadingColour = new(1f, 0.85f, 0.4f, 1f);
-
-    public SupportTab(ImageCache imageCache)
+    public SupportTab(ImageCache imageCache, Configuration config)
     {
         _imageCache = imageCache;
+        _config = config;
     }
 
     public void Draw()
@@ -35,6 +36,7 @@ public class SupportTab
         DrawSupportGuidance();
         DrawDiscordInvite();
     }
+
 
     private void DrawBranding()
     {
@@ -56,7 +58,7 @@ public class SupportTab
         ImGui.PopStyleColor();
     }
 
-    private static void DrawSupportGuidance()
+    private void DrawSupportGuidance()
     {
         DrawFaqSection(
             "##faq_venue",
@@ -84,12 +86,15 @@ public class SupportTab
             "For a similar plugin, a Discord bot, another plugin type or a website, post in #request_software and we will see what we can do.");
     }
 
-    private static void DrawFaqSection(string idSuffix, string heading, string body)
+    private void DrawFaqSection(string idSuffix, string heading, string body)
     {
-        ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(0.18f, 0.18f, 0.22f, 1f));
-        ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(0.24f, 0.24f, 0.30f, 1f));
-        ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Vector4(0.28f, 0.28f, 0.34f, 1f));
-        ImGui.PushStyleColor(ImGuiCol.Text, FaqHeadingColour);
+        var p = _config.PrimaryColour;
+        var s = _config.SecondaryColour;
+
+        ImGui.PushStyleColor(ImGuiCol.Header, ThemeColours.FaqHeaderNormal(p));
+        ImGui.PushStyleColor(ImGuiCol.HeaderHovered, ThemeColours.FaqHeaderHovered(p));
+        ImGui.PushStyleColor(ImGuiCol.HeaderActive, ThemeColours.FaqHeaderActive(p));
+        ImGui.PushStyleColor(ImGuiCol.Text, ThemeColours.AccentText(s));
 
         if (ImGui.CollapsingHeader($"{heading}{idSuffix}", ImGuiTreeNodeFlags.DefaultOpen))
         {

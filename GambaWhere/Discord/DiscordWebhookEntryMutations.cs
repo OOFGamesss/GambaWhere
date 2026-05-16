@@ -22,7 +22,6 @@ internal static class DiscordWebhookEntryMutations
         }
         catch (JsonException)
         {
-            // Ignore malformed webhook execute JSON.
         }
     }
 

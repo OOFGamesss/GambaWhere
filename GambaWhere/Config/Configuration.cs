@@ -3,6 +3,7 @@ using GambaWhere.Alerting;
 using GambaWhere.Rules;
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace GambaWhere.Config;
 
@@ -27,6 +28,12 @@ public class Configuration : IPluginConfiguration
     public bool PillOverlayEnabled { get; set; } = true;
     public float PillPositionX { get; set; } = 50f;
     public float PillPositionY { get; set; } = 50f;
+
+    public Vector4 PrimaryColour { get; set; } = DefaultPrimaryColour;
+    public Vector4 SecondaryColour { get; set; } = DefaultSecondaryColour;
+
+    public static Vector4 DefaultPrimaryColour => new(0.60f, 0.0f, 1.0f, 1f);
+    public static Vector4 DefaultSecondaryColour => new(0.0f, 0.88f, 0.85f, 1f);
 
     public void Save() => global::GambaWhere.GambaWhere.PluginInterface.SavePluginConfig(this);
 

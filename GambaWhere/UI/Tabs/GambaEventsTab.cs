@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -10,6 +9,7 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
 using GambaWhere.API.Models;
+using GambaWhere.Config;
 using GambaWhere.Images;
 using GambaWhere.Services;
 using GambaWhere.UI.Components;
@@ -24,6 +24,7 @@ public class GambaEventsTab
     private readonly GambaWhereClient _client;
     private readonly ImageCache _imageCache;
     private readonly EventLocationTeleportService _teleport;
+    private readonly Configuration _config;
 
     private List<EventResponse> _events = new();
     private DateTime? _lastUpdated;
@@ -55,11 +56,12 @@ public class GambaEventsTab
 
     private static readonly float ImageSize = 70f;
 
-    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport)
+    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport, Configuration config)
     {
         _client = client;
         _imageCache = imageCache;
         _teleport = teleport;
+        _config = config;
 
         TriggerRefresh();
     }
@@ -246,7 +248,7 @@ public class GambaEventsTab
         var scaledImageSize = new Vector2(ImageSize, ImageSize) * ImGuiHelpers.GlobalScale;
         var isExpanded = _expandedCards.Contains(ev.CharacterName);
         var gameType = ev.Game;
-        var (bgColor, gameTypeTextColor) = GetGameTypeColors(gameType);
+        var (bgColor, gameTypeTextColor) = EventCardRenderer.GetGameTypeColors(gameType);
 
         var cardTopScreen = ImGui.GetCursorScreenPos();
         var availWidth = ImGui.GetContentRegionAvail().X;
@@ -266,14 +268,14 @@ public class GambaEventsTab
             if (tex != null)
                 ImGui.Image(tex.Handle, scaledImageSize);
             else
-                DrawImagePlaceholder(scaledImageSize);
+                EventCardRenderer.DrawImagePlaceholder(scaledImageSize);
 
             ImGui.TableSetColumnIndex(1);
 
             var cellRightEdge = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
             var rowTopY = ImGui.GetCursorPosY();
 
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), FormatDisplayName(ev.CharacterName));
+            ImGui.TextColored(new Vector4(1f, 1f, 0f, 1f), EventCardRenderer.FormatDisplayName(ev.CharacterName));
             var afterNameY = ImGui.GetCursorPosY();
 
             var gameTypeWidth = ImGui.CalcTextSize(gameType).X;
@@ -297,9 +299,9 @@ public class GambaEventsTab
 
             if (ev.Description == SessionConstants.BreakMessage)
             {
-                DrawBreakBadge();
+                EventCardRenderer.DrawBreakBadge();
                 if (!isExpanded)
-                    ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
+                    ImGui.TextColored(new Vector4(1f, 1f, 0f, 1f), "Click to see more...");
             }
             else if (!string.IsNullOrWhiteSpace(ev.Description))
             {
@@ -326,20 +328,20 @@ public class GambaEventsTab
                             ImGui.TextWrapped(ev.Description);
                             ImGui.PopClipRect();
                             ImGui.SetCursorPosY(5f * lineHeight);
-                            ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
+                            ImGui.TextColored(new Vector4(1f, 1f, 0f, 1f), "Click to see more...");
                         }
                     }
                     else
                     {
                         ImGui.TextWrapped(ev.Description);
-                        ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
+                        ImGui.TextColored(new Vector4(1f, 1f, 0f, 1f), "Click to see more...");
                     }
                 }
             }
             else if (!isExpanded)
             {
                 ImGuiHelpers.ScaledDummy(2f);
-                ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), "Click to see more...");
+                ImGui.TextColored(new Vector4(1f, 1f, 0f, 1f), "Click to see more...");
             }
 
             if (isExpanded)
@@ -424,7 +426,7 @@ public class GambaEventsTab
                         using (ImRaii.PushColor(ImGuiCol.Text, disabledColour))
                             ImGui.TextWrapped(RuleKeyFormatting.FormatDisplayKey(rule.Key));
                         ImGui.TableSetColumnIndex(1);
-                        ImGui.TextWrapped(FormatRuleValue(rule.Value, rule.Key));
+                        ImGui.TextWrapped(EventCardRenderer.FormatRuleValue(rule.Value, rule.Key));
                     }
 
                     ImGui.EndTable();
@@ -475,137 +477,6 @@ public class GambaEventsTab
         }
 
         ImGuiHelpers.ScaledDummy(4f);
-    }
-
-    private static void DrawBreakBadge()
-    {
-        ImGuiHelpers.ScaledDummy(4f);
-
-        const string badgeText = "On Break";
-        var textSize = ImGui.CalcTextSize(badgeText);
-        var hPad = 6f * ImGuiHelpers.GlobalScale;
-        var vPad = 3f * ImGuiHelpers.GlobalScale;
-        var badgeWidth = textSize.X + hPad * 2f;
-        var badgeHeight = textSize.Y + vPad * 2f;
-
-        var pos = ImGui.GetCursorScreenPos();
-        ImGui.GetWindowDrawList().AddRectFilled(
-            pos,
-            pos + new Vector2(badgeWidth, badgeHeight),
-            ImGui.GetColorU32(new Vector4(0.85f, 0.55f, 0.05f, 0.92f)),
-            3f * ImGuiHelpers.GlobalScale);
-        ImGui.GetWindowDrawList().AddText(pos + new Vector2(hPad, vPad), ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 1f)), badgeText);
-
-        ImGui.Dummy(new Vector2(badgeWidth, badgeHeight));
-        ImGuiHelpers.ScaledDummy(2f);
-    }
-
-    private static void DrawImagePlaceholder(Vector2 size)
-    {
-        var pos = ImGui.GetCursorScreenPos();
-        ImGui.GetWindowDrawList().AddRectFilled(
-            pos, pos + size,
-            ImGui.GetColorU32(new Vector4(0.18f, 0.18f, 0.18f, 1f)),
-            4f * ImGuiHelpers.GlobalScale);
-        ImGui.Dummy(size);
-    }
-
-    private static string FormatDisplayName(string characterName)
-    {
-        var lastSpace = characterName.LastIndexOf(' ');
-        return lastSpace > 0
-            ? $"{characterName[..lastSpace]}@{characterName[(lastSpace + 1)..]}"
-            : characterName;
-    }
-
-    private static (Vector4 bg, Vector4 text) GetGameTypeColors(string gameType) => gameType switch
-    {
-        "Bingo" => (new Vector4(0.85f, 0.25f, 0.25f, 0.18f), new Vector4(1.00f, 0.50f, 0.50f, 1f)),
-        "Blackjack" => (new Vector4(0.25f, 0.50f, 0.90f, 0.18f), new Vector4(0.50f, 0.75f, 1.00f, 1f)),
-        "Chocobo Racing" => (new Vector4(0.85f, 0.80f, 0.15f, 0.18f), new Vector4(1.00f, 0.95f, 0.30f, 1f)),
-        "Mini Games" => (new Vector4(0.20f, 0.80f, 0.40f, 0.18f), new Vector4(0.40f, 1.00f, 0.55f, 1f)),
-        "Poker" => (new Vector4(0.00f, 0.80f, 0.80f, 0.18f), new Vector4(0.00f, 1.00f, 1.00f, 1f)),
-        "Roulette" => (new Vector4(0.52f, 0.38f, 0.78f, 0.18f), new Vector4(0.82f, 0.68f, 1.00f, 1f)),
-        "Scratchcards" => (new Vector4(0.85f, 0.45f, 0.00f, 0.18f), new Vector4(1.00f, 0.60f, 0.00f, 1f)),
-        "Spin the Wheel" => (new Vector4(0.90f, 0.60f, 0.70f, 0.18f), new Vector4(1.00f, 0.75f, 0.85f, 1f)),
-        _ => (new Vector4(0.50f, 0.50f, 0.50f, 0.12f), new Vector4(0.75f, 0.75f, 0.75f, 1f)),
-    };
-
-    private static string FormatRuleValue(object? value, string key = "")
-    {
-        var isOdds = key.Contains("odds", StringComparison.OrdinalIgnoreCase);
-
-        string formatted;
-        if (value is JsonElement el)
-        {
-            formatted = el.ValueKind switch
-            {
-                JsonValueKind.True => "Yes",
-                JsonValueKind.False => "No",
-                JsonValueKind.Number when el.TryGetInt64(out var i) => i.ToString("N0"),
-                JsonValueKind.Number when el.TryGetDouble(out var d) => d.ToString("N2"),
-                _ => el.ToString()
-            };
-        }
-        else
-        {
-            formatted = value switch
-            {
-                bool b => b ? "Yes" : "No",
-                int i => i.ToString("N0"),
-                long l => l.ToString("N0"),
-                float f => isOdds ? f.ToString("N2") : f.ToString("N0"),
-                double d => isOdds ? d.ToString("N2") : d.ToString("N0"),
-                _ => value?.ToString() ?? "-"
-            };
-        }
-
-        var result = isOdds ? formatted + "x" : formatted;
-        if (ShouldAppendGilSuffix(key) && TryGetWholeRuleNumber(value, out var whole) && whole > 1000)
-            result += " gil";
-
-        return result;
-    }
-
-    private static bool ShouldAppendGilSuffix(string key) =>
-        !key.Contains("odds", StringComparison.OrdinalIgnoreCase)
-        && !key.Equals("playerCount", StringComparison.OrdinalIgnoreCase)
-        && !key.Equals("cardsSold", StringComparison.OrdinalIgnoreCase);
-
-    private static bool TryGetWholeRuleNumber(object? value, out long whole)
-    {
-        whole = 0;
-        switch (value)
-        {
-            case int i:
-                whole = i;
-                return true;
-            case long l:
-                whole = l;
-                return true;
-            case float f when Math.Abs(f - MathF.Round(f)) < 0.0001f:
-                whole = (long)MathF.Round(f);
-                return true;
-            case double d when Math.Abs(d - Math.Round(d)) < 0.0000001:
-                whole = (long)Math.Round(d);
-                return true;
-            case JsonElement el when el.ValueKind == JsonValueKind.Number:
-                if (el.TryGetInt64(out var li))
-                {
-                    whole = li;
-                    return true;
-                }
-
-                if (el.TryGetDouble(out var du) && Math.Abs(du - Math.Round(du)) < 0.0000001)
-                {
-                    whole = (long)Math.Round(du);
-                    return true;
-                }
-
-                return false;
-            default:
-                return false;
-        }
     }
 
 }

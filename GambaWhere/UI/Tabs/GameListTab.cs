@@ -5,6 +5,7 @@ using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using GambaWhere.Config;
 using GambaWhere.Images;
 using GambaWhere.Utility;
 using static GambaWhere.Utility.GameTypeColours;
@@ -14,6 +15,7 @@ namespace GambaWhere.UI.Tabs;
 public class GameListTab
 {
     private readonly ImageCache _imageCache;
+    private readonly Configuration _config;
 
     private static readonly float ImageSize = 70f;
 
@@ -32,9 +34,10 @@ public class GameListTab
         ("Spin the Wheel", "SimpleWheel")
     };
 
-    public GameListTab(ImageCache imageCache)
+    public GameListTab(ImageCache imageCache, Configuration config)
     {
         _imageCache = imageCache;
+        _config = config;
     }
 
     public void Draw()
@@ -125,7 +128,7 @@ public class GameListTab
 
             ImGui.TableSetColumnIndex(1);
 
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f), displayName);
+            ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), displayName);
 
             ImGuiHelpers.ScaledDummy(2f);
 

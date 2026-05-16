@@ -3,7 +3,7 @@ using System;
 namespace GambaWhere.IPC;
 
 /// <summary>
-/// Serializable race settings snapshot from Chocobo Racing (active preset plus live party size).
+/// Serialisable race settings snapshot from Chocobo Racing (active preset plus live party size).
 /// </summary>
 [Serializable]
 public sealed class RaceGameInfoIPC

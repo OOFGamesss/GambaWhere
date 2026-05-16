@@ -11,6 +11,7 @@ using GambaWhere.Alerting;
 using GambaWhere.API;
 using GambaWhere.Config;
 using GambaWhere.UI.Components;
+using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
@@ -120,7 +121,7 @@ public class AlertsTab
             drawList.AddRectFilled(
                 cardTopScreen,
                 new Vector2(cardTopScreen.X + availWidth, ImGui.GetCursorScreenPos().Y),
-                ImGui.GetColorU32(new Vector4(0.12f, 0.12f, 0.13f, 1f)),
+                ImGui.GetColorU32(ThemeColours.CardBackground(_config.PrimaryColour)),
                 4f * ImGuiHelpers.GlobalScale);
             drawList.ChannelsMerge();
         }
