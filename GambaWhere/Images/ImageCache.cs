@@ -15,6 +15,7 @@ public class ImageCache : IDisposable
 {
     private readonly IDalamudPluginInterface _pluginInterface;
     private readonly ITextureProvider _textureProvider;
+    private readonly IPluginLog _log;
     private readonly HttpClient _http;
 
     private readonly Dictionary<string, IDalamudTextureWrap?> _cache = new();
@@ -22,10 +23,11 @@ public class ImageCache : IDisposable
     private readonly object _lock = new();
     private readonly string _cacheDirectory;
 
-    public ImageCache(IDalamudPluginInterface pluginInterface, ITextureProvider textureProvider)
+    public ImageCache(IDalamudPluginInterface pluginInterface, ITextureProvider textureProvider, IPluginLog log)
     {
         _pluginInterface = pluginInterface;
         _textureProvider = textureProvider;
+        _log = log;
         _http = new HttpClient();
         _http.Timeout = TimeSpan.FromSeconds(10);
 
@@ -131,8 +133,9 @@ public class ImageCache : IDisposable
 
                 wrap = await _textureProvider.CreateFromImageAsync(bytes);
             }
-            catch
+            catch (Exception ex)
             {
+                _log.Warning(ex, "GET {Url} returned unexpected status or failed to load image.", url);
             }
             finally
             {

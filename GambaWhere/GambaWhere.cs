@@ -63,7 +63,7 @@ public sealed class GambaWhere : IDalamudPlugin
         Configuration.EnsureDefaultPresets();
 
         _client = new GambaWhereClient(Log);
-        _imageCache = new ImageCache(PluginInterface, TextureProvider);
+        _imageCache = new ImageCache(PluginInterface, TextureProvider, Log);
 
         var playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager, Log);
         _sessionState = new SessionState();

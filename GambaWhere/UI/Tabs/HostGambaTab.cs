@@ -42,6 +42,16 @@ public class HostGambaTab
     private bool _showRenamePresetInput;
     private string _renameBuffer = string.Empty;
 
+    private string _saveNotificationName = string.Empty;
+    private DateTime _saveNotificationUntil;
+
+    private string _clipboardNotificationName = string.Empty;
+    private DateTime _clipboardNotificationUntil;
+
+    private string _importNameBuffer = string.Empty;
+    private string _importKeyBuffer = string.Empty;
+    private string _importError = string.Empty;
+
     public Func<object?>? GetHostAutomaticRuleContext { get; set; }
 
     public HostGambaTab(
@@ -368,8 +378,29 @@ public class HostGambaTab
         var presetNames = presets.Select(p => p.Name).ToArray();
         var presetIdx = _form.SelectedPresetIndex;
 
-        ImGui.Text("Preset");
-        ImGui.SameLine(labelOffset);
+        var startY       = ImGui.GetCursorPosY();
+        var textLineH    = ImGui.GetTextLineHeight();
+        var frameH       = ImGui.GetFrameHeight();
+        var itemSpacingY = ImGui.GetStyle().ItemSpacing.Y;
+
+        ImGui.SetCursorPosX(labelOffset);
+        if (ImGui.SmallButton("Import Preset"))
+        {
+            _importNameBuffer = string.Empty;
+            _importKeyBuffer = string.Empty;
+            _importError = string.Empty;
+            ImGui.OpenPopup("ImportPresetPopup");
+        }
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Export to Clipboard"))
+            ExportCurrentPreset(presets);
+        if (DateTime.UtcNow < _clipboardNotificationUntil)
+        {
+            ImGui.SameLine();
+            ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), $"{_clipboardNotificationName} copied to clipboard!");
+        }
+
+        ImGui.SetCursorPosX(labelOffset);
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         if (ImGui.Combo("##PresetPicker", ref presetIdx, presetNames, presetNames.Length))
         {
@@ -407,6 +438,12 @@ public class HostGambaTab
                 DeleteCurrentPreset(gameType, presets);
         }
 
+        if (DateTime.UtcNow < _saveNotificationUntil)
+        {
+            ImGui.SameLine();
+            ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), $"{_saveNotificationName} saved!");
+        }
+
         var startBtnWidth = 120f * ImGuiHelpers.GlobalScale;
         ImGui.SameLine(ImGui.GetContentRegionMax().X - startBtnWidth);
         using (ImRaii.PushColor(ImGuiCol.Button, new System.Numerics.Vector4(0.2f, 0.6f, 0.2f, 1f)))
@@ -419,11 +456,19 @@ public class HostGambaTab
                 TriggerStartSession();
         }
 
+        var afterCursor = ImGui.GetCursorPos();
+        var labelY = startY + (textLineH + itemSpacingY + frameH) / 2f - textLineH / 2f;
+        ImGui.SetCursorPos(new System.Numerics.Vector2(0, labelY));
+        ImGui.Text("Preset");
+        ImGui.SetCursorPos(afterCursor);
+
         if (_showAddPresetInput)
             DrawAddPresetInput(gameType, presets);
 
         if (_showRenamePresetInput)
             DrawRenamePresetInput(gameType, presets);
+
+        DrawImportPresetPopup(gameType, presets);
     }
 
     private void DrawAddPresetInput(string gameType, List<GamePreset> presets)
@@ -458,6 +503,73 @@ public class HostGambaTab
         }
     }
 
+    private void DrawImportPresetPopup(string gameType, List<GamePreset> presets)
+    {
+        using var popup = ImRaii.Popup("ImportPresetPopup", ImGuiWindowFlags.AlwaysAutoResize);
+        if (!popup.Success)
+            return;
+
+        ImGui.Text("Preset Name");
+        ImGui.SetNextItemWidth(300 * ImGuiHelpers.GlobalScale);
+        ImGui.InputText("##ImportName", ref _importNameBuffer, 30);
+
+        ImGui.Spacing();
+        ImGui.Text("Import Key");
+        ImGui.SetNextItemWidth(300 * ImGuiHelpers.GlobalScale);
+        ImGui.InputText("##ImportKey", ref _importKeyBuffer, 4096);
+
+        if (!string.IsNullOrEmpty(_importError))
+        {
+            ImGui.Spacing();
+            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), _importError);
+        }
+
+        ImGui.Spacing();
+        using (ImRaii.Disabled(string.IsNullOrWhiteSpace(_importNameBuffer) || string.IsNullOrWhiteSpace(_importKeyBuffer)))
+        {
+            if (ImGui.Button("Import##ConfirmImport"))
+                TryImportPreset(gameType, presets);
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Cancel##ImportCancel"))
+            ImGui.CloseCurrentPopup();
+    }
+
+    private void TryImportPreset(string gameType, List<GamePreset> presets)
+    {
+        var name = _importNameBuffer.Trim();
+        if (presets.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            _importError = "A preset with that name already exists.";
+            return;
+        }
+
+        if (!PresetCodec.TryDecode(_importKeyBuffer.Trim(), out var ruleValues, out var description))
+        {
+            _importError = "Invalid import key.";
+            return;
+        }
+
+        var preset = new GamePreset { Name = name, RuleValues = ruleValues, Description = description };
+        presets.Add(preset);
+        _form.SelectedPresetIndex = presets.Count - 1;
+        _config.Save();
+        LoadSelectedPreset();
+        ImGui.CloseCurrentPopup();
+    }
+
+    private void ExportCurrentPreset(List<GamePreset> presets)
+    {
+        if (_form.SelectedPresetIndex < 0 || _form.SelectedPresetIndex >= presets.Count)
+            return;
+
+        var preset = presets[_form.SelectedPresetIndex];
+        var key = PresetCodec.Encode(preset.RuleValues, preset.Description);
+        ImGui.SetClipboardText(key);
+        _clipboardNotificationName = preset.Name;
+        _clipboardNotificationUntil = DateTime.UtcNow.AddSeconds(3);
+    }
+
     private void SaveCurrentPreset(string gameType, List<GamePreset> presets)
     {
         if (_form.SelectedPresetIndex < 0 || _form.SelectedPresetIndex >= presets.Count)
@@ -467,6 +579,9 @@ public class HostGambaTab
         preset.RuleValues = _form.RuleConfig?.SaveToPreset() ?? new();
         preset.Description = _form.Description;
         _config.Save();
+
+        _saveNotificationName = preset.Name;
+        _saveNotificationUntil = DateTime.UtcNow.AddSeconds(3);
     }
 
     private void DeleteCurrentPreset(string gameType, List<GamePreset> presets)
@@ -512,16 +627,30 @@ public class HostGambaTab
         if (ImGui.InputTextMultiline("##Description", ref desc, 512,
             new System.Numerics.Vector2(0, 60 * ImGuiHelpers.GlobalScale)))
             _form.Description = desc;
+
+        var charCount = _form.Description.Length;
+        var overLimit = charCount >= 511;
+        var countColor = overLimit
+            ? new System.Numerics.Vector4(1f, 0.2f, 0.2f, 1f)
+            : new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1f);
+        ImGui.TextColored(countColor, $"{charCount} / 511");
+        if (overLimit)
+        {
+            ImGui.SameLine();
+            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.2f, 0.2f, 1f), "- Description is too long!");
+        }
+
         ImGui.TextDisabled("No URLs or HTML permitted.");
         ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Please use the rules provided above to describe your session. I will add any rules to the plugin, just let me know!");
 
         ImGuiHelpers.ScaledDummy(6f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
-        ImGui.Text("Preview");
-        ImGuiHelpers.ScaledDummy(4f);
-
-        DrawPreviewSection();
+        if (ImGui.CollapsingHeader("Preview"))
+        {
+            ImGuiHelpers.ScaledDummy(4f);
+            DrawPreviewSection();
+        }
     }
 
     private Dictionary<string, object> BuildPreviewRules()
@@ -561,6 +690,12 @@ public class HostGambaTab
         if (!_playerInfo.IsLoggedIn)
         {
             _form.StatusMessage = "You must be logged in to start a session.";
+            return;
+        }
+
+        if (_form.Description.Length > 511)
+        {
+            _form.StatusMessage = "Description must be 511 characters or fewer.";
             return;
         }
 

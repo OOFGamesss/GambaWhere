@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Quick bug fix, preview wasn't updating when you changed to auto rules from a companion plugin.",
+  "Changelog": "Sorry guys, I know I am pumping these updates all at once, been working hard the past few days on these as separate features :P\n- Added shareable preset, you can now share your rules and description and also import others! Thanks Tugan for the suggestion.\n- Added a top prize rule for scratchcards to pick an in game item to share as a prize.\n- Amended preview section to a dropdown to keep the tab clean.",
   "Tags": [
     "gambling",
     "events",

@@ -37,7 +37,7 @@ public class GambaWhereClient : IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                _log.Error("GET /venues failed ({Status}): {Body}", response.StatusCode, body);
+                _log.Warning("GET /venues returned unexpected status ({Status}): {Body}", response.StatusCode, body);
                 return Array.Empty<string>();
             }
 
@@ -55,12 +55,21 @@ public class GambaWhereClient : IDisposable
     {
         try
         {
-            return await _http.GetFromJsonAsync<EventResponse[]>("/events", JsonOptions)
+            var response = await _http.GetAsync("/events");
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _log.Warning("GET /events returned unexpected status ({Status}): {Body}", response.StatusCode, body);
+                return null;
+            }
+
+            return System.Text.Json.JsonSerializer.Deserialize<EventResponse[]>(body, JsonOptions)
                    ?? Array.Empty<EventResponse>();
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Failed to fetch events.");
+            _log.Error(ex, "GET /events exception.");
             return null;
         }
     }
@@ -75,7 +84,7 @@ public class GambaWhereClient : IDisposable
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync();
-                _log.Error("POST /events failed ({Status}): {Body}", response.StatusCode, body);
+                _log.Warning("POST /events returned unexpected status ({Status}): {Body}", response.StatusCode, body);
                 return null;
             }
 
@@ -102,7 +111,7 @@ public class GambaWhereClient : IDisposable
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync();
-                _log.Error("PUT /events/{Name} failed ({Status}): {Body}", characterName, response.StatusCode, body);
+                _log.Warning("PUT /events/{Name} returned unexpected status ({Status}): {Body}", characterName, response.StatusCode, body);
                 return null;
             }
 
