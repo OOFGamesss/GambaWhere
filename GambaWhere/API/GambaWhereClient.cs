@@ -69,6 +69,7 @@ public class GambaWhereClient : IDisposable
     {
         try
         {
+            _log.Information("POST /events payload: {Payload}", System.Text.Json.JsonSerializer.Serialize(request, JsonOptions));
             var response = await _http.PostAsJsonAsync("/events", request, JsonOptions);
 
             if (!response.IsSuccessStatusCode)

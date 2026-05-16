@@ -95,6 +95,16 @@ public class HostGambaTab
         OnGameTypeChanged();
     }
 
+    public void SelectMiniGames()
+    {
+        var index = Array.IndexOf(GameTypes, "Mini Games");
+        if (index < 0 || index == _form.SelectedGameIndex)
+            return;
+
+        _form.SelectedGameIndex = index;
+        OnGameTypeChanged();
+    }
+
     public void SelectBlackjack()
     {
         var index = Array.IndexOf(GameTypes, "Blackjack");

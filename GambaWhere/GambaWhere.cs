@@ -52,6 +52,7 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly SimpleWheelIpc _wheelIpc;
     private readonly SimplePokerIpc _pokerIpc;
     private readonly SimpleScratchIpc _scratchIpc;
+    private readonly MiniGamesEmporiumIpc _miniGamesIpc;
     private readonly AlertingService _alertingService;
 
     public GambaWhere()
@@ -104,15 +105,17 @@ public sealed class GambaWhere : IDalamudPlugin
         _wheelIpc = new SimpleWheelIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _pokerIpc = new SimplePokerIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _scratchIpc = new SimpleScratchIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _miniGamesIpc = new MiniGamesEmporiumIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
 
         _sessionService.RefreshAutomaticRulesFromIpc =
-            new AutomaticRulesIpcRefresher(_bingoIpc, _rouletteIpc, _chocoboIpc).TryRefresh;
+            new AutomaticRulesIpcRefresher(_bingoIpc, _rouletteIpc, _chocoboIpc, _miniGamesIpc).TryRefresh;
 
         hostTab.GetHostAutomaticRuleContext = () => hostTab.GetSelectedGameType() switch
         {
             "Bingo" => _bingoIpc.GetGameInfo(),
             "Roulette" => _rouletteIpc.GetGameInfo(),
             "Chocobo Racing" => _chocoboIpc.GetGameInfo(),
+            "Mini Games" => _miniGamesIpc.GetGameInfo(),
             _ => null
         };
 
@@ -155,6 +158,7 @@ public sealed class GambaWhere : IDalamudPlugin
         _wheelIpc.Dispose();
         _pokerIpc.Dispose();
         _scratchIpc.Dispose();
+        _miniGamesIpc.Dispose();
 
         CommandManager.RemoveHandler(MainCommand);
         CommandManager.RemoveHandler(AliasCommand);

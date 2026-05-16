@@ -1,4 +1,5 @@
 using System;
+using Dalamud.Game;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
@@ -104,9 +105,15 @@ public class PlayerInfoService
                 return resolved;
         }
 
+        // Fetch the English place name sheet explicitly to avoid lazy-loading the client language.
+        var englishPlaceNames = _dataManager.GetExcelSheet<PlaceName>(ClientLanguage.English);
+        if (englishPlaceNames != null && englishPlaceNames.TryGetRow(territory.PlaceName.RowId, out var englishPlace))
+            return FormatPlaceAreaName(englishPlace.Name.ToString());
+
+        // Fall back to the default client-language value if the English sheet is unavailable.
         return FormatPlaceAreaName(territory.PlaceName.Value.Name.ToString());
     }
-    
+
     private string? ResolveHousingDistrictAreaName()
     {
         uint territoryTypeId = HousingManager.GetOriginalHouseTerritoryTypeId();
@@ -127,6 +134,15 @@ public class PlayerInfoService
         if (!_dataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryTypeId, out var wardTerritory))
             return null;
 
+        // Fetch the English place name sheet explicitly to avoid lazy-loading the client language.
+        var englishPlaceNames = _dataManager.GetExcelSheet<PlaceName>(ClientLanguage.English);
+        if (englishPlaceNames != null && englishPlaceNames.TryGetRow(wardTerritory.PlaceName.RowId, out var englishPlace))
+        {
+            var englishRaw = englishPlace.Name.ToString();
+            return string.IsNullOrWhiteSpace(englishRaw) ? null : FormatPlaceAreaName(englishRaw);
+        }
+
+        // Fall back to the default client-language value if the English sheet is unavailable.
         var raw = wardTerritory.PlaceName.Value.Name.ToString();
         return string.IsNullOrWhiteSpace(raw) ? null : FormatPlaceAreaName(raw);
     }

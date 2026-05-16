@@ -17,7 +17,7 @@ public class GameListTab
     private static readonly float ImageSize = 70f;
 
     private const string SimpleGambaGamesUrl = "https://simple.gamba.pro/#games";
-    private const string OofGamesPluginsRepoUrl = "https://github.com/OOFGamesss/OOFGamesPlugins";
+    private const string OofGamesPluginsRepoUrl = "https://discord.gg/vM6ff4h5Ym";
 
     private static readonly (string DisplayName, string? CompanionPlugin)[] HostableGames =
     {
@@ -48,7 +48,7 @@ public class GameListTab
 
     private static string? GetDownloadUrl(string displayName) => displayName switch
     {
-        "Mini Games" => null,
+        "Mini Games" => OofGamesPluginsRepoUrl,
         "Chocobo Racing" => OofGamesPluginsRepoUrl,
         _ => SimpleGambaGamesUrl
     };
@@ -130,9 +130,7 @@ public class GameListTab
 
             var description = GetGameDescription(displayName);
             var companionLine = !string.IsNullOrEmpty(companionPlugin)
-                ? displayName == "Mini Games"
-                    ? $"Companion plugin: {companionPlugin} (WIP)"
-                    : $"Companion plugin: {companionPlugin}"
+                ? $"Companion plugin: {companionPlugin}"
                 : "No Plugin Available at this time.";
 
             var companionColWidth = ImGui.CalcTextSize(companionLine).X + ImGui.GetStyle().CellPadding.X;

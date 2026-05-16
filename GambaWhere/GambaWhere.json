@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Fixed a bug where the plugin would not show the correct location in housing districts. Please let me know if anyone experiences this bug again with your location, if you was in an apartment etc.",
+  "Changelog": "- Added IPC to Mini Games Emporium, alert on window open and session game info detection.\n- Fixed location bug where it was trying to send the location names based on client language.",
   "Tags": [
     "gambling",
     "events",
