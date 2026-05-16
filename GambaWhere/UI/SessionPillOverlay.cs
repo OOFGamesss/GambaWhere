@@ -167,13 +167,20 @@ public class SessionPillOverlay : Window, IDisposable
     private void DrawPauseButton()
     {
         var icon = _sessionState.IsPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
-        using var padding = ImRaii.PushStyle(ImGuiStyleVar.FramePadding, new Vector2(3f, 2f));
+        const float scale = 0.65f;
+        const float vPad = 3f;
+        var pad = ImGui.GetTextLineHeight() * (1f - scale) / 2f;
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + Math.Max(0f, pad - vPad) + 2f);
+        using var framePad = ImRaii.PushStyle(ImGuiStyleVar.FramePadding, new Vector2(vPad + 0.2f, vPad));
+        ImGui.SetWindowFontScale(scale);
         if (ImGuiComponents.IconButton("##PillPause", icon))
             _ = Task.Run(() => _sessionService.TogglePauseAsync());
+        ImGui.SetWindowFontScale(1.0f);
     }
 
     private void DrawStopButton()
     {
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 1f);
         if (ImGui.SmallButton("Stop##PillStop"))
             ImGui.OpenPopup("##GWStopConfirm");
     }
