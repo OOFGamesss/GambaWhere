@@ -32,7 +32,7 @@ public static class ManualVsAutomaticHostRulesDraw
         var useManual = form.UseManualHostRules;
         var manualSectionActive = useManual || !canUseAuto;
         var autoSectionActive = canUseAuto && !useManual;
-        var autoLabel = $"Use rules from {automaticSource.AutomaticRulesPluginName}##gw_auto";
+        var autoLabel = $"Use game info from {automaticSource.AutomaticRulesPluginName}##gw_auto";
 
         var padManual = Math.Max(0f, s_naturalHeightAuto - s_naturalHeightManual);
         var padAuto = Math.Max(0f, s_naturalHeightManual - s_naturalHeightAuto);
@@ -62,7 +62,7 @@ public static class ManualVsAutomaticHostRulesDraw
                 manualCb = true;
             }
 
-            if (ImGui.Checkbox("Use manual rules##gw_manual", ref manualCb) && canUseAuto)
+            if (ImGui.Checkbox("Set game info manually##gw_manual", ref manualCb) && canUseAuto)
                 form.UseManualHostRules = manualCb;
 
             if (!canUseAuto)

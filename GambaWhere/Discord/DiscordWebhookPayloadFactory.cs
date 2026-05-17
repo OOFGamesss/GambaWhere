@@ -70,7 +70,7 @@ internal static class DiscordWebhookPayloadFactory
             },
             new()
             {
-                Name = "Rules",
+                Name = "Game Info",
                 Value = DiscordEmbedTextFormatter.FormatRules(rulesDict),
                 Inline = false
             }

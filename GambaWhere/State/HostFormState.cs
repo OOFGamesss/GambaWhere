@@ -4,7 +4,7 @@ namespace GambaWhere.State;
 
 public class HostFormState
 {
-    public int SelectedVenueIndex { get; set; } = 0;
+    public string? SelectedVenueName { get; set; } = null;
 
     public int SelectedGameIndex { get; set; } = 0;
 

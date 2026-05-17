@@ -29,6 +29,8 @@ public class Configuration : IPluginConfiguration
     public float PillPositionX { get; set; } = 50f;
     public float PillPositionY { get; set; } = 50f;
 
+    public List<string> FavouriteVenues { get; set; } = new();
+
     public Vector4 PrimaryColour { get; set; } = DefaultPrimaryColour;
     public Vector4 SecondaryColour { get; set; } = DefaultSecondaryColour;
 

@@ -33,7 +33,6 @@ public class HostGambaTab
 
     private readonly IRuleConfig[] _ruleConfigs;
 
-    private volatile string[] _venueOptions = { "No Venue" };
     private bool _venuesFetched;
     private volatile bool _isFetchingVenues;
 
@@ -234,7 +233,7 @@ public class HostGambaTab
         ImGuiHelpers.ScaledDummy(4f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
-        ImGui.TextDisabled("Rules");
+        ImGui.TextDisabled("Game Info");
         ImGuiHelpers.ScaledDummy(2f);
 
         var offset = CalcActiveRulesLabelOffset(_sessionState.ActiveRules);
@@ -319,13 +318,12 @@ public class HostGambaTab
 
     private void DrawVenueDropdown(float labelOffset)
     {
-        var options = _venueOptions;
-        var venueIdx = _form.SelectedVenueIndex;
         ImGui.Text("Venue");
         ImGui.SameLine(labelOffset);
         ImGui.SetNextItemWidth(240 * ImGuiHelpers.GlobalScale);
-        if (ImGui.Combo("##VenuePicker", ref venueIdx, options, options.Length))
-            _form.SelectedVenueIndex = Math.Min(venueIdx, options.Length - 1);
+        var venueName = _form.SelectedVenueName;
+        if (VenueSearchCombo.Draw("##VenuePicker", ref venueName, _config.FavouriteVenues, () => _config.Save()))
+            _form.SelectedVenueName = venueName;
         ImGui.SameLine();
         var fetching = _isFetchingVenues;
         using (ImRaii.Disabled(fetching))
@@ -674,7 +672,7 @@ public class HostGambaTab
             : "Your Character";
 
         var gameType = GameTypes[_form.SelectedGameIndex];
-        var venueName = _venueOptions[_form.SelectedVenueIndex];
+        var venueName = _form.SelectedVenueName ?? "No Venue";
         var rules = BuildPreviewRules();
 
         EventCardRenderer.DrawPreviewCard(characterName, gameType, venueName, _form.Description, rules, _imageCache);
@@ -711,7 +709,7 @@ public class HostGambaTab
         var characterName = _playerInfo.GetCharacterName()!;
         var location = _playerInfo.GetCurrentLocation() ?? "Unknown";
         var gameType = GameTypes[_form.SelectedGameIndex];
-        var venueName = _venueOptions[_form.SelectedVenueIndex];
+        var venueName = _form.SelectedVenueName ?? "No Venue";
         var rulesSnapshot = _form.RuleConfig?.ToApiPayload() ?? new();
         var usedAutomaticIpc = false;
 
@@ -772,10 +770,7 @@ public class HostGambaTab
         _ = Task.Run(async () =>
         {
             var venues = await _client.GetVenuesAsync();
-            var options = new string[venues.Length + 1];
-            options[0] = "No Venue";
-            Array.Copy(venues, 0, options, 1, venues.Length);
-            _venueOptions = options;
+            VenueSearchCombo.SetVenues(venues);
             _isFetchingVenues = false;
         });
     }
