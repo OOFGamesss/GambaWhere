@@ -9,6 +9,7 @@ using Dalamud.Interface.Windowing;
 using GambaWhere.Config;
 using GambaWhere.Services;
 using GambaWhere.State;
+using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 using static GambaWhere.Utility.ThemeColours;
 
@@ -196,7 +197,7 @@ public class SessionPillOverlay : Window, IDisposable
         ImGui.TextUnformatted("End the current session?");
         ImGui.Spacing();
 
-        if (ImGui.Button("Yes, stop session"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Check, "Yes, stop session", "##YesStop"))
         {
             _ = Task.Run(() => _sessionService.StopSessionAsync());
             ImGui.CloseCurrentPopup();
@@ -204,7 +205,7 @@ public class SessionPillOverlay : Window, IDisposable
 
         ImGui.SameLine();
 
-        if (ImGui.Button("Cancel"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Times, "Cancel", "##CancelStop"))
             ImGui.CloseCurrentPopup();
     }
 

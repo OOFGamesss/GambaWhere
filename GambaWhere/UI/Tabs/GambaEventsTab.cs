@@ -98,7 +98,7 @@ public class GambaEventsTab
         var refreshing = _isRefreshing;
         using (ImRaii.Disabled(refreshing))
         {
-            if (ImGui.Button(refreshing ? "Refreshing..." : "Refresh"))
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Sync, refreshing ? "Refreshing..." : "Refresh", "##Refresh"))
                 TriggerRefresh();
         }
 
@@ -443,7 +443,7 @@ public class GambaEventsTab
 
             using (ImRaii.Disabled(!teleportEnabled))
             {
-                if (ImGui.SmallButton($"Teleport##teleportBtn"))
+                if (UIHelper.IconTextButton(FontAwesomeIcon.MapMarkerAlt, "Teleport", "##teleportBtn"))
                     _teleport.RequestTravel(ev);
             }
 

@@ -1,8 +1,10 @@
 using System;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using GambaWhere.UI.Components;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using GambaWhere.Config;
@@ -114,7 +116,7 @@ public class SettingsTab
 
             if (_pillOverlay.IsMoving)
             {
-                if (ImGui.Button("Lock Pill in Place"))
+                if (UIHelper.IconTextButton(FontAwesomeIcon.Lock, "Lock Pill in Place", "##LockPill"))
                     _pillOverlay.ExitMoveMode();
 
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -122,7 +124,7 @@ public class SettingsTab
 
                 ImGui.SameLine();
 
-                if (ImGui.Button("Reset Pill Position"))
+                if (UIHelper.IconTextButton(FontAwesomeIcon.Undo, "Reset Pill Position", "##ResetPillPos"))
                     _pillOverlay.ResetPosition();
 
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -130,7 +132,7 @@ public class SettingsTab
             }
             else
             {
-                if (ImGui.Button("Move Pill"))
+                if (UIHelper.IconTextButton(FontAwesomeIcon.ArrowsUpDownLeftRight, "Move Pill", "##MovePill"))
                     _pillOverlay.EnterMoveMode();
 
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -175,7 +177,7 @@ public class SettingsTab
             }
 
             ImGui.SameLine();
-            if (ImGui.Button("Test"))
+            if (UIHelper.IconTextButton(FontAwesomeIcon.VolumeUp, "Test", "##TestSound"))
                 PlaySoundEffect(Math.Clamp(_config.AlertSoundEffectId, 1, 16));
 
             ImGui.Unindent();
@@ -205,7 +207,7 @@ public class SettingsTab
             ImGui.SetTooltip("Used for card backgrounds, section panels, and borders.");
 
         ImGui.SameLine();
-        if (ImGui.SmallButton("Reset##ResetPrimary"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Undo, "Reset", "##ResetPrimary"))
         {
             _config.PrimaryColour = Configuration.DefaultPrimaryColour;
             _config.Save();
@@ -226,7 +228,7 @@ public class SettingsTab
             ImGui.SetTooltip("Used for accent text, headings, and highlighted labels.");
 
         ImGui.SameLine();
-        if (ImGui.SmallButton("Reset##ResetSecondary"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Undo, "Reset", "##ResetSecondary"))
         {
             _config.SecondaryColour = Configuration.DefaultSecondaryColour;
             _config.Save();
@@ -239,10 +241,8 @@ public class SettingsTab
         var count = _imageCache.GetCachedImageCount();
         ImGui.TextUnformatted($"Images stored: {count}");
 
-        if (ImGui.Button("Clear Venue Image Cache"))
-        {
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Clear Venue Image Cache", "##ClearImageCache"))
             _imageCache.ClearCache();
-        }
     }
 
     private void PlaySoundEffect(int id)

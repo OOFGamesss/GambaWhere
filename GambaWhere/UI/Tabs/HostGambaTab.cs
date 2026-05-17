@@ -183,14 +183,11 @@ public class HostGambaTab
     {
         ImGui.TextColored(new System.Numerics.Vector4(0.4f, 1f, 0.4f, 1f), "Session Active");
 
-        var stopBtnWidth = 120f * ImGuiHelpers.GlobalScale;
-        ImGui.SameLine(ImGui.GetContentRegionMax().X - stopBtnWidth);
-        using (ImRaii.PushColor(ImGuiCol.Button, new System.Numerics.Vector4(0.7f, 0.15f, 0.15f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new System.Numerics.Vector4(0.85f, 0.25f, 0.25f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonActive, new System.Numerics.Vector4(0.6f, 0.1f, 0.1f, 1f)))
+        ImGui.SameLine(ImGui.GetContentRegionMax().X - UIHelper.CalcButtonSize(FontAwesomeIcon.Stop, "Stop Session").X);
+        using var stopColours = UIHelper.PushRedButtonColours();
         using (ImRaii.Disabled(_form.IsStarting))
         {
-            if (ImGui.Button("Stop Session", new System.Numerics.Vector2(stopBtnWidth, 0)))
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Stop, "Stop Session"))
                 TriggerStopSession();
         }
 
@@ -382,7 +379,7 @@ public class HostGambaTab
         var itemSpacingY = ImGui.GetStyle().ItemSpacing.Y;
 
         ImGui.SetCursorPosX(labelOffset);
-        if (ImGui.SmallButton("Import Preset"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.FileImport, "Import Preset", "##ImportPresetBtn"))
         {
             _importNameBuffer = string.Empty;
             _importKeyBuffer = string.Empty;
@@ -390,7 +387,7 @@ public class HostGambaTab
             ImGui.OpenPopup("ImportPresetPopup");
         }
         ImGui.SameLine();
-        if (ImGui.SmallButton("Export to Clipboard"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Copy, "Export to Clipboard", "##ExportToClipboard"))
             ExportCurrentPreset(presets);
         if (DateTime.UtcNow < _clipboardNotificationUntil)
         {
@@ -410,11 +407,11 @@ public class HostGambaTab
         }
 
         ImGui.SameLine();
-        if (ImGui.SmallButton("Save"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Save, "Save", "##SavePreset"))
             SaveCurrentPreset(gameType, presets);
 
         ImGui.SameLine();
-        if (ImGui.SmallButton("Add"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Plus, "Add", "##AddPreset"))
         {
             _showAddPresetInput = !_showAddPresetInput;
             _showRenamePresetInput = false;
@@ -422,7 +419,7 @@ public class HostGambaTab
         }
 
         ImGui.SameLine();
-        if (ImGui.SmallButton("Rename"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Pen, "Rename", "##RenamePreset"))
         {
             _showRenamePresetInput = !_showRenamePresetInput;
             _showAddPresetInput = false;
@@ -432,7 +429,7 @@ public class HostGambaTab
         if (presets.Count > 1)
         {
             ImGui.SameLine();
-            if (ImGui.SmallButton("Delete"))
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Delete", "##DeletePreset"))
                 DeleteCurrentPreset(gameType, presets);
         }
 
@@ -442,15 +439,13 @@ public class HostGambaTab
             ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), $"{_saveNotificationName} saved!");
         }
 
-        var startBtnWidth = 120f * ImGuiHelpers.GlobalScale;
+        var startLabel = _form.IsStarting ? "Starting..." : "Start Hosting";
+        var startBtnWidth = UIHelper.CalcButtonSize(FontAwesomeIcon.Play, startLabel).X;
         ImGui.SameLine(ImGui.GetContentRegionMax().X - startBtnWidth);
-        using (ImRaii.PushColor(ImGuiCol.Button, new System.Numerics.Vector4(0.2f, 0.6f, 0.2f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new System.Numerics.Vector4(0.3f, 0.75f, 0.3f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonActive, new System.Numerics.Vector4(0.15f, 0.5f, 0.15f, 1f)))
+        using var startColours = UIHelper.PushGreenButtonColours();
         using (ImRaii.Disabled(_form.IsStarting))
         {
-            var startLabel = _form.IsStarting ? "Starting..." : "Start Hosting";
-            if (ImGui.Button(startLabel, new System.Numerics.Vector2(startBtnWidth, 0)))
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Play, startLabel, "##StartHosting"))
                 TriggerStartSession();
         }
 
@@ -474,7 +469,7 @@ public class HostGambaTab
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         ImGui.InputText("##NewPresetName", ref _newPresetNameBuffer, 64);
         ImGui.SameLine();
-        if (ImGui.SmallButton("Confirm##AddPreset") && !string.IsNullOrWhiteSpace(_newPresetNameBuffer))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Check, "Confirm", "##ConfirmAddPreset") && !string.IsNullOrWhiteSpace(_newPresetNameBuffer))
         {
             var preset = new GamePreset
             {
@@ -493,7 +488,7 @@ public class HostGambaTab
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         ImGui.InputText("##RenamePreset", ref _renameBuffer, 64);
         ImGui.SameLine();
-        if (ImGui.SmallButton("Confirm##RenamePreset") && !string.IsNullOrWhiteSpace(_renameBuffer))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Check, "Confirm", "##ConfirmRenamePreset") && !string.IsNullOrWhiteSpace(_renameBuffer))
         {
             presets[_form.SelectedPresetIndex].Name = _renameBuffer.Trim();
             _config.Save();
@@ -525,11 +520,11 @@ public class HostGambaTab
         ImGui.Spacing();
         using (ImRaii.Disabled(string.IsNullOrWhiteSpace(_importNameBuffer) || string.IsNullOrWhiteSpace(_importKeyBuffer)))
         {
-            if (ImGui.Button("Import##ConfirmImport"))
+            if (UIHelper.IconTextButton(FontAwesomeIcon.FileImport, "Import", "##ConfirmImport"))
                 TryImportPreset(gameType, presets);
         }
         ImGui.SameLine();
-        if (ImGui.Button("Cancel##ImportCancel"))
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Times, "Cancel", "##ImportCancel"))
             ImGui.CloseCurrentPopup();
     }
 
