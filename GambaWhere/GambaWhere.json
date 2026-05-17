@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Changed venue dropdown to include a search bar and a heart button to favourite venues.\n- Added Death roll as an option under mini games.\n- Renamed rules to game info.",
+  "Changelog": "- Update IPC data from Mini Games Emporium.",
   "Tags": [
     "gambling",
     "events",

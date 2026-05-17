@@ -88,6 +88,7 @@ public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
             ["boostedPot"] = info.BoostedPot,
             ["totalPot"] = info.TotalPot,
             ["costPerRoll"] = info.CostPerRoll,
+            ["maxRolls"] = info.MaxRolls,
             ["playersPlayed"] = info.PlayersPlayed
         };
 
@@ -108,6 +109,7 @@ public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
         ImGui.Text($"Boosted Pot: {info.BoostedPot:N0}");
         ImGui.Text($"Total Pot: {info.TotalPot:N0}");
         ImGui.Text($"Cost Per Roll: {info.CostPerRoll:N0}");
+        ImGui.Text($"Max Rolls: {info.MaxRolls:N0}");
         ImGui.Text($"Players Played: {info.PlayersPlayed:N0}");
         if (info.Queue.HasValue)
             ImGui.Text($"Queue: {info.Queue.Value:N0}");
