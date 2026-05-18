@@ -6,7 +6,7 @@ namespace GambaWhere.IPC;
 /// Serialisable race settings snapshot from Chocobo Racing (active preset plus live party size).
 /// </summary>
 [Serializable]
-public sealed class RaceGameInfoIPC
+public sealed class ChocoboRacingGambaData
 {
     public int ChocoboRunners { get; set; }
 

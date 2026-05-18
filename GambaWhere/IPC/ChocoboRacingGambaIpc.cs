@@ -22,7 +22,7 @@ public sealed class ChocoboRacingGambaIpc : IDisposable
     private readonly ICallGateSubscriber<Action> _subscriber;
     private readonly ICallGateSubscriber<object> _gameInfoSubscriber;
 
-    private RaceGameInfoIPC? _cachedGameInfo;
+    private ChocoboRacingGambaData? _cachedGameInfo;
     private long _lastCheckTick;
 
     private readonly MainWindow _mainWindow;
@@ -55,7 +55,7 @@ public sealed class ChocoboRacingGambaIpc : IDisposable
         _gameInfoSubscriber = pluginInterface.GetIpcSubscriber<object>(GameInfoIpcKey);
     }
 
-    public RaceGameInfoIPC? GetGameInfo(bool forceRefresh = false)
+    public ChocoboRacingGambaData? GetGameInfo(bool forceRefresh = false)
     {
         var currentTick = Environment.TickCount64;
         if (!forceRefresh && currentTick - _lastCheckTick < 30000)
@@ -86,25 +86,25 @@ public sealed class ChocoboRacingGambaIpc : IDisposable
         }
     }
 
-    private static RaceGameInfoIPC? DeserializeGameInfo(object raw)
+    private static ChocoboRacingGambaData? DeserializeGameInfo(object raw)
     {
         switch (raw)
         {
-            case RaceGameInfoIPC r:
+            case ChocoboRacingGambaData r:
                 return r;
             case string s when !string.IsNullOrWhiteSpace(s):
-                return JsonConvert.DeserializeObject<RaceGameInfoIPC>(s);
+                return JsonConvert.DeserializeObject<ChocoboRacingGambaData>(s);
             case JObject jo:
-                return jo.ToObject<RaceGameInfoIPC>();
+                return jo.ToObject<ChocoboRacingGambaData>();
             case JToken token:
-                return token.ToObject<RaceGameInfoIPC>();
+                return token.ToObject<ChocoboRacingGambaData>();
             case JsonElement je:
-                return JsonConvert.DeserializeObject<RaceGameInfoIPC>(je.GetRawText());
+                return JsonConvert.DeserializeObject<ChocoboRacingGambaData>(je.GetRawText());
             default:
                 var json = JsonConvert.SerializeObject(raw);
                 if (string.IsNullOrWhiteSpace(json) || json == "{}")
                     return null;
-                return JsonConvert.DeserializeObject<RaceGameInfoIPC>(json);
+                return JsonConvert.DeserializeObject<ChocoboRacingGambaData>(json);
         }
     }
 

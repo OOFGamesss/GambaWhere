@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Added new button designs to the plugin.",
+  "Changelog": "- Tweaked IPC from chocobo racing to exclude perfect odds when not set.",
   "Tags": [
     "gambling",
     "events",

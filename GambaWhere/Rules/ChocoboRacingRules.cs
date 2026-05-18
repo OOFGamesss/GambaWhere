@@ -59,14 +59,19 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
         _perfectRaceOdds = RuleClamp.MinF(_perfectRaceOdds, 0.0f);
     }
 
-    public Dictionary<string, object> ToApiPayload() => new()
+    public Dictionary<string, object> ToApiPayload()
     {
-        { "chocoboRunners", _chocoboRunners },
-        { "raceTrackLength", _raceTrackLength },
-        { "maxBetPerChocobo", _maxBetPerChocobo },
-        { "payoutOdds", _payoutOdds },
-        { "perfectRaceOdds", _perfectRaceOdds }
-    };
+        var payload = new Dictionary<string, object>
+        {
+            { "chocoboRunners", _chocoboRunners },
+            { "raceTrackLength", _raceTrackLength },
+            { "maxBetPerChocobo", _maxBetPerChocobo },
+            { "payoutOdds", _payoutOdds }
+        };
+        if (_perfectRaceOdds > 0f)
+            payload["perfectRaceOdds"] = _perfectRaceOdds;
+        return payload;
+    }
 
     public void LoadFromPreset(Dictionary<string, object> values)
     {
@@ -83,7 +88,7 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
 
     public bool TryGetAutomaticApiRules(object? ipcContext, out Dictionary<string, object>? rules)
     {
-        if (ipcContext is not RaceGameInfoIPC info)
+        if (ipcContext is not ChocoboRacingGambaData info)
         {
             rules = null;
             return false;
@@ -95,15 +100,16 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
             ["raceTrackLength"] = info.RaceTrackLength,
             ["maxBetPerChocobo"] = (int)System.Math.Min(info.MaxBetPerChocobo, int.MaxValue),
             ["payoutOdds"] = info.PayoutOdds,
-            ["perfectRaceOdds"] = info.PerfectRaceOdds,
             ["currentPlayers"] = info.CurrentPlayers
         };
+        if (info.PerfectRaceOdds > 0f)
+            rules["perfectRaceOdds"] = info.PerfectRaceOdds;
         return true;
     }
 
     public void DrawAutomaticRulesSummary(object? ipcContext)
     {
-        if (ipcContext is not RaceGameInfoIPC raceInfo)
+        if (ipcContext is not ChocoboRacingGambaData raceInfo)
         {
             ImGui.TextDisabled("No session has been started");
             return;
@@ -113,9 +119,7 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
         ImGui.Text($"Race track length: {raceInfo.RaceTrackLength}");
         ImGui.Text($"Max bet per chocobo: {raceInfo.MaxBetPerChocobo:N0}");
         ImGui.Text($"Payout odds: {raceInfo.PayoutOdds:N2}x");
-        if (raceInfo.PerfectRaceOdds <= 0f)
-            ImGui.Text("Perfect race: off");
-        else
+        if (raceInfo.PerfectRaceOdds > 0f)
             ImGui.Text($"Perfect race odds: {raceInfo.PerfectRaceOdds:N2}x");
 
         ImGui.Text($"Current players: {raceInfo.CurrentPlayers}");
