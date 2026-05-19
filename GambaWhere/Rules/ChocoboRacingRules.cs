@@ -100,10 +100,10 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
             ["raceTrackLength"] = info.RaceTrackLength,
             ["maxBetPerChocobo"] = (int)System.Math.Min(info.MaxBetPerChocobo, int.MaxValue),
             ["payoutOdds"] = info.PayoutOdds,
-            ["currentPlayers"] = info.CurrentPlayers
         };
         if (info.PerfectRaceOdds > 0f)
             rules["perfectRaceOdds"] = info.PerfectRaceOdds;
+        rules["currentPlayers"] = info.CurrentPlayers;
         return true;
     }
 

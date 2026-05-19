@@ -16,14 +16,19 @@ namespace GambaWhere.IPC;
 public sealed class MiniGamesEmporiumIpc : IDisposable
 {
     private const string WindowOpenedIpcKey = "MiniGamesEmporium.WindowOpened";
-    private const string GameInfoIpcKey = "MiniGamesEmporium.Bar777.GetInfo";
+    private const string Bar777IpcKey = "MiniGamesEmporium.Bar777.GetInfo";
+    private const string DeathrollTournamentIpcKey = "MiniGamesEmporium.DeathrollTournament.GetInfo";
     private const uint LinkId = 9;
 
     private readonly ICallGateSubscriber<object> _windowOpenedSubscriber;
-    private readonly ICallGateSubscriber<object> _gameInfoSubscriber;
+    private readonly ICallGateSubscriber<object> _bar777Subscriber;
+    private readonly ICallGateSubscriber<object> _deathrollSubscriber;
 
-    private MiniGamesEmporiumData? _cachedGameInfo;
-    private long _lastCheckTick;
+    private BAR777Data? _cachedBar777Info;
+    private long _lastBar777CheckTick;
+
+    private DeathrollTournamentData? _cachedDeathrollInfo;
+    private long _lastDeathrollCheckTick;
 
     private readonly MainWindow _mainWindow;
     private readonly HostGambaTab _hostTab;
@@ -52,52 +57,97 @@ public sealed class MiniGamesEmporiumIpc : IDisposable
         _windowOpenedSubscriber = pluginInterface.GetIpcSubscriber<object>(WindowOpenedIpcKey);
         _windowOpenedSubscriber.Subscribe(OnWindowOpened);
 
-        _gameInfoSubscriber = pluginInterface.GetIpcSubscriber<object>(GameInfoIpcKey);
-        _gameInfoSubscriber.Subscribe(OnSessionUpdated);
+        _bar777Subscriber = pluginInterface.GetIpcSubscriber<object>(Bar777IpcKey);
+        _bar777Subscriber.Subscribe(OnBar777SessionUpdated);
+
+        _deathrollSubscriber = pluginInterface.GetIpcSubscriber<object>(DeathrollTournamentIpcKey);
+        _deathrollSubscriber.Subscribe(OnDeathrollSessionUpdated);
     }
 
     private const long ValidCacheMs = 30_000;
     private const long EmptyCacheMs = 1_000;
 
-    public MiniGamesEmporiumData? GetGameInfo(bool forceRefresh = false)
+    public object? GetGameInfo(bool forceRefresh = false)
+    {
+        var bar777 = GetBar777Info(forceRefresh);
+        if (bar777 != null) return bar777;
+        return GetDeathrollInfo(forceRefresh);
+    }
+
+    public void Dispose()
+    {
+        _windowOpenedSubscriber.Unsubscribe(OnWindowOpened);
+        _bar777Subscriber.Unsubscribe(OnBar777SessionUpdated);
+        _deathrollSubscriber.Unsubscribe(OnDeathrollSessionUpdated);
+        _chatGui.RemoveChatLinkHandler(LinkId);
+    }
+
+    private BAR777Data? GetBar777Info(bool forceRefresh = false)
     {
         var currentTick = Environment.TickCount64;
-        var ttl = _cachedGameInfo == null ? EmptyCacheMs : ValidCacheMs;
-        if (!forceRefresh && currentTick - _lastCheckTick < ttl)
-            return _cachedGameInfo;
+        var ttl = _cachedBar777Info == null ? EmptyCacheMs : ValidCacheMs;
+        if (!forceRefresh && currentTick - _lastBar777CheckTick < ttl)
+            return _cachedBar777Info;
 
-        _lastCheckTick = currentTick;
+        _lastBar777CheckTick = currentTick;
 
         try
         {
-            var rawData = _gameInfoSubscriber.InvokeFunc();
+            var rawData = _bar777Subscriber.InvokeFunc();
             if (rawData == null)
             {
-                _log.Verbose("[GambaWhere/MiniGames] GetBar777Info IPC returned null.");
-                _cachedGameInfo = null;
+                _log.Verbose("[GambaWhere/MiniGames] Bar777 GetInfo IPC returned null.");
+                _cachedBar777Info = null;
                 return null;
             }
 
-            _log.Verbose($"[GambaWhere/MiniGames] GetBar777Info IPC returned: {rawData}");
-            _cachedGameInfo = DeserializeGameInfo(rawData);
-            return _cachedGameInfo;
+            _log.Verbose($"[GambaWhere/MiniGames] Bar777 GetInfo IPC returned: {rawData}");
+            _cachedBar777Info = DeserializeBar777Info(rawData);
+            return _cachedBar777Info;
         }
         catch (Exception ex)
         {
             if (ex.Message.Contains("not registered"))
                 _log.Verbose($"[GambaWhere/MiniGames] MiniGamesEmporium not loaded: {ex.Message}");
             else
-                _log.Warning($"[GambaWhere/MiniGames] GetBar777Info failed: {ex.Message}");
-            _cachedGameInfo = null;
+                _log.Warning($"[GambaWhere/MiniGames] Bar777 GetInfo failed: {ex.Message}");
+            _cachedBar777Info = null;
             return null;
         }
     }
 
-    public void Dispose()
+    private DeathrollTournamentData? GetDeathrollInfo(bool forceRefresh = false)
     {
-        _windowOpenedSubscriber.Unsubscribe(OnWindowOpened);
-        _gameInfoSubscriber.Unsubscribe(OnSessionUpdated);
-        _chatGui.RemoveChatLinkHandler(LinkId);
+        var currentTick = Environment.TickCount64;
+        var ttl = _cachedDeathrollInfo == null ? EmptyCacheMs : ValidCacheMs;
+        if (!forceRefresh && currentTick - _lastDeathrollCheckTick < ttl)
+            return _cachedDeathrollInfo;
+
+        _lastDeathrollCheckTick = currentTick;
+
+        try
+        {
+            var rawData = _deathrollSubscriber.InvokeFunc();
+            if (rawData == null)
+            {
+                _log.Verbose("[GambaWhere/MiniGames] DeathrollTournament GetInfo IPC returned null.");
+                _cachedDeathrollInfo = null;
+                return null;
+            }
+
+            _log.Verbose($"[GambaWhere/MiniGames] DeathrollTournament GetInfo IPC returned: {rawData}");
+            _cachedDeathrollInfo = DeserializeDeathrollInfo(rawData);
+            return _cachedDeathrollInfo;
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("not registered"))
+                _log.Verbose($"[GambaWhere/MiniGames] MiniGamesEmporium not loaded: {ex.Message}");
+            else
+                _log.Warning($"[GambaWhere/MiniGames] DeathrollTournament GetInfo failed: {ex.Message}");
+            _cachedDeathrollInfo = null;
+            return null;
+        }
     }
 
     private void OnWindowOpened()
@@ -108,31 +158,59 @@ public sealed class MiniGamesEmporiumIpc : IDisposable
         IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "MiniGamesEmporium");
     }
 
-    private void OnSessionUpdated()
+    private void OnBar777SessionUpdated()
     {
-        _log.Verbose("[GambaWhere/MiniGames] Session updated; invalidating GetBar777Info cache.");
-        _lastCheckTick = 0;
+        _log.Verbose("[GambaWhere/MiniGames] Bar777 session updated; invalidating cache.");
+        _lastBar777CheckTick = 0;
     }
 
-    private MiniGamesEmporiumData? DeserializeGameInfo(object raw)
+    private void OnDeathrollSessionUpdated()
+    {
+        _log.Verbose("[GambaWhere/MiniGames] DeathrollTournament session updated; invalidating cache.");
+        _lastDeathrollCheckTick = 0;
+    }
+
+    private BAR777Data? DeserializeBar777Info(object raw)
     {
         switch (raw)
         {
-            case MiniGamesEmporiumData d:
+            case BAR777Data d:
                 return d;
             case string s when !string.IsNullOrWhiteSpace(s):
-                return JsonConvert.DeserializeObject<MiniGamesEmporiumData>(s);
+                return JsonConvert.DeserializeObject<BAR777Data>(s);
             case JObject jo:
-                return jo.ToObject<MiniGamesEmporiumData>();
+                return jo.ToObject<BAR777Data>();
             case JToken token:
-                return token.ToObject<MiniGamesEmporiumData>();
+                return token.ToObject<BAR777Data>();
             case JsonElement je:
-                return JsonConvert.DeserializeObject<MiniGamesEmporiumData>(je.GetRawText());
+                return JsonConvert.DeserializeObject<BAR777Data>(je.GetRawText());
             default:
                 var json = JsonConvert.SerializeObject(raw);
                 if (string.IsNullOrWhiteSpace(json) || json == "{}" || json == "null")
                     return null;
-                return JsonConvert.DeserializeObject<MiniGamesEmporiumData>(json);
+                return JsonConvert.DeserializeObject<BAR777Data>(json);
+        }
+    }
+
+    private DeathrollTournamentData? DeserializeDeathrollInfo(object raw)
+    {
+        switch (raw)
+        {
+            case DeathrollTournamentData d:
+                return d;
+            case string s when !string.IsNullOrWhiteSpace(s):
+                return JsonConvert.DeserializeObject<DeathrollTournamentData>(s);
+            case JObject jo:
+                return jo.ToObject<DeathrollTournamentData>();
+            case JToken token:
+                return token.ToObject<DeathrollTournamentData>();
+            case JsonElement je:
+                return JsonConvert.DeserializeObject<DeathrollTournamentData>(je.GetRawText());
+            default:
+                var json = JsonConvert.SerializeObject(raw);
+                if (string.IsNullOrWhiteSpace(json) || json == "{}" || json == "null")
+                    return null;
+                return JsonConvert.DeserializeObject<DeathrollTournamentData>(json);
         }
     }
 

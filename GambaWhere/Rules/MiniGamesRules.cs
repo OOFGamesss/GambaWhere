@@ -76,42 +76,66 @@ public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
 
     public bool TryGetAutomaticApiRules(object? ipcContext, out Dictionary<string, object>? rules)
     {
-        if (ipcContext is not MiniGamesEmporiumData info)
+        if (ipcContext is BAR777Data bar777)
         {
-            rules = null;
-            return false;
+            rules = new Dictionary<string, object>
+            {
+                ["gameType"] = bar777.GameLabel,
+                ["boostedPot"] = bar777.BoostedPot,
+                ["totalPot"] = bar777.TotalPot,
+                ["costPerRoll"] = bar777.CostPerRoll,
+                ["maxRolls"] = bar777.MaxRolls,
+                ["playersPlayed"] = bar777.PlayersPlayed
+            };
+            if (bar777.Queue.HasValue)
+                rules["queue"] = bar777.Queue.Value;
+            return true;
         }
 
-        rules = new Dictionary<string, object>
+        if (ipcContext is DeathrollTournamentData deathroll)
         {
-            ["gameType"] = info.GameLabel,
-            ["boostedPot"] = info.BoostedPot,
-            ["totalPot"] = info.TotalPot,
-            ["costPerRoll"] = info.CostPerRoll,
-            ["maxRolls"] = info.MaxRolls,
-            ["playersPlayed"] = info.PlayersPlayed
-        };
+            rules = new Dictionary<string, object>
+            {
+                ["gameType"] = deathroll.GameLabel,
+                ["round"] = deathroll.Round,
+                ["boostedPot"] = deathroll.BoostedPot,
+                ["totalPot"] = deathroll.TotalPot,
+                ["entryCost"] = deathroll.EntryCost,
+                ["playersEntered"] = deathroll.PlayersEntered
+            };
+            return true;
+        }
 
-        if (info.Queue.HasValue)
-            rules["queue"] = info.Queue.Value;
-        return true;
+        rules = null;
+        return false;
     }
 
     public void DrawAutomaticRulesSummary(object? ipcContext)
     {
-        if (ipcContext is not MiniGamesEmporiumData info)
+        if (ipcContext is BAR777Data bar777)
         {
-            ImGui.TextDisabled("No session has been started in MiniGamesEmporium.");
+            ImGui.Text($"Game: {bar777.GameLabel}");
+            ImGui.Text($"Boosted Pot: {bar777.BoostedPot:N0}");
+            ImGui.Text($"Total Pot: {bar777.TotalPot:N0}");
+            ImGui.Text($"Cost Per Roll: {bar777.CostPerRoll:N0}");
+            ImGui.Text($"Max Rolls: {bar777.MaxRolls:N0}");
+            ImGui.Text($"Players Played: {bar777.PlayersPlayed:N0}");
+            if (bar777.Queue.HasValue)
+                ImGui.Text($"Queue: {bar777.Queue.Value:N0}");
             return;
         }
 
-        ImGui.Text($"Game: {info.GameLabel}");
-        ImGui.Text($"Boosted Pot: {info.BoostedPot:N0}");
-        ImGui.Text($"Total Pot: {info.TotalPot:N0}");
-        ImGui.Text($"Cost Per Roll: {info.CostPerRoll:N0}");
-        ImGui.Text($"Max Rolls: {info.MaxRolls:N0}");
-        ImGui.Text($"Players Played: {info.PlayersPlayed:N0}");
-        if (info.Queue.HasValue)
-            ImGui.Text($"Queue: {info.Queue.Value:N0}");
+        if (ipcContext is DeathrollTournamentData deathroll)
+        {
+            ImGui.Text($"Game: {deathroll.GameLabel}");
+            ImGui.Text($"Round: {deathroll.Round}");
+            ImGui.Text($"Boosted Pot: {deathroll.BoostedPot:N0}");
+            ImGui.Text($"Total Pot: {deathroll.TotalPot:N0}");
+            ImGui.Text($"Entry Cost: {deathroll.EntryCost:N0}");
+            ImGui.Text($"Players Entered: {deathroll.PlayersEntered:N0}");
+            return;
+        }
+
+        ImGui.TextDisabled("No session has been started in MiniGamesEmporium.");
     }
 }

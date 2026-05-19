@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Tweaked IPC from chocobo racing to exclude perfect odds when not set.",
+  "Changelog": "- IPC set up for Mini Games Emporium Deathroll Tournament.",
   "Tags": [
     "gambling",
     "events",

@@ -305,12 +305,6 @@ public class HostGambaTab
 
         ImGuiHelpers.ScaledDummy(8f);
         DrawDescriptionInput();
-
-        if (!string.IsNullOrEmpty(_form.StatusMessage))
-        {
-            ImGuiHelpers.ScaledDummy(4f);
-            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), _form.StatusMessage);
-        }
     }
 
     private void DrawVenueDropdown(float labelOffset)
@@ -441,6 +435,15 @@ public class HostGambaTab
 
         var startLabel = _form.IsStarting ? "Starting..." : "Start Hosting";
         var startBtnWidth = UIHelper.CalcButtonSize(FontAwesomeIcon.Play, startLabel).X;
+
+        if (!string.IsNullOrEmpty(_form.StatusMessage))
+        {
+            var msgWidth = ImGui.CalcTextSize(_form.StatusMessage).X;
+            var spacing = ImGui.GetStyle().ItemSpacing.X;
+            ImGui.SameLine(ImGui.GetContentRegionMax().X - startBtnWidth - spacing - msgWidth);
+            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), _form.StatusMessage);
+        }
+
         ImGui.SameLine(ImGui.GetContentRegionMax().X - startBtnWidth);
         using var startColours = UIHelper.PushGreenButtonColours();
         using (ImRaii.Disabled(_form.IsStarting))
