@@ -155,7 +155,7 @@ public sealed class MiniGamesEmporiumIpc : IDisposable
         if (!_config.AutoSessionDetection)
             return;
 
-        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "MiniGamesEmporium");
+        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "Mini Games Emporium");
     }
 
     private void OnBar777SessionUpdated()
