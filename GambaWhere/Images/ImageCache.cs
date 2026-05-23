@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Plugin;
@@ -22,6 +23,7 @@ public class ImageCache : IDisposable
     private readonly HashSet<string> _loading = new();
     private readonly object _lock = new();
     private readonly string _cacheDirectory;
+    private readonly CancellationTokenSource _cts = new();
 
     public ImageCache(IDalamudPluginInterface pluginInterface, ITextureProvider textureProvider, IPluginLog log)
     {
@@ -111,6 +113,7 @@ public class ImageCache : IDisposable
     private void BeginLoad(string url)
     {
         _loading.Add(url);
+        var ct = _cts.Token;
 
         _ = Task.Run(async () =>
         {
@@ -123,15 +126,18 @@ public class ImageCache : IDisposable
                 byte[] bytes;
                 if (File.Exists(filePath))
                 {
-                    bytes = await File.ReadAllBytesAsync(filePath);
+                    bytes = await File.ReadAllBytesAsync(filePath, ct);
                 }
                 else
                 {
-                    bytes = await _http.GetByteArrayAsync(url);
-                    await File.WriteAllBytesAsync(filePath, bytes);
+                    bytes = await _http.GetByteArrayAsync(url, ct);
+                    await File.WriteAllBytesAsync(filePath, bytes, ct);
                 }
 
                 wrap = await _textureProvider.CreateFromImageAsync(bytes);
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
@@ -141,11 +147,14 @@ public class ImageCache : IDisposable
             {
                 lock (_lock)
                 {
-                    _cache[url] = wrap;
                     _loading.Remove(url);
+                    if (ct.IsCancellationRequested)
+                        wrap?.Dispose();
+                    else
+                        _cache[url] = wrap;
                 }
             }
-        });
+        }, ct);
     }
 
     private void BeginLoadBundled(string cacheKey, string fileName)
@@ -165,6 +174,7 @@ public class ImageCache : IDisposable
         }
 
         var fullPath = Path.Combine(pluginDir, "Images", fileName);
+        var ct = _cts.Token;
 
         _ = Task.Run(async () =>
         {
@@ -173,9 +183,12 @@ public class ImageCache : IDisposable
             {
                 if (File.Exists(fullPath))
                 {
-                    var bytes = await File.ReadAllBytesAsync(fullPath);
+                    var bytes = await File.ReadAllBytesAsync(fullPath, ct);
                     wrap = await _textureProvider.CreateFromImageAsync(bytes);
                 }
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch
             {
@@ -184,11 +197,14 @@ public class ImageCache : IDisposable
             {
                 lock (_lock)
                 {
-                    _cache[cacheKey] = wrap;
                     _loading.Remove(cacheKey);
+                    if (ct.IsCancellationRequested)
+                        wrap?.Dispose();
+                    else
+                        _cache[cacheKey] = wrap;
                 }
             }
-        });
+        }, ct);
     }
 
     private string GetSha256Hash(string rawData)
@@ -205,6 +221,8 @@ public class ImageCache : IDisposable
 
     public void Dispose()
     {
+        _cts.Cancel();
+
         lock (_lock)
         {
             foreach (var tex in _cache.Values)
@@ -214,5 +232,6 @@ public class ImageCache : IDisposable
         }
 
         _http.Dispose();
+        _cts.Dispose();
     }
 }

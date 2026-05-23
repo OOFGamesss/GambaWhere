@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Plugin.Services;
 using GambaWhere.API.Models;
@@ -51,12 +52,12 @@ public class GambaWhereClient : IDisposable
         }
     }
 
-    public async Task<EventResponse[]?> GetEventsAsync()
+    public async Task<EventResponse[]?> GetEventsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var response = await _http.GetAsync("/events");
-            var body = await response.Content.ReadAsStringAsync();
+            var response = await _http.GetAsync("/events", cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -66,6 +67,10 @@ public class GambaWhereClient : IDisposable
 
             return System.Text.Json.JsonSerializer.Deserialize<EventResponse[]>(body, JsonOptions)
                    ?? Array.Empty<EventResponse>();
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
         }
         catch (Exception ex)
         {

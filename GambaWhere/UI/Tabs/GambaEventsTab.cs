@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -17,7 +18,7 @@ using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
-public class GambaEventsTab
+public class GambaEventsTab : IDisposable
 {
     private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(30);
 
@@ -36,6 +37,7 @@ public class GambaEventsTab
     private string? _pendingScrollCharacter;
     private readonly HashSet<string> _selectedGameTypes = new();
     private readonly HashSet<string> _selectedDataCentres = new();
+    private readonly CancellationTokenSource _cts = new();
 
     public static readonly string[] KnownGameTypes =
     {
@@ -150,30 +152,46 @@ public class GambaEventsTab
 
     private void TriggerRefresh()
     {
+        if (_cts.IsCancellationRequested) return;
         _isRefreshing = true;
         _nextAutoRefreshUtc = DateTime.UtcNow + AutoRefreshInterval;
+        var ct = _cts.Token;
         _ = Task.Run(async () =>
         {
-            var results = await _client.GetEventsAsync();
-            IReadOnlyList<EventResponse>? successSnapshot = null;
-            if (results == null)
+            try
             {
-                _events = new List<EventResponse>();
-                _lastRefreshFailed = true;
-            }
-            else
-            {
-                var snapshot = new List<EventResponse>(results);
-                _events = snapshot;
-                _lastRefreshFailed = false;
-                successSnapshot = snapshot;
-            }
-            _lastUpdated = DateTime.Now;
-            _isRefreshing = false;
+                var results = await _client.GetEventsAsync(ct);
+                if (ct.IsCancellationRequested) return;
+                IReadOnlyList<EventResponse>? successSnapshot = null;
+                if (results == null)
+                {
+                    _events = new List<EventResponse>();
+                    _lastRefreshFailed = true;
+                }
+                else
+                {
+                    var snapshot = new List<EventResponse>(results);
+                    _events = snapshot;
+                    _lastRefreshFailed = false;
+                    successSnapshot = snapshot;
+                }
+                _lastUpdated = DateTime.Now;
+                _isRefreshing = false;
 
-            if (successSnapshot != null)
-                OnEventsRefreshed?.Invoke(successSnapshot);
-        });
+                if (successSnapshot != null)
+                    OnEventsRefreshed?.Invoke(successSnapshot);
+            }
+            catch (OperationCanceledException)
+            {
+                _isRefreshing = false;
+            }
+        }, ct);
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
     }
 
     private void DrawEventList()

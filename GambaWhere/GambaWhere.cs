@@ -149,6 +149,7 @@ public sealed class GambaWhere : IDalamudPlugin
     public void Dispose()
     {
         Framework.Update -= OnFrameworkUpdate;
+        _eventsTab.Dispose();
         _alertingService.Dispose();
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;

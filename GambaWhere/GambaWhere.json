@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Small IPC tweak.",
+  "Changelog": "- Missing Dispose calls for image cache and IPC.",
   "Tags": [
     "gambling",
     "events",
