@@ -26,6 +26,8 @@ public class SessionState
 
     public DateTime? StartedAt { get; set; }
 
+    public DateTime? AutoEndAt { get; set; }
+
     public CancellationTokenSource? LoopCts { get; set; }
 
     public bool IsPaused { get; set; }
@@ -49,6 +51,7 @@ public class SessionState
         ImageUrl = null;
         UsesAutomaticHostRules = false;
         StartedAt = null;
+        AutoEndAt = null;
         LoopCts = null;
         IsPaused = false;
         Description = string.Empty;

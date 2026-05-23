@@ -10,6 +10,7 @@ using GambaWhere.Config;
 using GambaWhere.Discord;
 using GambaWhere.State;
 using GambaWhere.Utility;
+using Dalamud.Game.Text.SeStringHandling;
 
 namespace GambaWhere.Services;
 
@@ -23,6 +24,7 @@ public class SessionService : IDisposable
     private readonly IFramework _framework;
     private readonly IPluginLog _log;
     private readonly DiscordWebhookService _discordWebhook;
+    private readonly IChatGui _chatGui;
 
     public Func<string, Dictionary<string, object>?>? RefreshAutomaticRulesFromIpc { get; set; }
 
@@ -34,7 +36,8 @@ public class SessionService : IDisposable
         IClientState clientState,
         IFramework framework,
         IPluginLog log,
-        DiscordWebhookService discordWebhook)
+        DiscordWebhookService discordWebhook,
+        IChatGui chatGui)
     {
         _client = client;
         _playerInfo = playerInfo;
@@ -44,11 +47,12 @@ public class SessionService : IDisposable
         _framework = framework;
         _log = log;
         _discordWebhook = discordWebhook;
+        _chatGui = chatGui;
 
         _clientState.TerritoryChanged += OnTerritoryChanged;
     }
 
-    public async Task<string?> StartSessionAsync(PostEventRequest request)
+    public async Task<string?> StartSessionAsync(PostEventRequest request, DateTime? autoEndAt = null)
     {
         var response = await _client.PostEventAsync(request);
         if (response == null)
@@ -56,6 +60,7 @@ public class SessionService : IDisposable
 
         _sessionState.IsActive = true;
         _sessionState.StartedAt = DateTime.UtcNow;
+        _sessionState.AutoEndAt = autoEndAt;
         _sessionState.SessionToken = response.SessionToken;
         _sessionState.CharacterName = response.CharacterName;
         _sessionState.Location = response.Location;
@@ -74,6 +79,9 @@ public class SessionService : IDisposable
         _sessionState.LoopCts = cts;
 
         _ = Task.Run(() => RunHeartbeatLoopAsync(cts.Token));
+
+        if (autoEndAt.HasValue)
+            _ = Task.Run(() => RunAutoEndAsync(autoEndAt.Value, cts.Token));
 
         QueueDiscordWebhook(async () =>
         {
@@ -166,6 +174,39 @@ public class SessionService : IDisposable
         await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
 
         _sessionState.Location = location;
+    }
+
+    private async Task RunAutoEndAsync(DateTime endAt, CancellationToken ct)
+    {
+        try
+        {
+            var warningAt = endAt - TimeSpan.FromMinutes(1);
+            var warningDelay = warningAt - DateTime.UtcNow;
+            if (warningDelay > TimeSpan.Zero)
+                await Task.Delay(warningDelay, ct);
+
+            if (!ct.IsCancellationRequested && DateTime.UtcNow < endAt)
+            {
+                var msg = new SeStringBuilder()
+                    .AddText("Your hosting session will automatically end in 1 minute.")
+                    .Build();
+                _chatGui.Print(msg, "GambaWhere");
+
+                var remaining = endAt - DateTime.UtcNow;
+                if (remaining > TimeSpan.Zero)
+                    await Task.Delay(remaining, ct);
+            }
+
+            if (!ct.IsCancellationRequested)
+                await StopSessionAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Unexpected error in auto-end task.");
+        }
     }
 
     private async Task RunHeartbeatLoopAsync(CancellationToken ct)

@@ -206,6 +206,24 @@ public class HostGambaTab
         ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
         ImGui.Text(_sessionState.VenueName ?? "No Venue");
 
+        if (_sessionState.AutoEndAt.HasValue)
+        {
+            ImGui.Text("Auto End:");
+            ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
+            var remaining = _sessionState.AutoEndAt.Value - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), "Ending...");
+            }
+            else
+            {
+                var colour = remaining.TotalMinutes <= 5
+                    ? new System.Numerics.Vector4(1f, 0.65f, 0.1f, 1f)
+                    : new System.Numerics.Vector4(1f, 1f, 1f, 1f);
+                ImGui.TextColored(colour, remaining.ToString(@"hh\:mm\:ss"));
+            }
+        }
+
         ImGui.Text("Location:");
         ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
         ImGui.TextWrapped(_sessionState.Location);
@@ -327,6 +345,32 @@ public class HostGambaTab
             ImGui.SameLine();
             ImGui.TextDisabled("Fetching latest venues...");
         }
+
+        ImGui.SameLine(ImGui.GetContentRegionMax().X * 0.5f);
+        var autoEnd = _form.AutoEndEnabled;
+        if (ImGui.Checkbox("Auto End Session##AutoEnd", ref autoEnd))
+            _form.AutoEndEnabled = autoEnd;
+    }
+
+    private void DrawAutoEndInputs()
+    {
+        var xPos = ImGui.GetContentRegionMax().X * 0.5f + 8f * ImGuiHelpers.GlobalScale;
+        var fieldWidth = 72 * ImGuiHelpers.GlobalScale;
+
+        ImGui.SameLine(xPos);
+        ImGui.SetNextItemWidth(fieldWidth);
+        var hours = _form.AutoEndHours;
+        if (ImGui.InputInt("##AutoEndHours", ref hours, 0))
+            _form.AutoEndHours = Math.Clamp(hours, 0, 23);
+        ImGui.SameLine();
+        ImGui.TextDisabled("h");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(fieldWidth);
+        var minutes = _form.AutoEndMinutes;
+        if (ImGui.InputInt("##AutoEndMinutes", ref minutes, 0))
+            _form.AutoEndMinutes = Math.Clamp(minutes, 0, 59);
+        ImGui.SameLine();
+        ImGui.TextDisabled("m");
     }
 
     private void DrawGameDropdown(float labelOffset)
@@ -343,6 +387,9 @@ public class HostGambaTab
                 OnGameTypeChanged();
             }
         }
+
+        if (_form.AutoEndEnabled)
+            DrawAutoEndInputs();
     }
 
     private void OnGameTypeChanged()
@@ -701,6 +748,12 @@ public class HostGambaTab
             return;
         }
 
+        if (_form.AutoEndEnabled && _form.AutoEndHours == 0 && _form.AutoEndMinutes == 0)
+        {
+            _form.StatusMessage = "Auto end duration must be at least 1 minute.";
+            return;
+        }
+
         _form.StatusMessage = null;
         _form.IsStarting = true;
 
@@ -725,6 +778,10 @@ public class HostGambaTab
             rulesSnapshot = ManualRulesApiOmitter.OmitEmptyOrDefault(rulesSnapshot);
         }
 
+        DateTime? autoEndAt = null;
+        if (_form.AutoEndEnabled)
+            autoEndAt = DateTime.UtcNow.AddHours(_form.AutoEndHours).AddMinutes(_form.AutoEndMinutes);
+
         var request = new PostEventRequest
         {
             CharacterName = characterName,
@@ -737,7 +794,7 @@ public class HostGambaTab
 
         _ = Task.Run(async () =>
         {
-            var error = await _sessionService.StartSessionAsync(request);
+            var error = await _sessionService.StartSessionAsync(request, autoEndAt);
             _form.IsStarting = false;
 
             if (error != null)

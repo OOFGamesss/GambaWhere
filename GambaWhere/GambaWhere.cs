@@ -76,7 +76,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
         _sessionService = new SessionService(_client, playerInfo, _sessionState, Configuration, ClientState, Framework,
             Log,
-            _discordWebhook);
+            _discordWebhook, ChatGui);
 
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
         _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration);

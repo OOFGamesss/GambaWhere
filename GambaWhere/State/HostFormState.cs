@@ -22,6 +22,11 @@ public class HostFormState
 
     public bool IsStarting { get; set; } = false;
 
-    /// <summary>When false and automatic host rules are available, API rules come from IPC instead of manual fields.</summary>
     public bool UseManualHostRules { get; set; } = false;
+
+    public bool AutoEndEnabled { get; set; } = false;
+
+    public int AutoEndHours { get; set; } = 2;
+    
+    public int AutoEndMinutes { get; set; } = 0;
 }

@@ -141,6 +141,14 @@ public class SessionPillOverlay : Window, IDisposable
 
     private void DrawTimer()
     {
+        if (_sessionState.IsActive && _sessionState.AutoEndAt.HasValue)
+        {
+            var remaining = _sessionState.AutoEndAt.Value - DateTime.UtcNow;
+            if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+            ImGui.TextUnformatted(remaining.ToString(@"hh\:mm\:ss"));
+            return;
+        }
+
         TimeSpan elapsed;
         if (!_sessionState.IsActive || !_sessionState.StartedAt.HasValue)
         {
