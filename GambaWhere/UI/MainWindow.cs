@@ -9,6 +9,7 @@ using GambaWhere.Utility;
 
 namespace GambaWhere.UI;
 
+/// <summary>Primary plugin window containing all feature tabs and applying the user's theme colours.</summary>
 public class MainWindow : Window, IDisposable
 {
     private readonly GambaEventsTab _eventsTab;
@@ -138,7 +139,9 @@ public class MainWindow : Window, IDisposable
 
         var tabItemLabel = $"{labelId}##GambaWhereTab_{labelId.Replace(" ", "")}";
 
+        ImGui.PushStyleColor(ImGuiCol.Text, _config.SecondaryColour);
         using var tab = ImRaii.TabItem(tabItemLabel, flags);
+        ImGui.PopStyleColor();
         if (!tab.Success)
             return;
 

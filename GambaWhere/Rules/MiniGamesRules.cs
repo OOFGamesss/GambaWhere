@@ -13,6 +13,7 @@ public enum MiniGame
     DeathRoll
 }
 
+/// <summary>Rule configuration for Mini Games sessions, supporting manual entry and automatic IPC data from MiniGamesEmporium.</summary>
 public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
 {
     public string GameType => "Mini Games";
@@ -53,7 +54,7 @@ public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
 
     private static string MiniGameLabel(MiniGame game) => game switch
     {
-        MiniGame.DeathRoll => "Death Roll",
+        MiniGame.DeathRoll => "Deathroll",
         _ => game.ToString()
     };
 
@@ -66,7 +67,7 @@ public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
     public void LoadFromPreset(Dictionary<string, object> values)
     {
         var label = PresetReader.String(values, "GameLabel", MiniGameLabel(_selectedGame));
-        _selectedGame = label == "Death Roll" ? MiniGame.DeathRoll : _selectedGame;
+        _selectedGame = label == "Deathroll" ? MiniGame.DeathRoll : _selectedGame;
         _entryCost = PresetReader.Int(values, "entryCost", _entryCost);
     }
 

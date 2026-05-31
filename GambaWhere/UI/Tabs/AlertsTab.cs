@@ -15,6 +15,7 @@ using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
+/// <summary>Settings tab for configuring event alert rules with game, data centre, and venue filters.</summary>
 public class AlertsTab
 {
     private readonly Configuration _config;
@@ -39,8 +40,11 @@ public class AlertsTab
 
         FlushPendingRowRemoval();
 
-        ImGui.TextWrapped("Get notified when an event matches your criteria.");
-        ImGui.TextWrapped("Multiple selections in a field act as OR; fields combine as AND.");
+        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentText(_config.SecondaryColour)))
+        {
+            ImGui.TextWrapped("Get notified when an event matches your criteria.");
+            ImGui.TextWrapped("Multiple selections in a field act as OR; fields combine as AND.");
+        }
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
@@ -131,7 +135,7 @@ public class AlertsTab
 
     private void DrawFilterRow(string label, float labelOffset, string id, IReadOnlyList<string> options, HashSet<string> selected)
     {
-        ImGui.Text(label);
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), label);
         ImGui.SameLine(labelOffset);
         var prevCount = selected.Count;
         ImGui.SetNextItemWidth(240 * ImGuiHelpers.GlobalScale);

@@ -8,6 +8,7 @@ using SimpleRoulette.Data;
 
 namespace GambaWhere.Rules;
 
+/// <summary>Rule configuration for Roulette sessions, supporting manual entry and automatic IPC data from SimpleRoulette.</summary>
 public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
 {
     public string GameType => "Roulette";
@@ -85,10 +86,7 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
             return false;
         }
 
-        rules = new Dictionary<string, object>
-        {
-            ["playerCount"] = info.PlayerCount
-        };
+        rules = new Dictionary<string, object>();
 
         if (info.MaxBetInner is int maxInner)
             rules["maxBetInner"] = maxInner * IpcMaxBetGilMultiplier;
@@ -98,6 +96,7 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
             rules["maxBetInnerVIP"] = maxInnerVip * IpcMaxBetGilMultiplier;
         if (info.MaxBetOuterVIP is int maxOuterVip)
             rules["maxBetOuterVIP"] = maxOuterVip * IpcMaxBetGilMultiplier;
+        rules["playerCount"] = info.PlayerCount;
         return true;
     }
 
@@ -105,15 +104,15 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
     {
         if (ipcContext is not GameInfoIPC rouletteInfo)
         {
-            ImGui.TextDisabled("No Session has been started");
+            ImGui.TextDisabled("No session has been started");
             return;
         }
 
-        ImGui.Text($"Player count: {rouletteInfo.PlayerCount:N0}");
         ImGui.Text($"Max bet (inner): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetInner, IpcMaxBetGilMultiplier)}");
         ImGui.Text($"Max bet (outer): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetOuter, IpcMaxBetGilMultiplier)}");
         ImGui.Text($"Max bet inner (VIP): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetInnerVIP, IpcMaxBetGilMultiplier)}");
         ImGui.Text($"Max bet outer (VIP): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetOuterVIP, IpcMaxBetGilMultiplier)}");
+        ImGui.Text($"Player count: {rouletteInfo.PlayerCount:N0}");
     }
 
     private static string FormatIpcMaxBetAsGil(int? ipcUnits, int gilMultiplier) =>

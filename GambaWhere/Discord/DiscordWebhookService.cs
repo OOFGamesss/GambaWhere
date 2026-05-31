@@ -10,10 +10,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Plugin.Services;
 using GambaWhere.Config;
+using GambaWhere.Images;
 using GambaWhere.State;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Manages Discord webhook embeds, dispatching active session or idle updates to all configured webhook URLs.</summary>
 public sealed class DiscordWebhookService : IDisposable
 {
     private const int MaxRetries = 4;
@@ -24,6 +26,11 @@ public sealed class DiscordWebhookService : IDisposable
     private readonly HttpClient _http;
     private readonly SemaphoreSlim _discordGate = new(1, 1);
     private readonly DiscordWebhookAssets _assets;
+    private readonly CustomBannerStore _customBanners;
+
+    private DiscordSessionSnapshot _lastSentActiveSnapshot;
+    private string? _lastSentRulesJson;
+    private bool _hasSentActiveSnapshot;
 
     private readonly JsonSerializerOptions _serializerOptions =
         new()
@@ -36,11 +43,13 @@ public sealed class DiscordWebhookService : IDisposable
         IPluginLog log,
         Configuration config,
         SessionState sessionState,
-        string pluginDirectory)
+        string pluginDirectory,
+        CustomBannerStore customBanners)
     {
         _log = log;
         _config = config;
         _sessionState = sessionState;
+        _customBanners = customBanners;
         var handler = new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) };
         _http = new HttpClient(handler, disposeHandler: true) { Timeout = TimeSpan.FromSeconds(90) };
 
@@ -61,12 +70,59 @@ public sealed class DiscordWebhookService : IDisposable
 
     public async Task SyncActiveSessionEmbedsAsync(CancellationToken cancellationToken = default)
     {
-        await RunSyncedAsync(entries => entries, DispatchKind.RequireActiveSnapshot, cancellationToken);
+        DiscordWebhookEntry[] entries;
+        lock (_config)
+            entries = [.. _config.DiscordWebhooks];
+
+        await _discordGate.WaitAsync(cancellationToken);
+        try
+        {
+            var snapshot = CaptureSessionSnapshot();
+
+            if (!snapshot.IsActive || !HasSnapshotChanged(snapshot))
+                return;
+
+            foreach (var entry in entries.Where(e =>
+                         e.Enabled && !string.IsNullOrWhiteSpace(e.Url) && !e.PostFailed))
+            {
+                await DispatchSingleEntryAsync(entry, snapshot, DispatchKind.RequireActiveSnapshot, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            _config.Save();
+            RecordSentSnapshot(snapshot);
+        }
+        finally
+        {
+            _discordGate.Release();
+        }
     }
 
     public async Task PublishIdleEmbedsAsync(CancellationToken cancellationToken = default)
     {
-        await RunSyncedAsync(entries => entries, DispatchKind.AlwaysIdle, cancellationToken);
+        DiscordWebhookEntry[] entries;
+        lock (_config)
+            entries = [.. _config.DiscordWebhooks];
+
+        await _discordGate.WaitAsync(cancellationToken);
+        try
+        {
+            _hasSentActiveSnapshot = false;
+
+            var snapshot = CaptureSessionSnapshot();
+            foreach (var entry in entries.Where(e =>
+                         e.Enabled && !string.IsNullOrWhiteSpace(e.Url) && !e.PostFailed))
+            {
+                await DispatchSingleEntryAsync(entry, snapshot, DispatchKind.AlwaysIdle, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            _config.Save();
+        }
+        finally
+        {
+            _discordGate.Release();
+        }
     }
 
     public async Task ApplyEntryCommittedAsync(DiscordWebhookEntry entry,
@@ -101,32 +157,36 @@ public sealed class DiscordWebhookService : IDisposable
         AlwaysIdle
     }
 
-    private async Task RunSyncedAsync(
-        Func<DiscordWebhookEntry[], DiscordWebhookEntry[]> snapshotFilter,
-        DispatchKind dispatchKind,
-        CancellationToken cancellationToken)
+    private bool HasSnapshotChanged(DiscordSessionSnapshot current)
     {
-        DiscordWebhookEntry[] entries;
-        lock (_config)
-            entries = snapshotFilter([.. _config.DiscordWebhooks]);
+        if (!_hasSentActiveSnapshot)
+            return true;
 
-        await _discordGate.WaitAsync(cancellationToken);
-        try
-        {
-            var snapshot = CaptureSessionSnapshot();
-            foreach (var entry in entries.Where(e =>
-                         e.Enabled && !string.IsNullOrWhiteSpace(e.Url) && !e.PostFailed))
-            {
-                await DispatchSingleEntryAsync(entry, snapshot, dispatchKind, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+        var prev = _lastSentActiveSnapshot;
 
-            _config.Save();
-        }
-        finally
-        {
-            _discordGate.Release();
-        }
+        if (prev.IsActive != current.IsActive
+            || prev.CharacterName != current.CharacterName
+            || prev.GameType != current.GameType
+            || prev.VenueName != current.VenueName
+            || prev.Location != current.Location
+            || prev.DiscordUrl != current.DiscordUrl
+            || prev.ImageUrl != current.ImageUrl)
+            return true;
+
+        var currentRulesJson = current.Rules != null
+            ? JsonSerializer.Serialize(current.Rules)
+            : null;
+
+        return currentRulesJson != _lastSentRulesJson;
+    }
+
+    private void RecordSentSnapshot(DiscordSessionSnapshot snapshot)
+    {
+        _lastSentActiveSnapshot = snapshot;
+        _lastSentRulesJson = snapshot.Rules != null
+            ? JsonSerializer.Serialize(snapshot.Rules)
+            : null;
+        _hasSentActiveSnapshot = true;
     }
 
     private DiscordSessionSnapshot CaptureSessionSnapshot()
@@ -165,7 +225,12 @@ public sealed class DiscordWebhookService : IDisposable
                     return;
 
                 var theme = DiscordWebhookTheme.ResolveForGame(snapshot.GameType);
-                var loadedActive = _assets.TryLoadBanner(theme.BannerFile);
+
+                var customActivePath = _customBanners.GetPath(_config.CustomActiveBannerFileName);
+                var loadedActive = customActivePath != null
+                    ? _assets.TryLoadBannerFromPath(customActivePath) ?? _assets.TryLoadBanner(theme.BannerFile)
+                    : _assets.TryLoadBanner(theme.BannerFile);
+
                 if (!loadedActive.HasValue)
                 {
                     DiscordWebhookEntryMutations.MarkFailure(entry);
@@ -178,7 +243,11 @@ public sealed class DiscordWebhookService : IDisposable
             }
             else
             {
-                var loadedIdle = _assets.TryLoadBanner(DiscordWebhookTheme.IdleBannerFile);
+                var customIdlePath = _customBanners.GetPath(_config.CustomIdleBannerFileName);
+                var loadedIdle = customIdlePath != null
+                    ? _assets.TryLoadBannerFromPath(customIdlePath) ?? _assets.TryLoadBanner(DiscordWebhookTheme.IdleBannerFile)
+                    : _assets.TryLoadBanner(DiscordWebhookTheme.IdleBannerFile);
+
                 if (!loadedIdle.HasValue)
                 {
                     DiscordWebhookEntryMutations.MarkFailure(entry);

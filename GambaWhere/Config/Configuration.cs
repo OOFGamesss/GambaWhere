@@ -7,6 +7,7 @@ using System.Numerics;
 
 namespace GambaWhere.Config;
 
+/// <summary>Plugin configuration persisted between sessions, including active session state and user preferences.</summary>
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -14,6 +15,19 @@ public class Configuration : IPluginConfiguration
 
     public string? ActiveSessionToken { get; set; }
     public string? ActiveCharacterName { get; set; }
+    public string? ActiveGameType { get; set; }
+    public string? ActiveVenueName { get; set; }
+    public string? ActiveRulesJson { get; set; }
+    public string? ActiveDescription { get; set; }
+    public string? ActiveLocation { get; set; }
+    public DateTime? ActiveStartedAt { get; set; }
+    public DateTime? ActiveAutoEndAt { get; set; }
+    public bool ActiveIsPaused { get; set; }
+    public DateTime? ActivePausedAt { get; set; }
+    public long ActiveTotalPausedDurationTicks { get; set; }
+    public bool ActiveUsesAutomaticHostRules { get; set; }
+    public string? ActiveDiscordUrl { get; set; }
+    public string? ActiveImageUrl { get; set; }
 
     public bool AutoSessionDetection { get; set; } = true;
 
@@ -33,6 +47,9 @@ public class Configuration : IPluginConfiguration
 
     public Vector4 PrimaryColour { get; set; } = DefaultPrimaryColour;
     public Vector4 SecondaryColour { get; set; } = DefaultSecondaryColour;
+
+    public string? CustomIdleBannerFileName { get; set; }
+    public string? CustomActiveBannerFileName { get; set; }
 
     public static Vector4 DefaultPrimaryColour => new(0.60f, 0.0f, 1.0f, 1f);
     public static Vector4 DefaultSecondaryColour => new(0.0f, 0.88f, 0.85f, 1f);

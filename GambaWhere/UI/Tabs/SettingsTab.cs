@@ -10,9 +10,11 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using GambaWhere.Config;
 using GambaWhere.Images;
 using GambaWhere.UI;
+using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
+/// <summary>Settings tab providing UI, chat alert, and image cache configuration options.</summary>
 public class SettingsTab
 {
     private static readonly string[] SoundEffectOptions = BuildSoundEffectOptions();
@@ -35,8 +37,10 @@ public class SettingsTab
         using var tabBar = ImRaii.TabBar("SettingsTabs");
         if (!tabBar) return;
 
+        ImGui.PushStyleColor(ImGuiCol.Text, _config.SecondaryColour);
         using (var uiTab = ImRaii.TabItem("UI"))
         {
+            ImGui.PopStyleColor();
             if (uiTab)
             {
                 ImGui.Spacing();
@@ -48,8 +52,10 @@ public class SettingsTab
             }
         }
 
+        ImGui.PushStyleColor(ImGuiCol.Text, _config.SecondaryColour);
         using (var chatTab = ImRaii.TabItem("Chat"))
         {
+            ImGui.PopStyleColor();
             if (chatTab)
             {
                 ImGui.Spacing();
@@ -61,8 +67,10 @@ public class SettingsTab
             }
         }
 
+        ImGui.PushStyleColor(ImGuiCol.Text, _config.SecondaryColour);
         using (var otherTab = ImRaii.TabItem("Other"))
         {
+            ImGui.PopStyleColor();
             if (otherTab)
             {
                 ImGui.Spacing();
@@ -73,7 +81,7 @@ public class SettingsTab
 
     private void DrawCompanionPluginDetection()
     {
-        ImGui.Text("Companion Plugin Detection");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Companion Plugin Detection");
 
         var enabled = _config.AutoSessionDetection;
 
@@ -94,7 +102,7 @@ public class SettingsTab
 
     private void DrawPillOverlaySettings()
     {
-        ImGui.Text("Session Overlay Pill");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Session Overlay Pill");
 
         var enabled = _config.PillOverlayEnabled;
         if (ImGui.Checkbox("Show overlay pill during active sessions", ref enabled))
@@ -145,7 +153,7 @@ public class SettingsTab
 
     private void DrawAlertOptions()
     {
-        ImGui.Text("Alerts");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Alerts");
 
         var toastEnabled = _config.AlertToastEnabled;
         if (ImGui.Checkbox("Show popup notification when an alert fires", ref toastEnabled))
@@ -186,7 +194,7 @@ public class SettingsTab
 
     private void DrawThemeColours()
     {
-        ImGui.Text("Theme Colours");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Theme Colours");
         ImGui.Spacing();
 
         var labelOffset = 100f * ImGuiHelpers.GlobalScale;
@@ -237,7 +245,7 @@ public class SettingsTab
 
     private void DrawImageCacheSettings()
     {
-        ImGui.Text("Image Cache");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Image Cache");
         var count = _imageCache.GetCachedImageCount();
         ImGui.TextUnformatted($"Images stored: {count}");
 

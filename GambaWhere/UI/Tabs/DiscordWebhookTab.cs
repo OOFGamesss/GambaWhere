@@ -12,9 +12,12 @@ using GambaWhere.Config;
 using GambaWhere.Discord;
 using GambaWhere.Images;
 using GambaWhere.Utility;
+using System.IO;
+using Dalamud.Interface.ImGuiFileDialog;
 
 namespace GambaWhere.UI.Tabs;
 
+/// <summary>Settings tab for configuring Discord webhook URLs, custom banners, and viewing an embed preview.</summary>
 public sealed class DiscordWebhookTab
 {
     private const int UrlBufferLength = 1536;
@@ -29,30 +32,45 @@ public sealed class DiscordWebhookTab
 
     private const float DiscordLogoMaxWidth = 196f;
 
+    private const int PathBufferLength = 1024;
+
     private readonly Configuration _config;
     private readonly DiscordWebhookService _discordWebhook;
     private readonly ImageCache _imageCache;
     private readonly IPluginLog _log;
+    private readonly CustomBannerStore _customBanners;
 
     private readonly List<string> _lastCommittedUrls = new();
     private readonly List<string> _urlDrafts = new();
 
     private int? _pendingRowRemovalIndex;
 
+    private string _idlePathDraft = string.Empty;
+    private string _activePathDraft = string.Empty;
+    private string? _idleApplyError;
+    private string? _activeApplyError;
+
+    private readonly FileDialogManager _fileDialog = new();
+    private readonly Dictionary<string, string> _pendingBrowse = new();
+
     public DiscordWebhookTab(
         Configuration config,
         DiscordWebhookService discordWebhook,
         ImageCache imageCache,
-        IPluginLog log)
+        IPluginLog log,
+        CustomBannerStore customBanners)
     {
         _config = config;
         _discordWebhook = discordWebhook;
         _imageCache = imageCache;
         _log = log;
+        _customBanners = customBanners;
     }
 
     public void Draw()
     {
+        _fileDialog.Draw();
+
         EnsureDiscordRowsPresent();
         FlushPendingRowRemoval();
 
@@ -88,6 +106,7 @@ public sealed class DiscordWebhookTab
         for (var i = 0; i < snapshot.Length; i++)
             DrawWebhookRow(snapshot[i], i, rowCount);
 
+        DrawCustomBanners();
         DrawVenueServiceInformation();
         DrawWebhookEmbedPreview();
     }
@@ -120,7 +139,7 @@ public sealed class DiscordWebhookTab
 
     private void DrawSectionHeader(string label)
     {
-        using (ImRaii.PushColor(ImGuiCol.Text, _config.PrimaryColour))
+        using (ImRaii.PushColor(ImGuiCol.Text, _config.SecondaryColour))
             ImGui.TextUnformatted(label);
 
         ImGuiHelpers.ScaledDummy(2f);
@@ -155,6 +174,194 @@ public sealed class DiscordWebhookTab
             ImGui.TextWrapped(text);
         }
         ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private void DrawCustomBanners()
+    {
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawSectionHeader("Custom Banners");
+
+        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentTextMuted(_config.SecondaryColour)))
+        {
+            ImGui.Bullet();
+            ImGui.SameLine();
+            ImGui.TextWrapped(
+                "Replace the default banners in Discord embeds with your own images. "
+                    + "Click the folder button to browse your PC, or paste a full file path and press Enter or click away. "
+                    + "Supported formats: PNG, JPG, WebP.");
+        }
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        DrawBannerSlot(
+            "No Gamba Available Banner",
+            "idle",
+            ref _idlePathDraft,
+            ref _idleApplyError,
+            () => _config.CustomIdleBannerFileName,
+            fileName =>
+            {
+                _config.CustomIdleBannerFileName = fileName;
+                _config.Save();
+            });
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        DrawBannerSlot(
+            "Active Session Banner",
+            "active",
+            ref _activePathDraft,
+            ref _activeApplyError,
+            () => _config.CustomActiveBannerFileName,
+            fileName =>
+            {
+                _config.CustomActiveBannerFileName = fileName;
+                _config.Save();
+            });
+
+        ImGuiHelpers.ScaledDummy(8f);
+    }
+
+    private string? TryApplyBanner(string sourcePath, string slotName, Func<string?> getFileName, Action<string?> setFileName)
+    {
+        var trimmed = sourcePath.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return "Enter a file path first.";
+
+        var saved = _customBanners.TrySave(trimmed, slotName);
+        if (saved == null)
+            return "Could not copy file. Check the path and format (PNG, JPG, WebP).";
+
+        var oldPath = _customBanners.GetPath(getFileName());
+        if (oldPath != null)
+            _imageCache.EvictFromPath(oldPath);
+
+        setFileName(saved);
+        return null;
+    }
+
+    private void DrawBannerSlot(
+        string label,
+        string slotName,
+        ref string pathDraft,
+        ref string? applyError,
+        Func<string?> getFileName,
+        Action<string?> setFileName)
+    {
+        using var id = ImRaii.PushId(slotName);
+
+        if (_pendingBrowse.TryGetValue(slotName, out var pendingPath))
+        {
+            _pendingBrowse.Remove(slotName);
+            applyError = TryApplyBanner(pendingPath, slotName, getFileName, setFileName);
+            pathDraft = string.Empty;
+        }
+
+        using (ImRaii.PushColor(ImGuiCol.Text, _config.SecondaryColour))
+            ImGui.TextUnformatted(label);
+
+        ImGuiHelpers.ScaledDummy(2f);
+
+        var customFileName = getFileName();
+        var hasCustom = !string.IsNullOrWhiteSpace(customFileName);
+
+        if (hasCustom)
+        {
+            using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(0.35f, 0.85f, 0.45f, 1f)))
+                ImGui.TextUnformatted($"Custom: {customFileName}");
+        }
+
+        var scale = ImGuiHelpers.GlobalScale;
+        var btnW = 26f * scale;
+        var spacing = ImGui.GetStyle().ItemInnerSpacing.X;
+        var clearBtnW = hasCustom ? btnW + spacing : 0f;
+        var inputW = Math.Max(ImGui.GetContentRegionAvail().X - btnW - clearBtnW - spacing * 2f, 120f);
+
+        ImGui.SetNextItemWidth(inputW);
+        ImGui.InputText("##path", ref pathDraft, PathBufferLength);
+
+        if (ImGui.IsItemDeactivatedAfterEdit() && !string.IsNullOrWhiteSpace(pathDraft))
+        {
+            var error = TryApplyBanner(pathDraft, slotName, getFileName, setFileName);
+            if (error == null)
+            {
+                pathDraft = string.Empty;
+                applyError = null;
+            }
+            else
+            {
+                applyError = error;
+            }
+        }
+
+        ImGui.SameLine(0f, spacing);
+
+        if (ImGuiComponents.IconButton("##browse", FontAwesomeIcon.FolderOpen))
+        {
+            _fileDialog.OpenFileDialog(
+                $"Select {label}",
+                "Image Files{.png,.jpg,.jpeg,.webp}",
+                (success, paths) =>
+                {
+                    if (success && paths.Count > 0)
+                        _pendingBrowse[slotName] = paths[0];
+                },
+                1);
+        }
+
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Browse for an image file on your PC.");
+
+        if (hasCustom)
+        {
+            ImGui.SameLine(0f, spacing);
+
+            if (ImGuiComponents.IconButton("##clear", FontAwesomeIcon.TrashAlt))
+            {
+                var oldPath = _customBanners.GetPath(customFileName);
+                if (oldPath != null)
+                    _imageCache.EvictFromPath(oldPath);
+
+                _customBanners.Delete(customFileName);
+                setFileName(null);
+                applyError = null;
+            }
+
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Remove custom banner and revert to default.");
+        }
+
+        if (applyError != null)
+        {
+            ImGuiHelpers.ScaledDummy(2f);
+            using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.42f, 1f)))
+                ImGui.TextWrapped(applyError);
+        }
+
+        var previewPath = hasCustom
+            ? _customBanners.GetPath(customFileName)
+            : null;
+
+        if (previewPath != null)
+        {
+            var tex = _imageCache.GetFromPath(previewPath);
+            if (tex != null && tex.Width > 0 && tex.Height > 0)
+            {
+                ImGuiHelpers.ScaledDummy(4f);
+                var availW = ImGui.GetContentRegionAvail().X;
+                var maxW = Math.Min(availW - scale * 8f, 320f * scale);
+                var drawH = maxW * tex.Height / tex.Width;
+                ImGui.Image(tex.Handle, new Vector2(maxW, drawH));
+            }
+            else if (tex == null)
+            {
+                ImGuiHelpers.ScaledDummy(2f);
+                using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentTextMuted(_config.SecondaryColour)))
+                    ImGui.TextUnformatted("Preview loading...");
+            }
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
     }
 
     private void DrawVenueServiceInformation()

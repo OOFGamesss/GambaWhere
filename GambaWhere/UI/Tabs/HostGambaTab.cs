@@ -19,6 +19,7 @@ using GambaWhere.UI.Components;
 
 namespace GambaWhere.UI.Tabs;
 
+/// <summary>Tab for starting, monitoring, and stopping a hosting session, including game rule and preset management.</summary>
 public class HostGambaTab
 {
     private readonly SessionService _sessionService;
@@ -194,21 +195,21 @@ public class HostGambaTab
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
-        ImGui.Text("Character:");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Character:");
         ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
-        ImGui.Text(_sessionState.CharacterName);
+        ImGui.TextUnformatted(_sessionState.CharacterName);
 
-        ImGui.Text("Game:");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Game:");
         ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
-        ImGui.Text(_sessionState.GameType);
+        ImGui.TextUnformatted(_sessionState.GameType);
 
-        ImGui.Text("Venue:");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Venue:");
         ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
-        ImGui.Text(_sessionState.VenueName ?? "No Venue");
+        ImGui.TextUnformatted(_sessionState.VenueName ?? "No Venue");
 
         if (_sessionState.AutoEndAt.HasValue)
         {
-            ImGui.Text("Auto End:");
+            ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Auto End:");
             ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
             var remaining = _sessionState.AutoEndAt.Value - DateTime.UtcNow;
             if (remaining <= TimeSpan.Zero)
@@ -217,14 +218,14 @@ public class HostGambaTab
             }
             else
             {
-                var colour = remaining.TotalMinutes <= 5
+                var timerColour = remaining.TotalMinutes <= 5
                     ? new System.Numerics.Vector4(1f, 0.65f, 0.1f, 1f)
                     : new System.Numerics.Vector4(1f, 1f, 1f, 1f);
-                ImGui.TextColored(colour, remaining.ToString(@"hh\:mm\:ss"));
+                ImGui.TextColored(timerColour, remaining.ToString(@"hh\:mm\:ss"));
             }
         }
 
-        ImGui.Text("Location:");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Location:");
         ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
         ImGui.TextWrapped(_sessionState.Location);
 
@@ -248,15 +249,16 @@ public class HostGambaTab
         ImGuiHelpers.ScaledDummy(4f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
-        ImGui.TextDisabled("Game Info");
+        ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Game Info");
+        ImGui.Separator();
         ImGuiHelpers.ScaledDummy(2f);
 
         var offset = CalcActiveRulesLabelOffset(_sessionState.ActiveRules);
         foreach (var (key, value) in _sessionState.ActiveRules)
         {
-            ImGui.Text(FormatRuleKey(key) + ":");
+            ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), FormatRuleKey(key) + ":");
             ImGui.SameLine(offset);
-            ImGui.Text(FormatRuleValue(value, key));
+            ImGui.TextUnformatted(FormatRuleValue(value, key));
         }
     }
 
@@ -327,7 +329,7 @@ public class HostGambaTab
 
     private void DrawVenueDropdown(float labelOffset)
     {
-        ImGui.Text("Venue");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Venue");
         ImGui.SameLine(labelOffset);
         ImGui.SetNextItemWidth(240 * ImGuiHelpers.GlobalScale);
         var venueName = _form.SelectedVenueName;
@@ -335,6 +337,7 @@ public class HostGambaTab
             _form.SelectedVenueName = venueName;
         ImGui.SameLine();
         var fetching = _isFetchingVenues;
+        using var refreshColours = UIHelper.PushGreenButtonColours();
         using (ImRaii.Disabled(fetching))
         {
             if (ImGuiComponents.IconButton("##RefreshVenues", FontAwesomeIcon.Sync))
@@ -348,8 +351,11 @@ public class HostGambaTab
 
         ImGui.SameLine(ImGui.GetContentRegionMax().X * 0.5f);
         var autoEnd = _form.AutoEndEnabled;
-        if (ImGui.Checkbox("Auto End Session##AutoEnd", ref autoEnd))
-            _form.AutoEndEnabled = autoEnd;
+        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentText(_config.SecondaryColour)))
+        {
+            if (ImGui.Checkbox("Auto End Session##AutoEnd", ref autoEnd))
+                _form.AutoEndEnabled = autoEnd;
+        }
     }
 
     private void DrawAutoEndInputs()
@@ -376,15 +382,21 @@ public class HostGambaTab
     private void DrawGameDropdown(float labelOffset)
     {
         var gameIdx = _form.SelectedGameIndex;
-        ImGui.Text("Game");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Game");
         ImGui.SameLine(labelOffset);
         ImGui.SetNextItemWidth(240 * ImGuiHelpers.GlobalScale);
-        if (ImGui.Combo("##GamePicker", ref gameIdx, GameTypes, GameTypes.Length))
+        using (var gameCombo = ImRaii.Combo("##GamePicker", GameTypes[gameIdx]))
         {
-            if (gameIdx != _form.SelectedGameIndex)
+            if (gameCombo)
             {
-                _form.SelectedGameIndex = gameIdx;
-                OnGameTypeChanged();
+                for (var i = 0; i < GameTypes.Length; i++)
+                {
+                    if (ImGui.Selectable(GameTypes[i], i == gameIdx) && i != _form.SelectedGameIndex)
+                    {
+                        _form.SelectedGameIndex = i;
+                        OnGameTypeChanged();
+                    }
+                }
             }
         }
 
@@ -420,16 +432,22 @@ public class HostGambaTab
         var itemSpacingY = ImGui.GetStyle().ItemSpacing.Y;
 
         ImGui.SetCursorPosX(labelOffset);
-        if (UIHelper.IconTextButton(FontAwesomeIcon.FileImport, "Import Preset", "##ImportPresetBtn"))
         {
-            _importNameBuffer = string.Empty;
-            _importKeyBuffer = string.Empty;
-            _importError = string.Empty;
-            ImGui.OpenPopup("ImportPresetPopup");
+            using var c = UIHelper.PushGreenButtonColours();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.FileImport, "Import Preset", "##ImportPresetBtn"))
+            {
+                _importNameBuffer = string.Empty;
+                _importKeyBuffer = string.Empty;
+                _importError = string.Empty;
+                ImGui.OpenPopup("ImportPresetPopup");
+            }
         }
         ImGui.SameLine();
-        if (UIHelper.IconTextButton(FontAwesomeIcon.Copy, "Export to Clipboard", "##ExportToClipboard"))
-            ExportCurrentPreset(presets);
+        {
+            using var c = UIHelper.PushRedButtonColours();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Copy, "Export to Clipboard", "##ExportToClipboard"))
+                ExportCurrentPreset(presets);
+        }
         if (DateTime.UtcNow < _clipboardNotificationUntil)
         {
             ImGui.SameLine();
@@ -438,40 +456,56 @@ public class HostGambaTab
 
         ImGui.SetCursorPosX(labelOffset);
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        if (ImGui.Combo("##PresetPicker", ref presetIdx, presetNames, presetNames.Length))
+        using (var presetCombo = ImRaii.Combo("##PresetPicker", presetIdx < presetNames.Length ? presetNames[presetIdx] : string.Empty))
         {
-            if (presetIdx != _form.SelectedPresetIndex)
+            if (presetCombo)
             {
-                _form.SelectedPresetIndex = presetIdx;
-                LoadSelectedPreset();
+                for (var i = 0; i < presetNames.Length; i++)
+                {
+                    if (ImGui.Selectable(presetNames[i], i == presetIdx) && i != _form.SelectedPresetIndex)
+                    {
+                        _form.SelectedPresetIndex = i;
+                        LoadSelectedPreset();
+                    }
+                }
             }
         }
 
         ImGui.SameLine();
-        if (UIHelper.IconTextButton(FontAwesomeIcon.Save, "Save", "##SavePreset"))
-            SaveCurrentPreset(gameType, presets);
-
-        ImGui.SameLine();
-        if (UIHelper.IconTextButton(FontAwesomeIcon.Plus, "Add", "##AddPreset"))
         {
-            _showAddPresetInput = !_showAddPresetInput;
-            _showRenamePresetInput = false;
-            _newPresetNameBuffer = string.Empty;
+            using var c = UIHelper.PushBlueButtonColours();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Save, "Save", "##SavePreset"))
+                SaveCurrentPreset(presets);
         }
 
         ImGui.SameLine();
-        if (UIHelper.IconTextButton(FontAwesomeIcon.Pen, "Rename", "##RenamePreset"))
         {
-            _showRenamePresetInput = !_showRenamePresetInput;
-            _showAddPresetInput = false;
-            _renameBuffer = presets[_form.SelectedPresetIndex].Name;
+            using var c = UIHelper.PushGreenButtonColours();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Plus, "Add", "##AddPreset"))
+            {
+                _showAddPresetInput = !_showAddPresetInput;
+                _showRenamePresetInput = false;
+                _newPresetNameBuffer = string.Empty;
+            }
+        }
+
+        ImGui.SameLine();
+        {
+            using var c = UIHelper.PushAmberButtonColours();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Pen, "Rename", "##RenamePreset"))
+            {
+                _showRenamePresetInput = !_showRenamePresetInput;
+                _showAddPresetInput = false;
+                _renameBuffer = presets[_form.SelectedPresetIndex].Name;
+            }
         }
 
         if (presets.Count > 1)
         {
             ImGui.SameLine();
+            using var c = UIHelper.PushRedButtonColours();
             if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Delete", "##DeletePreset"))
-                DeleteCurrentPreset(gameType, presets);
+                DeleteCurrentPreset(presets);
         }
 
         if (DateTime.UtcNow < _saveNotificationUntil)
@@ -502,19 +536,19 @@ public class HostGambaTab
         var afterCursor = ImGui.GetCursorPos();
         var labelY = startY + (textLineH + itemSpacingY + frameH) / 2f - textLineH / 2f;
         ImGui.SetCursorPos(new System.Numerics.Vector2(0, labelY));
-        ImGui.Text("Preset");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Preset");
         ImGui.SetCursorPos(afterCursor);
 
         if (_showAddPresetInput)
-            DrawAddPresetInput(gameType, presets);
+            DrawAddPresetInput(presets);
 
         if (_showRenamePresetInput)
-            DrawRenamePresetInput(gameType, presets);
+            DrawRenamePresetInput(presets);
 
-        DrawImportPresetPopup(gameType, presets);
+        DrawImportPresetPopup(presets);
     }
 
-    private void DrawAddPresetInput(string gameType, List<GamePreset> presets)
+    private void DrawAddPresetInput(List<GamePreset> presets)
     {
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         ImGui.InputText("##NewPresetName", ref _newPresetNameBuffer, 64);
@@ -533,10 +567,10 @@ public class HostGambaTab
         }
     }
 
-    private void DrawRenamePresetInput(string gameType, List<GamePreset> presets)
+    private void DrawRenamePresetInput(List<GamePreset> presets)
     {
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        ImGui.InputText("##RenamePreset", ref _renameBuffer, 64);
+        ImGui.InputText("##RenamePresetInput", ref _renameBuffer, 64);
         ImGui.SameLine();
         if (UIHelper.IconTextButton(FontAwesomeIcon.Check, "Confirm", "##ConfirmRenamePreset") && !string.IsNullOrWhiteSpace(_renameBuffer))
         {
@@ -546,18 +580,18 @@ public class HostGambaTab
         }
     }
 
-    private void DrawImportPresetPopup(string gameType, List<GamePreset> presets)
+    private void DrawImportPresetPopup(List<GamePreset> presets)
     {
         using var popup = ImRaii.Popup("ImportPresetPopup", ImGuiWindowFlags.AlwaysAutoResize);
         if (!popup.Success)
             return;
 
-        ImGui.Text("Preset Name");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Preset Name");
         ImGui.SetNextItemWidth(300 * ImGuiHelpers.GlobalScale);
         ImGui.InputText("##ImportName", ref _importNameBuffer, 30);
 
         ImGui.Spacing();
-        ImGui.Text("Import Key");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Import Key");
         ImGui.SetNextItemWidth(300 * ImGuiHelpers.GlobalScale);
         ImGui.InputText("##ImportKey", ref _importKeyBuffer, 4096);
 
@@ -571,14 +605,14 @@ public class HostGambaTab
         using (ImRaii.Disabled(string.IsNullOrWhiteSpace(_importNameBuffer) || string.IsNullOrWhiteSpace(_importKeyBuffer)))
         {
             if (UIHelper.IconTextButton(FontAwesomeIcon.FileImport, "Import", "##ConfirmImport"))
-                TryImportPreset(gameType, presets);
+                TryImportPreset(presets);
         }
         ImGui.SameLine();
         if (UIHelper.IconTextButton(FontAwesomeIcon.Times, "Cancel", "##ImportCancel"))
             ImGui.CloseCurrentPopup();
     }
 
-    private void TryImportPreset(string gameType, List<GamePreset> presets)
+    private void TryImportPreset(List<GamePreset> presets)
     {
         var name = _importNameBuffer.Trim();
         if (presets.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
@@ -613,7 +647,7 @@ public class HostGambaTab
         _clipboardNotificationUntil = DateTime.UtcNow.AddSeconds(3);
     }
 
-    private void SaveCurrentPreset(string gameType, List<GamePreset> presets)
+    private void SaveCurrentPreset(List<GamePreset> presets)
     {
         if (_form.SelectedPresetIndex < 0 || _form.SelectedPresetIndex >= presets.Count)
             return;
@@ -627,7 +661,7 @@ public class HostGambaTab
         _saveNotificationUntil = DateTime.UtcNow.AddSeconds(3);
     }
 
-    private void DeleteCurrentPreset(string gameType, List<GamePreset> presets)
+    private void DeleteCurrentPreset(List<GamePreset> presets)
     {
         if (presets.Count <= 1)
             return;
@@ -664,7 +698,7 @@ public class HostGambaTab
 
     private void DrawDescriptionInput()
     {
-        ImGui.Text("Description");
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Description");
         ImGui.SetNextItemWidth(-1);
         var desc = _form.Description;
         if (ImGui.InputTextMultiline("##Description", ref desc, 512,
@@ -673,10 +707,10 @@ public class HostGambaTab
 
         var charCount = _form.Description.Length;
         var overLimit = charCount >= 511;
-        var countColor = overLimit
+        var countColour = overLimit
             ? new System.Numerics.Vector4(1f, 0.2f, 0.2f, 1f)
             : new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1f);
-        ImGui.TextColored(countColor, $"{charCount} / 511");
+        ImGui.TextColored(countColour, $"{charCount} / 511");
         if (overLimit)
         {
             ImGui.SameLine();
@@ -686,10 +720,18 @@ public class HostGambaTab
         ImGui.TextDisabled("No URLs or HTML permitted.");
         ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Please use the rules provided above to describe your session. I will add any rules to the plugin, just let me know!");
 
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Current location");
+        var liveLocation = _playerInfo.GetCurrentLocation() ?? "Unknown";
+        ImGui.TextUnformatted(liveLocation);
+
         ImGuiHelpers.ScaledDummy(6f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
-        if (ImGui.CollapsingHeader("Preview"))
+        ImGui.PushStyleColor(ImGuiCol.Text, ThemeColours.AccentText(_config.SecondaryColour));
+        var previewOpen = ImGui.CollapsingHeader("Preview");
+        ImGui.PopStyleColor();
+        if (previewOpen)
         {
             ImGuiHelpers.ScaledDummy(4f);
             DrawPreviewSection();

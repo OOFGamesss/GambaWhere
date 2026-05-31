@@ -6,6 +6,7 @@ using Lumina.Excel.Sheets;
 
 namespace GambaWhere.Services;
 
+/// <summary>Reads the local player's character name, current world, and map coordinates from the game state.</summary>
 public class PlayerInfoService
 {
     private readonly IClientState _clientState;
@@ -83,8 +84,7 @@ public class PlayerInfoService
 
     private static float RawToMapCoord(float rawPos, ushort sizeFactor, short offset)
     {
-        var c = sizeFactor / 100f;
-        return MathF.Round(((rawPos + offset) / c + 1024f) / 2048f * 41f + 1f, 1);
+        return MathF.Round((0.02f * offset) + (2048f / sizeFactor) + (0.02f * rawPos) + 1.0f, 1);
     }
 
     private static string FormatPlaceAreaName(string rawArea)

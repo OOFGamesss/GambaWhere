@@ -92,7 +92,19 @@ internal static class UIHelper
 
     internal static ImRaii.ColorDisposable PushRedButtonColours() =>
         new ImRaii.ColorDisposable()
-            .Push(ImGuiCol.Button,        new Vector4(0.6f, 0.1f,  0.1f,  1f))
-            .Push(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f,  0.2f,  1f))
-            .Push(ImGuiCol.ButtonActive,  new Vector4(0.4f, 0.05f, 0.05f, 1f));
+            .Push(ImGuiCol.Button,        new Vector4(0.6f,  0.1f,  0.1f,  1f))
+            .Push(ImGuiCol.ButtonHovered, new Vector4(0.8f,  0.2f,  0.2f,  1f))
+            .Push(ImGuiCol.ButtonActive,  new Vector4(0.4f,  0.05f, 0.05f, 1f));
+
+    internal static ImRaii.ColorDisposable PushBlueButtonColours() =>
+        new ImRaii.ColorDisposable()
+            .Push(ImGuiCol.Button,        new Vector4(0.1f,  0.3f,  0.7f,  1f))
+            .Push(ImGuiCol.ButtonHovered, new Vector4(0.2f,  0.45f, 0.9f,  1f))
+            .Push(ImGuiCol.ButtonActive,  new Vector4(0.05f, 0.2f,  0.5f,  1f));
+
+    internal static ImRaii.ColorDisposable PushAmberButtonColours() =>
+        new ImRaii.ColorDisposable()
+            .Push(ImGuiCol.Button,        new Vector4(0.7f,  0.5f,  0.0f,  1f))
+            .Push(ImGuiCol.ButtonHovered, new Vector4(0.9f,  0.65f, 0.0f,  1f))
+            .Push(ImGuiCol.ButtonActive,  new Vector4(0.5f,  0.35f, 0.0f,  1f));
 }

@@ -18,6 +18,7 @@ using GambaWhere.UI.Tabs;
 
 namespace GambaWhere;
 
+/// <summary>Plugin entry point; wires up all services, IPC handlers, UI windows, and framework hooks.</summary>
 public sealed class GambaWhere : IDalamudPlugin
 {
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -72,7 +73,9 @@ public sealed class GambaWhere : IDalamudPlugin
         var pluginDirectory =
             PluginInterface.AssemblyLocation.DirectoryName ?? PluginInterface.AssemblyLocation.FullName;
 
-        _discordWebhook = new DiscordWebhookService(Log, Configuration, _sessionState, pluginDirectory);
+        var customBanners = new CustomBannerStore(PluginInterface.ConfigDirectory.FullName, Log);
+
+        _discordWebhook = new DiscordWebhookService(Log, Configuration, _sessionState, pluginDirectory, customBanners);
 
         _sessionService = new SessionService(_client, playerInfo, _sessionState, Configuration, ClientState, Framework,
             Log,
@@ -87,7 +90,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
         var settingsTab = new SettingsTab(Configuration, _imageCache, Log, _pillOverlay);
         var supportTab = new SupportTab(_imageCache, Configuration);
-        var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log);
+        var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log, customBanners);
         var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =

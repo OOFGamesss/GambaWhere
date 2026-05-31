@@ -12,6 +12,7 @@ using Dalamud.Plugin.Services;
 
 namespace GambaWhere.Images;
 
+/// <summary>Asynchronous image cache that fetches and stores remote and bundled images as GPU textures.</summary>
 public class ImageCache : IDisposable
 {
     private readonly IDalamudPluginInterface _pluginInterface;
@@ -91,7 +92,6 @@ public class ImageCache : IDisposable
 
     public IDalamudTextureWrap? GetBundledPng(string fileName) => GetBundledImage(fileName, "bundled");
 
-    /// <summary>Loads any image file from the plugin <c>Images</c> directory (e.g. PNG or WebP).</summary>
     public IDalamudTextureWrap? GetBundledImage(string fileName, string cacheNamespace = "bundledimg")
     {
         if (string.IsNullOrWhiteSpace(fileName))
@@ -217,6 +217,77 @@ public class ImageCache : IDisposable
             builder.Append(t.ToString("x2"));
         }
         return builder.ToString();
+    }
+
+    public IDalamudTextureWrap? GetFromPath(string absolutePath)
+    {
+        if (string.IsNullOrWhiteSpace(absolutePath))
+            return null;
+
+        var cacheKey = $"localpath:{absolutePath}";
+        lock (_lock)
+        {
+            if (_cache.TryGetValue(cacheKey, out var tex))
+                return tex;
+
+            if (!_loading.Contains(cacheKey))
+                BeginLoadFromPath(cacheKey, absolutePath);
+
+            return null;
+        }
+    }
+
+    public void EvictFromPath(string absolutePath)
+    {
+        if (string.IsNullOrWhiteSpace(absolutePath))
+            return;
+
+        var cacheKey = $"localpath:{absolutePath}";
+        lock (_lock)
+        {
+            if (_cache.TryGetValue(cacheKey, out var tex))
+            {
+                tex?.Dispose();
+                _cache.Remove(cacheKey);
+            }
+        }
+    }
+
+    private void BeginLoadFromPath(string cacheKey, string absolutePath)
+    {
+        _loading.Add(cacheKey);
+        var ct = _cts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            IDalamudTextureWrap? wrap = null;
+            try
+            {
+                if (File.Exists(absolutePath))
+                {
+                    var bytes = await File.ReadAllBytesAsync(absolutePath, ct);
+                    wrap = await _textureProvider.CreateFromImageAsync(bytes);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "Failed to load image from path {Path}", absolutePath);
+            }
+            finally
+            {
+                lock (_lock)
+                {
+                    _loading.Remove(cacheKey);
+                    if (ct.IsCancellationRequested)
+                        wrap?.Dispose();
+                    else
+                        _cache[cacheKey] = wrap;
+                }
+            }
+        }, ct);
     }
 
     public void Dispose()
