@@ -3,6 +3,7 @@ using System.Numerics;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Resolves theme colours from the user's configured primary and secondary colours.</summary>
 public static class ThemeColours
 {
     public static Vector4 TintedWindowBg(Vector4 p) => BlendWithDark(p, 0.09f, 0.96f);

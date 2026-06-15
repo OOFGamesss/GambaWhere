@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Serialisation DTOs for the Discord webhook JSON payload.</summary>
 internal sealed class DiscordOutboundPayloadDto
 {
     [JsonPropertyName("username")]

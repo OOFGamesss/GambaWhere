@@ -2,6 +2,7 @@ using System;
 
 namespace GambaWhere.Config;
 
+/// <summary>Persisted configuration for a single Discord webhook target.</summary>
 [Serializable]
 public class DiscordWebhookEntry
 {

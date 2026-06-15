@@ -58,11 +58,11 @@ public class SessionService : IDisposable
             _ = Task.Run(TryRecoverSessionAsync);
     }
 
-    public async Task<string?> StartSessionAsync(PostEventRequest request, DateTime? autoEndAt = null)
+    public async Task<(string? Error, EventCreateResponse? Created)> StartSessionAsync(PostEventRequest request, DateTime? autoEndAt = null)
     {
         var response = await _client.PostEventAsync(request);
         if (response == null)
-            return "Failed to create session. Check the log for details.";
+            return ("Failed to create session. Check the log for details.", null);
 
         _sessionState.IsActive = true;
         _sessionState.StartedAt = DateTime.UtcNow;
@@ -92,7 +92,7 @@ public class SessionService : IDisposable
             await _discordWebhook.SyncActiveSessionEmbedsAsync();
         });
 
-        return null;
+        return (null, response);
     }
 
     public async Task TogglePauseAsync()
@@ -115,7 +115,8 @@ public class SessionService : IDisposable
         {
             Location = _sessionState.Location,
             Rules = _sessionState.ActiveRules,
-            Description = SessionConstants.BreakMessage
+            Description = SessionConstants.BreakMessage,
+            BoosterKey = BoosterKeyForRequest()
         };
         await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
 
@@ -137,7 +138,8 @@ public class SessionService : IDisposable
         {
             Location = _sessionState.Location,
             Rules = _sessionState.ActiveRules,
-            Description = _sessionState.Description
+            Description = _sessionState.Description,
+            BoosterKey = BoosterKeyForRequest()
         };
         await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
 
@@ -176,7 +178,7 @@ public class SessionService : IDisposable
         if (location == null)
             return;
 
-        var putRequest = new PutEventRequest { Location = location };
+        var putRequest = new PutEventRequest { Location = location, BoosterKey = BoosterKeyForRequest() };
         await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
 
         _sessionState.Location = location;
@@ -259,7 +261,8 @@ public class SessionService : IDisposable
         {
             Location = location,
             Rules = _sessionState.ActiveRules,
-            Description = _sessionState.IsPaused ? SessionConstants.BreakMessage : _sessionState.Description
+            Description = _sessionState.IsPaused ? SessionConstants.BreakMessage : _sessionState.Description,
+            BoosterKey = BoosterKeyForRequest()
         };
         var putResponse =
             await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
@@ -297,6 +300,9 @@ public class SessionService : IDisposable
             }
         });
     }
+
+    private string? BoosterKeyForRequest() =>
+        string.IsNullOrWhiteSpace(_config.BoosterKey) ? null : _config.BoosterKey.Trim();
 
     private bool ShouldRefreshRulesFromIpc()
     {
@@ -346,7 +352,8 @@ public class SessionService : IDisposable
         var putRequest = new PutEventRequest
         {
             Rules = rules,
-            Description = description
+            Description = description,
+            BoosterKey = BoosterKeyForRequest()
         };
 
         var response = await _client.PutEventAsync(_config.ActiveCharacterName, _config.ActiveSessionToken, putRequest);

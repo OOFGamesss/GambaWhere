@@ -10,6 +10,7 @@ using GambaWhere.UI.Tabs;
 
 namespace GambaWhere.IPC;
 
+/// <summary>IPC bridge to the Simple Scratchcards plugin.</summary>
 public sealed class SimpleScratchIpc : IDisposable
 {
     private const string IpcKey = "SimpleScratch.WindowOpened";

@@ -3,6 +3,7 @@ using GambaWhere.Config;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Helpers for adding, updating and removing Discord webhook entries in configuration.</summary>
 internal static class DiscordWebhookEntryMutations
 {
     internal static void AssignMessageIdIfPresent(DiscordWebhookEntry entry, string json)

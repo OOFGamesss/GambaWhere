@@ -8,6 +8,7 @@ using GambaWhere.API.Models;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Helpers for resolving an event's travel destination.</summary>
 public static class EventTravelLocation
 {
     private static readonly Regex RxWardSpelled =

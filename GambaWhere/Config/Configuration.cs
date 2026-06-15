@@ -34,6 +34,9 @@ public class Configuration : IPluginConfiguration
     public Dictionary<string, List<GamePreset>> Presets { get; set; } = new();
 
     public List<DiscordWebhookEntry> DiscordWebhooks { get; set; } = new();
+
+    public string? BoosterKey { get; set; }
+
     public List<AlertRule> Alerts { get; set; } = new();
     public bool AlertToastEnabled { get; set; } = false;
     public bool AlertSoundEnabled { get; set; } = false;
@@ -44,6 +47,13 @@ public class Configuration : IPluginConfiguration
     public float PillPositionY { get; set; } = 50f;
 
     public List<string> FavouriteVenues { get; set; } = new();
+
+    public List<GambaProfile> Profiles { get; set; } = new();
+    public string? SelectedProfileId { get; set; }
+
+    public List<RecruitmentPostToken> RecruitmentPosts { get; set; } = new();
+
+    public bool ShowNsfwRecruitment { get; set; }
 
     public Vector4 PrimaryColour { get; set; } = DefaultPrimaryColour;
     public Vector4 SecondaryColour { get; set; } = DefaultSecondaryColour;
@@ -226,6 +236,18 @@ public class Configuration : IPluginConfiguration
             }
         };
     }
+}
+
+[Serializable]
+public class RecruitmentPostToken
+{
+    public string Id { get; set; } = string.Empty;
+
+    public string PostType { get; set; } = string.Empty;
+
+    public string PosterCharacter { get; set; } = string.Empty;
+
+    public string SessionToken { get; set; } = string.Empty;
 }
 
 [Serializable]

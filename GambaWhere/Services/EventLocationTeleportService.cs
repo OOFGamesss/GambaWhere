@@ -9,6 +9,7 @@ using GambaWhere.Utility;
 
 namespace GambaWhere.Services;
 
+/// <summary>Teleports the player towards an event's venue using Lifestream and aetheryte travel.</summary>
 public sealed class EventLocationTeleportService
 {
     internal const string ErrorPrefix = "GambaWhere teleport";

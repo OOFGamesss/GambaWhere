@@ -4,6 +4,7 @@ using Dalamud.Plugin.Services;
 
 namespace GambaWhere.IPC;
 
+/// <summary>Shared helper for prompting the user to auto-start a session from an IPC game.</summary>
 internal static class IpcAutoSessionPrompt
 {
     private const ushort PromptUiForegroundColour = 573;

@@ -2,6 +2,7 @@ using System;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Colour and styling constants for Discord webhook embeds.</summary>
 public static class DiscordWebhookTheme
 {
     public const string IdleBannerFile = "nogambabanner.png";

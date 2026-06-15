@@ -2,6 +2,7 @@ using System.Collections.Generic;
 
 namespace GambaWhere.Rules;
 
+/// <summary>Contract for a game's editable rule configuration.</summary>
 public interface IRuleConfig
 {
 

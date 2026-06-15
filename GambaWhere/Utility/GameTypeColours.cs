@@ -2,6 +2,7 @@ using System.Numerics;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Colour palette keyed by game type.</summary>
 public static class GameTypeColours
 {
     private static readonly Vector4 YellowAccent = new(1f, 0.85f, 0f, 1f);

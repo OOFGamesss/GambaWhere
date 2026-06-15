@@ -9,6 +9,7 @@ using HousingAddrTuple =
     (string Name, int World, int City, int Ward, int PropertyType, int Plot, int Apartment,
         bool ApartmentSubdivision, bool AliasEnabled, string Alias);
 
+/// <summary>IPC wrapper for Lifestream house and travel commands.</summary>
 internal static class LifestreamHouseIpc
 {
     internal const string RequiredPluginInternalName = "Lifestream";

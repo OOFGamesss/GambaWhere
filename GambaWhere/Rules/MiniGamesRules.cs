@@ -1,19 +1,17 @@
 using System.Collections.Generic;
-using System.Linq;
 using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility;
-using ECommons.ImGuiMethods;
 using GambaWhere.IPC;
+using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
 namespace GambaWhere.Rules;
 
+/// <summary>Rule configuration for the Mini Games Emporium game types.</summary>
 public enum MiniGame
 {
     DeathRoll
 }
 
-/// <summary>Rule configuration for Mini Games sessions, supporting manual entry and automatic IPC data from MiniGamesEmporium.</summary>
 public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
 {
     public string GameType => "Mini Games";
@@ -21,33 +19,22 @@ public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
     private MiniGame _selectedGame = MiniGame.DeathRoll;
     private int _entryCost;
 
-    private static readonly string[] RowLabels =
-    {
-        "Game",
-        "Entry Cost (gil)"
-    };
-
     public void Draw()
     {
-        var offset = RowLabels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
-
-        ImGui.Text(RowLabels[0]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        if (ImGui.BeginCombo("##MiniGameSelect", MiniGameLabel(_selectedGame)))
+        using (var grid = RuleGrid.Begin("##MiniGamesGrid"))
         {
-            foreach (var game in System.Enum.GetValues<MiniGame>())
+            grid.Cell();
+            HostField.Combo("Game", "##MiniGameSelect", MiniGameLabel(_selectedGame), () =>
             {
-                if (ImGui.Selectable(MiniGameLabel(game), _selectedGame == game))
-                    _selectedGame = game;
-            }
-            ImGui.EndCombo();
+                foreach (var game in System.Enum.GetValues<MiniGame>())
+                {
+                    if (ImGui.Selectable(MiniGameLabel(game), _selectedGame == game))
+                        _selectedGame = game;
+                }
+            });
+            grid.Cell();
+            HostField.Money("Entry Cost (gil)", "##EntryCost", ref _entryCost);
         }
-
-        ImGui.Text(RowLabels[1]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##EntryCost", ref _entryCost, 0);
 
         _entryCost = RuleClamp.Min(_entryCost, 0);
     }
@@ -109,34 +96,5 @@ public class MiniGamesRules : IRuleConfig, IAutomaticHostRuleSource
 
         rules = null;
         return false;
-    }
-
-    public void DrawAutomaticRulesSummary(object? ipcContext)
-    {
-        if (ipcContext is BAR777Data bar777)
-        {
-            ImGui.Text($"Game: {bar777.GameLabel}");
-            ImGui.Text($"Boosted Pot: {bar777.BoostedPot:N0}");
-            ImGui.Text($"Total Pot: {bar777.TotalPot:N0}");
-            ImGui.Text($"Cost Per Roll: {bar777.CostPerRoll:N0}");
-            ImGui.Text($"Max Rolls: {bar777.MaxRolls:N0}");
-            ImGui.Text($"Players Played: {bar777.PlayersPlayed:N0}");
-            if (bar777.Queue.HasValue)
-                ImGui.Text($"Queue: {bar777.Queue.Value:N0}");
-            return;
-        }
-
-        if (ipcContext is DeathrollTournamentData deathroll)
-        {
-            ImGui.Text($"Game: {deathroll.GameLabel}");
-            ImGui.Text($"Round: {deathroll.Round}");
-            ImGui.Text($"Boosted Pot: {deathroll.BoostedPot:N0}");
-            ImGui.Text($"Total Pot: {deathroll.TotalPot:N0}");
-            ImGui.Text($"Entry Cost: {deathroll.EntryCost:N0}");
-            ImGui.Text($"Players Entered: {deathroll.PlayersEntered:N0}");
-            return;
-        }
-
-        ImGui.TextDisabled("No session has been started in MiniGamesEmporium.");
     }
 }

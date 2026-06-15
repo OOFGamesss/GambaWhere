@@ -1,5 +1,6 @@
 namespace GambaWhere.Discord;
 
+/// <summary>Default profile (username and avatar) presented by GambaWhere Discord webhooks.</summary>
 public static class DiscordWebhookProfile
 {
     public const string DisplayName = "Gamba Where";

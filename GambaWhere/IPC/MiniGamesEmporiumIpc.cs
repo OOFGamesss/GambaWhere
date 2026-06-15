@@ -13,6 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace GambaWhere.IPC;
 
+/// <summary>IPC bridge to the Mini Games Emporium plugin.</summary>
 public sealed class MiniGamesEmporiumIpc : IDisposable
 {
     private const string WindowOpenedIpcKey = "MiniGamesEmporium.WindowOpened";

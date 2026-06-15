@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace GambaWhere.API.Models;
 
+/// <summary>Request body for updating an existing event via the API.</summary>
 public class PutEventRequest
 {
     [JsonPropertyName("location")]
@@ -16,4 +17,8 @@ public class PutEventRequest
 
     [JsonPropertyName("description")]
     public string? Description { get; set; }
+
+    [JsonPropertyName("booster_key")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BoosterKey { get; set; }
 }

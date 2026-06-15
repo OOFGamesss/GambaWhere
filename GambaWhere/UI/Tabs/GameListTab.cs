@@ -12,26 +12,32 @@ using static GambaWhere.Utility.GameTypeColours;
 
 namespace GambaWhere.UI.Tabs;
 
+/// <summary>Tab showing the supported games and their details.</summary>
 public class GameListTab
 {
     private readonly ImageCache _imageCache;
     private readonly Configuration _config;
 
     private static readonly float ImageSize = 70f;
+    private static readonly float ImageLeftPadding = 8f;
 
     private const string SimpleGambaGamesUrl = "https://simple.gamba.pro/#games";
-    private const string OofGamesPluginsRepoUrl = "https://discord.gg/vM6ff4h5Ym";
+    private const string OofGamesPluginsRepoUrl = "https://oofgames.fyi";
+    private const string AsunaMiniGamesRepoUrl = "https://puni.sh/api/repository/asuna";
 
-    private static readonly (string DisplayName, string? CompanionPlugin)[] HostableGames =
+    private readonly record struct HostableGame(string Key, string Title, string? CompanionPlugin);
+
+    private static readonly HostableGame[] HostableGames =
     {
-        ("Bingo", "SimpleBingo"),
-        ("Blackjack", "SimpleBlackjack"),
-        ("Chocobo Racing", "Chocobo Racing Gamba"),
-        ("Mini Games", "Mini Games Emporium"),
-        ("Poker", "SimplePoker"),
-        ("Roulette", "SimpleRoulette"),
-        ("Scratchcards", "SimpleScratch"),
-        ("Spin the Wheel", "SimpleWheel")
+        new("Bingo", "Bingo", "SimpleBingo"),
+        new("Blackjack", "Blackjack", "SimpleBlackjack"),
+        new("Chocobo Racing", "Chocobo Racing", "Chocobo Racing"),
+        new("Mini Games", "Mini Games", "Mini Games Emporium"),
+        new("Simple Mini Games", "Mini Games", "SimpleMiniGames"),
+        new("Poker", "Poker", "SimplePoker"),
+        new("Roulette", "Roulette", "SimpleRoulette"),
+        new("Scratchcards", "Scratchcards", "SimpleScratch"),
+        new("Spin the Wheel", "Spin the Wheel", "SimpleWheel")
     };
 
     public GameListTab(ImageCache imageCache, Configuration config)
@@ -47,24 +53,25 @@ public class GameListTab
         ImGuiHelpers.ScaledDummy(4f);
 
         foreach (var game in HostableGames)
-            DrawGameCard(game.DisplayName, game.CompanionPlugin);
+            DrawGameCard(game);
     }
 
-    private static string? GetDownloadUrl(string displayName) => displayName switch
+    private static string? GetDownloadUrl(string key) => key switch
     {
         "Mini Games" => OofGamesPluginsRepoUrl,
         "Chocobo Racing" => OofGamesPluginsRepoUrl,
+        "Simple Mini Games" => AsunaMiniGamesRepoUrl,
         _ => SimpleGambaGamesUrl
     };
 
-    private static string? GetCreatorAttribution(string displayName) => displayName switch
+    private static string? GetCreatorAttribution(string key) => key switch
     {
         "Mini Games" => "Created by OOF Games",
         "Chocobo Racing" => "Created by OOF Games",
         _ => "Created by Asuna & Klia"
     };
 
-    private static string? GetGameDescription(string displayName) => displayName switch
+    private static string? GetGameDescription(string key) => key switch
     {
         "Bingo" =>
             "Interactive bingo with automated ball calling, multiple card support, and real-time winner detection.",
@@ -82,30 +89,37 @@ public class GameListTab
             "Fully Customisable racing game with auto detected bets, bank management and much more.",
         "Mini Games" =>
             "Casual mini bar-style games designed for quick rounds, simple interactions, and social-friendly gameplay.",
+        "Simple Mini Games" =>
+            "DICE! GAMES! UNO! Cards Against Humanity",
         _ => null
     };
 
-    private static string? GetBundledIconFileName(string displayName) => displayName switch
+    private static string? GetBundledIconFileName(string key) => key switch
     {
-        "Bingo" => "simplebingo.png",
-        "Blackjack" => "simpleblackjack.png",
-        "Chocobo Racing" => "chocoboracinggamba.png",
-        "Mini Games" => "minigamesemporium.png",
-        "Poker" => "simplepoker.png",
-        "Roulette" => "simpleroulette.png",
-        "Scratchcards" => "simplescratch.png",
-        "Spin the Wheel" => "simplewheel.png",
+        "Bingo" => "Games/simplebingo.png",
+        "Blackjack" => "Games/simpleblackjack.png",
+        "Chocobo Racing" => "Games/chocoboracinggamba.png",
+        "Mini Games" => "Games/minigamesemporium.png",
+        "Simple Mini Games" => "Games/simpleminigames.png",
+        "Poker" => "Games/simplepoker.png",
+        "Roulette" => "Games/simpleroulette.png",
+        "Scratchcards" => "Games/simplescratch.png",
+        "Spin the Wheel" => "Games/simplewheel.png",
         _ => null
     };
 
-    private void DrawGameCard(string displayName, string? companionPlugin)
+    private void DrawGameCard(HostableGame game)
     {
-        using var id = ImRaii.PushId(displayName);
+        var key = game.Key;
+        var title = game.Title;
+        var companionPlugin = game.CompanionPlugin;
+
+        using var id = ImRaii.PushId(key);
 
         var scaledImageSize = new Vector2(ImageSize, ImageSize) * ImGuiHelpers.GlobalScale;
         var scaledWebColumnWidth = ImGui.GetFrameHeight() + 12f * ImGuiHelpers.GlobalScale;
-        var (bgColor, accentColor) = ForGame(displayName);
-        var downloadUrl = GetDownloadUrl(displayName);
+        var (bgColor, accentColor) = ForGame(title);
+        var downloadUrl = GetDownloadUrl(key);
 
         var cardTopScreen = ImGui.GetCursorScreenPos();
         var availWidth = ImGui.GetContentRegionAvail().X;
@@ -113,12 +127,12 @@ public class GameListTab
         drawList.ChannelsSplit(2);
         drawList.ChannelsSetCurrent(1);
 
-        var iconFile = GetBundledIconFileName(displayName);
+        var iconFile = GetBundledIconFileName(key);
         var tex = iconFile != null ? _imageCache.GetBundledPng(iconFile) : null;
 
         if (ImGui.BeginTable("##gameCard", 3, ImGuiTableFlags.None))
         {
-            ImGui.TableSetupColumn("##img", ImGuiTableColumnFlags.WidthFixed, scaledImageSize.X);
+            ImGui.TableSetupColumn("##img", ImGuiTableColumnFlags.WidthFixed, scaledImageSize.X + ImageLeftPadding * ImGuiHelpers.GlobalScale);
             ImGui.TableSetupColumn("##text", ImGuiTableColumnFlags.WidthStretch);
             ImGui.TableSetupColumn("##web", ImGuiTableColumnFlags.WidthFixed, scaledWebColumnWidth);
             ImGui.TableNextRow();
@@ -128,11 +142,11 @@ public class GameListTab
 
             ImGui.TableSetColumnIndex(1);
 
-            ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), displayName);
+            ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), title);
 
             ImGuiHelpers.ScaledDummy(2f);
 
-            var description = GetGameDescription(displayName);
+            var description = GetGameDescription(key);
             var companionLine = !string.IsNullOrEmpty(companionPlugin)
                 ? $"Companion plugin: {companionPlugin}"
                 : "No Plugin Available at this time.";
@@ -175,7 +189,7 @@ public class GameListTab
                 ImGui.EndTable();
             }
 
-            var creatorLine = GetCreatorAttribution(displayName);
+            var creatorLine = GetCreatorAttribution(key);
             if (!string.IsNullOrEmpty(creatorLine))
             {
                 ImGuiHelpers.ScaledDummy(2f);
@@ -204,7 +218,7 @@ public class GameListTab
 
         var rowHeight = cardBottomScreen.Y - cardTopScreen.Y;
         var iconY = cardTopScreen.Y + Math.Max(0f, (rowHeight - scaledImageSize.Y) * 0.5f);
-        var iconMin = new Vector2(cardTopScreen.X, iconY);
+        var iconMin = new Vector2(cardTopScreen.X + ImageLeftPadding * ImGuiHelpers.GlobalScale, iconY);
         var iconMax = iconMin + scaledImageSize;
         if (tex != null)
             drawList.AddImage(tex.Handle, iconMin, iconMax);

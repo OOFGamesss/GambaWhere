@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -20,10 +21,13 @@ public class ImageCache : IDisposable
     private readonly IPluginLog _log;
     private readonly HttpClient _http;
 
+    private const string ProfileCachePrefix = "profile:";
+
     private readonly Dictionary<string, IDalamudTextureWrap?> _cache = new();
     private readonly HashSet<string> _loading = new();
     private readonly object _lock = new();
     private readonly string _cacheDirectory;
+    private readonly string _profileCacheDirectory;
     private readonly CancellationTokenSource _cts = new();
 
     public ImageCache(IDalamudPluginInterface pluginInterface, ITextureProvider textureProvider, IPluginLog log)
@@ -39,6 +43,12 @@ public class ImageCache : IDisposable
         {
             Directory.CreateDirectory(_cacheDirectory);
         }
+
+        _profileCacheDirectory = Path.Combine(_pluginInterface.ConfigDirectory.FullName, "ProfileImageCache");
+        if (!Directory.Exists(_profileCacheDirectory))
+        {
+            Directory.CreateDirectory(_profileCacheDirectory);
+        }
     }
 
     public int GetCachedImageCount()
@@ -47,29 +57,49 @@ public class ImageCache : IDisposable
         return Directory.GetFiles(_cacheDirectory).Length;
     }
 
+    public int GetCachedProfileImageCount()
+    {
+        if (!Directory.Exists(_profileCacheDirectory)) return 0;
+        return Directory.GetFiles(_profileCacheDirectory).Length;
+    }
+
     public void ClearCache()
+    {
+        EvictMemory(key => !key.StartsWith(ProfileCachePrefix, StringComparison.Ordinal));
+        DeleteCachedFiles(_cacheDirectory);
+    }
+
+    public void ClearProfileCache()
+    {
+        EvictMemory(key => key.StartsWith(ProfileCachePrefix, StringComparison.Ordinal));
+        DeleteCachedFiles(_profileCacheDirectory);
+    }
+
+    private void EvictMemory(Func<string, bool> keyMatches)
     {
         lock (_lock)
         {
-            foreach (var tex in _cache.Values)
-                tex?.Dispose();
-
-            _cache.Clear();
+            var keys = _cache.Keys.Where(keyMatches).ToList();
+            foreach (var key in keys)
+            {
+                _cache[key]?.Dispose();
+                _cache.Remove(key);
+            }
         }
+    }
 
-        if (Directory.Exists(_cacheDirectory))
+    private static void DeleteCachedFiles(string directory)
+    {
+        if (!Directory.Exists(directory))
+            return;
+
+        try
         {
-            try
-            {
-                var files = Directory.GetFiles(_cacheDirectory);
-                foreach (var file in files)
-                {
-                    File.Delete(file);
-                }
-            }
-            catch
-            {
-            }
+            foreach (var file in Directory.GetFiles(directory))
+                File.Delete(file);
+        }
+        catch
+        {
         }
     }
 
@@ -84,7 +114,25 @@ public class ImageCache : IDisposable
                 return tex;
 
             if (!_loading.Contains(url))
-                BeginLoad(url);
+                BeginLoad(url, url, _cacheDirectory);
+
+            return null;
+        }
+    }
+
+    public IDalamudTextureWrap? GetProfile(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        var cacheKey = $"{ProfileCachePrefix}{url}";
+        lock (_lock)
+        {
+            if (_cache.TryGetValue(cacheKey, out var tex))
+                return tex;
+
+            if (!_loading.Contains(cacheKey))
+                BeginLoad(cacheKey, url, _profileCacheDirectory);
 
             return null;
         }
@@ -110,9 +158,9 @@ public class ImageCache : IDisposable
         }
     }
 
-    private void BeginLoad(string url)
+    private void BeginLoad(string cacheKey, string url, string directory)
     {
-        _loading.Add(url);
+        _loading.Add(cacheKey);
         var ct = _cts.Token;
 
         _ = Task.Run(async () =>
@@ -121,7 +169,7 @@ public class ImageCache : IDisposable
             try
             {
                 var hash = GetSha256Hash(url);
-                var filePath = Path.Combine(_cacheDirectory, $"{hash}.img");
+                var filePath = Path.Combine(directory, $"{hash}.img");
 
                 byte[] bytes;
                 if (File.Exists(filePath))
@@ -147,11 +195,11 @@ public class ImageCache : IDisposable
             {
                 lock (_lock)
                 {
-                    _loading.Remove(url);
+                    _loading.Remove(cacheKey);
                     if (ct.IsCancellationRequested)
                         wrap?.Dispose();
                     else
-                        _cache[url] = wrap;
+                        _cache[cacheKey] = wrap;
                 }
             }
         }, ct);

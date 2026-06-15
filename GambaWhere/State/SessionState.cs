@@ -4,6 +4,7 @@ using System.Threading;
 
 namespace GambaWhere.State;
 
+/// <summary>Volatile runtime state for the active hosting session.</summary>
 public class SessionState
 {
     public bool IsActive { get; set; }

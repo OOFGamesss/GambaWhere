@@ -10,6 +10,7 @@ using GambaWhere.Config;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Low-level HTTP send helpers for delivering Discord webhook requests.</summary>
 internal static class DiscordWebhookHttp
 {
     internal static async Task<HttpResponseMessage> SendMultipartWithRetriesAsync(

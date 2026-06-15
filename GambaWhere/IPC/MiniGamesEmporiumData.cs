@@ -1,5 +1,6 @@
 namespace GambaWhere.IPC;
 
+/// <summary>Data contracts mirrored from the Mini Games Emporium plugin IPC.</summary>
 public sealed class BAR777Data
 {
     public string GameLabel { get; set; } = string.Empty;

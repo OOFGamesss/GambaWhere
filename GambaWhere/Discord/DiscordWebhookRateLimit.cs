@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Tracks and honours Discord webhook rate-limit responses.</summary>
 internal static class DiscordWebhookRateLimit
 {
     internal static async Task<TimeSpan> ResolveDelayAsync(HttpResponseMessage response,

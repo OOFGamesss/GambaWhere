@@ -5,6 +5,7 @@ using System.Text.Json;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Encodes and decodes shareable rule preset codes.</summary>
 public static class PresetCodec
 {
     public static string Encode(Dictionary<string, object> ruleValues, string description)

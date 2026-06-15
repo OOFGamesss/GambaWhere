@@ -1,20 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
-using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
+using GambaWhere.Images;
 using GambaWhere.Rules;
 using GambaWhere.Services;
 using GambaWhere.State;
 using GambaWhere.Utility;
-using GambaWhere.Images;
 using GambaWhere.UI.Components;
 
 namespace GambaWhere.UI.Tabs;
@@ -29,12 +29,17 @@ public class HostGambaTab
     private readonly Configuration _config;
     private readonly HostFormState _form;
     private readonly ImageCache _imageCache;
+    private readonly ProfileImageStore _profileImages;
 
     private static readonly string[] GameTypes = { "Bingo", "Blackjack", "Chocobo Racing", "Mini Games", "Poker", "Roulette", "Scratchcards", "Spin the Wheel" };
 
+    private static readonly Vector4 Yellow = new(1f, 1f, 0f, 1f);
+    private static readonly Vector4 SoftRed = new(1f, 0.4f, 0.4f, 1f);
+    private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
+
     private readonly IRuleConfig[] _ruleConfigs;
 
-    private bool _venuesFetched;
+    private int _lastDrawFrame = -10;
     private volatile bool _isFetchingVenues;
 
     private string _newPresetNameBuffer = string.Empty;
@@ -52,7 +57,9 @@ public class HostGambaTab
     private string _importKeyBuffer = string.Empty;
     private string _importError = string.Empty;
 
-    public Func<object?>? GetHostAutomaticRuleContext { get; set; }
+    private readonly ThemedCard _card = new();
+
+    public Func<IReadOnlyList<HostRuleSource>>? GetHostAutomaticRuleSources { get; set; }
 
     public HostGambaTab(
         SessionService sessionService,
@@ -61,7 +68,8 @@ public class HostGambaTab
         SessionState sessionState,
         Configuration config,
         HostFormState form,
-        ImageCache imageCache)
+        ImageCache imageCache,
+        ProfileImageStore profileImages)
     {
         _sessionService = sessionService;
         _playerInfo = playerInfo;
@@ -70,6 +78,7 @@ public class HostGambaTab
         _config = config;
         _form = form;
         _imageCache = imageCache;
+        _profileImages = profileImages;
 
         _ruleConfigs = new IRuleConfig[]
         {
@@ -89,79 +98,25 @@ public class HostGambaTab
 
     public string GetSelectedGameType() => GameTypes[_form.SelectedGameIndex];
 
-    public void SelectChocoboRacing()
+    public void SelectChocoboRacing() => SelectGame("Chocobo Racing");
+
+    public void SelectBingo() => SelectGame("Bingo");
+
+    public void SelectMiniGames() => SelectGame("Mini Games");
+
+    public void SelectBlackjack() => SelectGame("Blackjack");
+
+    public void SelectPoker() => SelectGame("Poker");
+
+    public void SelectRoulette() => SelectGame("Roulette");
+
+    public void SelectScratchcards() => SelectGame("Scratchcards");
+
+    public void SelectSpinTheWheel() => SelectGame("Spin the Wheel");
+
+    private void SelectGame(string gameType)
     {
-        var index = Array.IndexOf(GameTypes, "Chocobo Racing");
-        if (index < 0 || index == _form.SelectedGameIndex)
-            return;
-
-        _form.SelectedGameIndex = index;
-        OnGameTypeChanged();
-    }
-
-    public void SelectBingo()
-    {
-        var index = Array.IndexOf(GameTypes, "Bingo");
-        if (index < 0 || index == _form.SelectedGameIndex)
-            return;
-
-        _form.SelectedGameIndex = index;
-        OnGameTypeChanged();
-    }
-
-    public void SelectMiniGames()
-    {
-        var index = Array.IndexOf(GameTypes, "Mini Games");
-        if (index < 0 || index == _form.SelectedGameIndex)
-            return;
-
-        _form.SelectedGameIndex = index;
-        OnGameTypeChanged();
-    }
-
-    public void SelectBlackjack()
-    {
-        var index = Array.IndexOf(GameTypes, "Blackjack");
-        if (index < 0 || index == _form.SelectedGameIndex)
-            return;
-
-        _form.SelectedGameIndex = index;
-        OnGameTypeChanged();
-    }
-
-    public void SelectPoker()
-    {
-        var index = Array.IndexOf(GameTypes, "Poker");
-        if (index < 0 || index == _form.SelectedGameIndex)
-            return;
-
-        _form.SelectedGameIndex = index;
-        OnGameTypeChanged();
-    }
-
-    public void SelectRoulette()
-    {
-        var index = Array.IndexOf(GameTypes, "Roulette");
-        if (index < 0 || index == _form.SelectedGameIndex)
-            return;
-
-        _form.SelectedGameIndex = index;
-        OnGameTypeChanged();
-    }
-
-    public void SelectScratchcards()
-    {
-        var index = Array.IndexOf(GameTypes, "Scratchcards");
-        if (index < 0 || index == _form.SelectedGameIndex)
-            return;
-
-        _form.SelectedGameIndex = index;
-        OnGameTypeChanged();
-    }
-
-    public void SelectSpinTheWheel()
-    {
-        var index = Array.IndexOf(GameTypes, "Spin the Wheel");
+        var index = Array.IndexOf(GameTypes, gameType);
         if (index < 0 || index == _form.SelectedGameIndex)
             return;
 
@@ -171,74 +126,537 @@ public class HostGambaTab
 
     public void Draw()
     {
-        if (!_venuesFetched)
+        var frame = ImGui.GetFrameCount();
+        if (frame - _lastDrawFrame > 1)
             FetchVenues();
+        _lastDrawFrame = frame;
 
-        if (_sessionState.IsActive)
-            DrawActiveSession();
-        else
-            DrawConfigForm();
-    }
+        HostFieldTheme.Primary = _config.PrimaryColour;
+        HostFieldTheme.Secondary = _config.SecondaryColour;
 
-    private void DrawActiveSession()
-    {
-        ImGui.TextColored(new System.Numerics.Vector4(0.4f, 1f, 0.4f, 1f), "Session Active");
+        var scale = ImGuiHelpers.GlobalScale;
+        var footerHeight = 76f * scale;
+        var scrollHeight = Math.Max(80f * scale, ImGui.GetContentRegionAvail().Y - footerHeight);
 
-        ImGui.SameLine(ImGui.GetContentRegionMax().X - UIHelper.CalcButtonSize(FontAwesomeIcon.Stop, "Stop Session").X);
-        using var stopColours = UIHelper.PushRedButtonColours();
-        using (ImRaii.Disabled(_form.IsStarting))
+        using (var scroll = ImRaii.Child("##gw_host_scroll", new Vector2(0f, scrollHeight), false))
         {
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Stop, "Stop Session"))
-                TriggerStopSession();
+            if (scroll.Success)
+            {
+                if (_sessionState.IsActive)
+                {
+                    ImGuiHelpers.ScaledDummy(8f);
+                    DrawCard("##gw_active_session", "Active Session", DrawActiveSessionBody);
+                }
+                else
+                {
+                    DrawConfigForm();
+                }
+            }
         }
 
+        ImGuiHelpers.ScaledDummy(4f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Character:");
-        ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
-        ImGui.TextUnformatted(_sessionState.CharacterName);
+        if (_sessionState.IsActive)
+            DrawStopBar();
+        else
+            DrawBottomBar();
+    }
 
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Game:");
-        ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
-        ImGui.TextUnformatted(_sessionState.GameType);
+    private void DrawConfigForm()
+    {
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawCard("##gw_setup_panel", "Setup", DrawSetupCardBody);
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawCard("##gw_rules_panel", "Game Rules", DrawRulesCardBody);
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawCard("##gw_session_details", "Session Details", DrawSessionDetailsBody);
+        ImGuiHelpers.ScaledDummy(10f);
+    }
 
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Venue:");
-        ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
-        ImGui.TextUnformatted(_sessionState.VenueName ?? "No Venue");
+    private void DrawCard(string id, string title, Action content) =>
+        _card.Draw(id, title, _config.PrimaryColour, _config.SecondaryColour, content);
+
+    private void DrawSetupCardBody()
+    {
+        DrawVenueGameRow();
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(6f);
+        DrawProfileRow();
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(6f);
+        DrawPresetRow();
+    }
+
+    private GambaProfile? GetSelectedProfile() =>
+        _config.Profiles.FirstOrDefault(p => p.Id == _config.SelectedProfileId);
+
+    private void DrawProfileRow()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var diameter = 56f * scale;
+        var selected = GetSelectedProfile();
+
+        var path = selected != null ? _profileImages.GetPath(selected.ImageFileName) : null;
+        var tex = path != null ? _imageCache.GetFromPath(path) : null;
+
+        var startY = ImGui.GetCursorPosY();
+        CircleImage.DrawInline(diameter, tex);
+        ImGui.SameLine();
+
+        var groupHeight = ImGui.GetTextLineHeight() + ImGui.GetStyle().ItemSpacing.Y + ImGui.GetFrameHeight();
+        ImGui.SetCursorPosY(startY + Math.Max(0f, (diameter - groupHeight) * 0.5f));
+
+        using (ImRaii.Group())
+        {
+            HostField.Label("Profile");
+            ImGui.SetNextItemWidth(200f * scale);
+            using var combo = ImRaii.Combo("##ProfilePicker", selected?.Name ?? "None");
+            if (combo)
+            {
+                if (ImGui.Selectable("None", selected == null) && selected != null)
+                {
+                    _config.SelectedProfileId = null;
+                    _config.Save();
+                }
+
+                foreach (var profile in _config.Profiles)
+                {
+                    if (ImGui.Selectable(profile.Name, profile.Id == _config.SelectedProfileId)
+                        && profile.Id != _config.SelectedProfileId)
+                    {
+                        _config.SelectedProfileId = profile.Id;
+                        _config.Save();
+                    }
+                }
+            }
+        }
+
+        if (_config.Profiles.Count == 0)
+            ImGui.TextDisabled("Create one on the Profiles tab.");
+    }
+
+    private void DrawRulesCardBody() => DrawRulesSection();
+
+    private void DrawPresetRow()
+    {
+        var gameType = GameTypes[_form.SelectedGameIndex];
+        var presets = GetOrInitPresets(gameType);
+        if (presets.Count == 0)
+            return;
+
+        var presetNames = presets.Select(p => p.Name).ToArray();
+        var presetIdx = _form.SelectedPresetIndex;
+
+        ImGui.AlignTextToFramePadding();
+        HostField.Label("Presets");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        using (var presetCombo = ImRaii.Combo("##PresetPicker", presetIdx < presetNames.Length ? presetNames[presetIdx] : string.Empty))
+        {
+            if (presetCombo)
+            {
+                for (var i = 0; i < presetNames.Length; i++)
+                {
+                    if (ImGui.Selectable(presetNames[i], i == presetIdx) && i != _form.SelectedPresetIndex)
+                    {
+                        _form.SelectedPresetIndex = i;
+                        LoadSelectedPreset();
+                    }
+                }
+            }
+        }
+
+        var buttons = new List<(FontAwesomeIcon Icon, string Label, string Id, Func<ImRaii.ColorDisposable> Colours, Action OnClick)>
+        {
+            (FontAwesomeIcon.FileImport, "Import", "##ImportPresetBtn", UIHelper.PushGreenButtonColours, () =>
+            {
+                _importNameBuffer = string.Empty;
+                _importKeyBuffer = string.Empty;
+                _importError = string.Empty;
+                ImGui.OpenPopup("ImportPresetPopup");
+            }),
+            (FontAwesomeIcon.Copy, "Export", "##ExportToClipboard", UIHelper.PushRedButtonColours, () => ExportCurrentPreset(presets)),
+            (FontAwesomeIcon.Save, "Save", "##SavePreset", UIHelper.PushBlueButtonColours, () => SaveCurrentPreset(presets)),
+            (FontAwesomeIcon.Plus, "Add", "##AddPreset", UIHelper.PushGreenButtonColours, () =>
+            {
+                _showAddPresetInput = !_showAddPresetInput;
+                _showRenamePresetInput = false;
+                _newPresetNameBuffer = string.Empty;
+            }),
+            (FontAwesomeIcon.Pen, "Rename", "##RenamePreset", UIHelper.PushAmberButtonColours, () =>
+            {
+                _showRenamePresetInput = !_showRenamePresetInput;
+                _showAddPresetInput = false;
+                _renameBuffer = presets[_form.SelectedPresetIndex].Name;
+            }),
+        };
+
+        if (presets.Count > 1)
+            buttons.Add((FontAwesomeIcon.Trash, "Delete", "##DeletePreset", UIHelper.PushRedButtonColours, () => DeleteCurrentPreset(presets)));
+
+        var rightLimit = ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X;
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+
+        foreach (var b in buttons)
+        {
+            FitSameLine(UIHelper.CalcButtonSize(b.Icon, b.Label).X, rightLimit, spacing);
+            using (b.Colours())
+            {
+                if (UIHelper.IconTextButton(b.Icon, b.Label, b.Id))
+                    b.OnClick();
+            }
+        }
+
+        if (DateTime.UtcNow < _saveNotificationUntil)
+        {
+            var msg = $"{_saveNotificationName} saved!";
+            FitSameLine(ImGui.CalcTextSize(msg).X, rightLimit, spacing);
+            ImGui.TextColored(Yellow, msg);
+        }
+
+        if (DateTime.UtcNow < _clipboardNotificationUntil)
+        {
+            var msg = $"{_clipboardNotificationName} copied to clipboard!";
+            FitSameLine(ImGui.CalcTextSize(msg).X, rightLimit, spacing);
+            ImGui.TextColored(Yellow, msg);
+        }
+
+        if (_showAddPresetInput)
+            DrawAddPresetInput(presets);
+
+        if (_showRenamePresetInput)
+            DrawRenamePresetInput(presets);
+
+        DrawImportPresetPopup(presets);
+    }
+
+    private static void FitSameLine(float nextWidth, float rightLimit, float spacing)
+    {
+        if (ImGui.GetItemRectMax().X + spacing + nextWidth <= rightLimit)
+            ImGui.SameLine();
+    }
+
+    private void DrawVenueGameRow()
+    {
+        using var table = ImRaii.Table("##gw_venue_game", 4, ImGuiTableFlags.None);
+        if (!table)
+            return;
+
+        var labelWidth = Math.Max(ImGui.CalcTextSize("Venue").X, ImGui.CalcTextSize("Game").X);
+
+        ImGui.TableSetupColumn("##vlabel", ImGuiTableColumnFlags.WidthFixed, labelWidth);
+        ImGui.TableSetupColumn("##vfield", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("##glabel", ImGuiTableColumnFlags.WidthFixed, labelWidth);
+        ImGui.TableSetupColumn("##gfield", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableNextRow();
+
+        ImGui.TableNextColumn();
+        ImGui.AlignTextToFramePadding();
+        HostField.Label("Venue");
+
+        ImGui.TableNextColumn();
+        DrawVenueField();
+
+        ImGui.TableNextColumn();
+        ImGui.AlignTextToFramePadding();
+        HostField.Label("Game");
+
+        ImGui.TableNextColumn();
+        DrawGameField();
+    }
+
+    private void DrawVenueField()
+    {
+        ImGui.SetNextItemWidth(-1);
+        var venueName = _form.SelectedVenueName;
+        if (VenueSearchCombo.Draw("##VenuePicker", ref venueName, _config.FavouriteVenues, () => _config.Save()))
+            _form.SelectedVenueName = venueName;
+
+        if (_isFetchingVenues)
+            ImGui.TextDisabled("Fetching latest venues...");
+    }
+
+    private void DrawGameField()
+    {
+        ImGui.SetNextItemWidth(-1);
+        using var combo = ImRaii.Combo("##GamePicker", GameTypes[_form.SelectedGameIndex]);
+        if (!combo)
+            return;
+
+        for (var i = 0; i < GameTypes.Length; i++)
+        {
+            if (ImGui.Selectable(GameTypes[i], i == _form.SelectedGameIndex) && i != _form.SelectedGameIndex)
+            {
+                _form.SelectedGameIndex = i;
+                OnGameTypeChanged();
+            }
+        }
+    }
+
+    private void DrawRulesSection()
+    {
+        var sources = GetSources();
+        if (_form.RuleConfig is IAutomaticHostRuleSource automatic && sources.Count > 0)
+            DrawRulesSourceSelector(automatic, sources);
+        else
+            _form.RuleConfig?.Draw();
+    }
+
+    private void DrawRulesSourceSelector(IAutomaticHostRuleSource automatic, IReadOnlyList<HostRuleSource> sources)
+    {
+        var segments = new[] { "Manual" }.Concat(sources.Select(s => s.Name)).ToArray();
+        if (_form.SelectedRuleSourceIndex < 0 || _form.SelectedRuleSourceIndex >= segments.Length)
+            _form.SelectedRuleSourceIndex = 0;
+
+        HostField.Label("Rules Source");
+        _form.SelectedRuleSourceIndex = DrawSegmentedBar("##gw_rules_source", segments, _form.SelectedRuleSourceIndex, _config.SecondaryColour);
+        _form.UseManualHostRules = _form.SelectedRuleSourceIndex == 0;
+
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(6f);
+
+        if (_form.SelectedRuleSourceIndex == 0)
+        {
+            _form.RuleConfig?.Draw();
+            return;
+        }
+
+        var source = sources[_form.SelectedRuleSourceIndex - 1];
+        var context = source.GetContext();
+
+        if (context == null
+            || !automatic.TryGetAutomaticApiRules(context, out var liveRules)
+            || liveRules == null
+            || liveRules.Count == 0)
+        {
+            ImGui.TextDisabled("No Session Found");
+            return;
+        }
+
+        DrawRuleKeyValues(liveRules);
+    }
+
+    private static int DrawSegmentedBar(string id, string[] segments, int selected, Vector4 accent)
+    {
+        var result = selected;
+        var scale = ImGuiHelpers.GlobalScale;
+
+        using var rounding = ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * scale);
+
+        for (var i = 0; i < segments.Length; i++)
+        {
+            if (i > 0)
+                ImGui.SameLine(0f, 4f * scale);
+
+            var isSelected = i == selected;
+            var baseCol = new Vector4(accent.X, accent.Y, accent.Z, isSelected ? 0.55f : 0.14f);
+            var hovCol = new Vector4(accent.X, accent.Y, accent.Z, isSelected ? 0.66f : 0.30f);
+            var actCol = new Vector4(accent.X, accent.Y, accent.Z, 0.75f);
+
+            using var colours = ImRaii.PushColor(ImGuiCol.Button, baseCol)
+                .Push(ImGuiCol.ButtonHovered, hovCol)
+                .Push(ImGuiCol.ButtonActive, actCol);
+
+            if (ImGui.Button($"{segments[i]}##{id}_seg{i}"))
+                result = i;
+        }
+
+        return result;
+    }
+
+    private IReadOnlyList<HostRuleSource> GetSources() =>
+        GetHostAutomaticRuleSources?.Invoke() ?? Array.Empty<HostRuleSource>();
+
+    private void OnGameTypeChanged()
+    {
+        _form.RuleConfig = _ruleConfigs[_form.SelectedGameIndex];
+        _form.SelectedPresetIndex = 0;
+        _form.SelectedRuleSourceIndex = 0;
+        LoadSelectedPreset();
+        _showAddPresetInput = false;
+        _showRenamePresetInput = false;
+        if (_form.RuleConfig is not IAutomaticHostRuleSource)
+            _form.UseManualHostRules = false;
+    }
+
+    private void DrawSessionDetailsBody()
+    {
+        HostField.Label("Description");
+        ImGui.SetNextItemWidth(-1);
+        var desc = _form.Description;
+        if (ImGui.InputTextMultiline("##Description", ref desc, 512, new Vector2(0, 60 * ImGuiHelpers.GlobalScale)))
+            _form.Description = desc;
+
+        var charCount = _form.Description.Length;
+        var overLimit = charCount >= 511;
+        var countColour = overLimit ? new Vector4(1f, 0.2f, 0.2f, 1f) : new Vector4(0.5f, 0.5f, 0.5f, 1f);
+        ImGui.TextColored(countColour, $"{charCount} / 511");
+        if (overLimit)
+        {
+            ImGui.SameLine();
+            ImGui.TextColored(new Vector4(1f, 0.2f, 0.2f, 1f), "- Description is too long!");
+        }
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        HostField.Label("Current Location");
+        ImGui.TextWrapped(_playerInfo.GetCurrentLocation() ?? "Unknown");
+
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawAutoEndControl();
+    }
+
+    private void DrawBottomBar()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var baseX = ImGui.GetCursorPosX();
+        var avail = ImGui.GetContentRegionAvail().X;
+
+        if (!string.IsNullOrEmpty(_form.StatusMessage))
+        {
+            var msgW = ImGui.CalcTextSize(_form.StatusMessage).X;
+            ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - msgW) * 0.5f));
+            ImGui.TextColored(SoftRed, _form.StatusMessage);
+        }
+
+        var startLabel = _form.IsStarting ? "Starting..." : "Start Session";
+        var btnSize = new Vector2(240f * scale, 46f * scale);
+        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - btnSize.X) * 0.5f));
+        using (UIHelper.PushGreenButtonColours())
+        using (ImRaii.Disabled(_form.IsStarting))
+        {
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Play, startLabel, btnSize, "##StartHosting"))
+                TriggerStartSession();
+        }
+    }
+
+    private void DrawAutoEndControl()
+    {
+        var spacing = ImGui.GetStyle().ItemInnerSpacing.X;
+
+        ImGui.AlignTextToFramePadding();
+        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentText(_config.SecondaryColour)))
+            ImGui.TextUnformatted("Auto End Session");
+
+        ImGui.SameLine(0f, spacing);
+        var autoEnd = _form.AutoEndEnabled;
+        if (ToggleSwitch.Draw("##gw_autoend_toggle", ref autoEnd, ThemeColours.ActiveCheckMark(_config.SecondaryColour)))
+        {
+            _form.AutoEndEnabled = autoEnd;
+            if (autoEnd)
+                ImGui.OpenPopup("AutoEndPopup");
+        }
+
+        if (_form.AutoEndEnabled)
+        {
+            ImGui.SameLine(0f, spacing);
+            if (ImGui.SmallButton($"{_form.AutoEndHours}h {_form.AutoEndMinutes}m##gw_autoend_summary"))
+                ImGui.OpenPopup("AutoEndPopup");
+        }
+
+        DrawAutoEndPopup();
+    }
+
+    private void DrawAutoEndPopup()
+    {
+        using var popup = ImRaii.Popup("AutoEndPopup", ImGuiWindowFlags.AlwaysAutoResize);
+        if (!popup.Success)
+            return;
+
+        HostField.Label("Auto End After");
+        var fieldWidth = 72 * ImGuiHelpers.GlobalScale;
+
+        ImGui.SetNextItemWidth(fieldWidth);
+        var hours = _form.AutoEndHours;
+        if (ImGui.InputInt("##AutoEndHours", ref hours, 0))
+            _form.AutoEndHours = Math.Clamp(hours, 0, 23);
+        ImGui.SameLine();
+        ImGui.TextDisabled("h");
+
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(fieldWidth);
+        var minutes = _form.AutoEndMinutes;
+        if (ImGui.InputInt("##AutoEndMinutes", ref minutes, 0))
+            _form.AutoEndMinutes = Math.Clamp(minutes, 0, 59);
+        ImGui.SameLine();
+        ImGui.TextDisabled("m");
+
+        ImGuiHelpers.ScaledDummy(6f);
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Check, "Done", "##AutoEndDone"))
+            ImGui.CloseCurrentPopup();
+    }
+
+    private void DrawActiveSessionBody()
+    {
+        var labelX = 120 * ImGuiHelpers.GlobalScale;
+
+        DrawActiveField("Character:", _sessionState.CharacterName, labelX);
+        DrawActiveField("Game:", _sessionState.GameType, labelX);
+        DrawActiveField("Venue:", _sessionState.VenueName ?? "No Venue", labelX);
 
         if (_sessionState.AutoEndAt.HasValue)
         {
             ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Auto End:");
-            ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
+            ImGui.SameLine(labelX);
             var remaining = _sessionState.AutoEndAt.Value - DateTime.UtcNow;
             if (remaining <= TimeSpan.Zero)
             {
-                ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), "Ending...");
+                ImGui.TextColored(SoftRed, "Ending...");
             }
             else
             {
                 var timerColour = remaining.TotalMinutes <= 5
-                    ? new System.Numerics.Vector4(1f, 0.65f, 0.1f, 1f)
-                    : new System.Numerics.Vector4(1f, 1f, 1f, 1f);
+                    ? new Vector4(1f, 0.65f, 0.1f, 1f)
+                    : new Vector4(1f, 1f, 1f, 1f);
                 ImGui.TextColored(timerColour, remaining.ToString(@"hh\:mm\:ss"));
             }
         }
 
         ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Location:");
-        ImGui.SameLine(120 * ImGuiHelpers.GlobalScale);
+        ImGui.SameLine(labelX);
         ImGui.TextWrapped(_sessionState.Location);
 
         DrawActiveRules();
 
         ImGuiHelpers.ScaledDummy(8f);
-        ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Location updates automatically every 1 minute.");
+        ImGui.TextColored(Yellow, "Location updates automatically every 1 minute.");
 
         if (!string.IsNullOrEmpty(_form.StatusMessage))
         {
             ImGuiHelpers.ScaledDummy(4f);
-            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), _form.StatusMessage);
+            ImGui.TextColored(SoftRed, _form.StatusMessage);
         }
+    }
+
+    private void DrawStopBar()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var baseX = ImGui.GetCursorPosX();
+        var avail = ImGui.GetContentRegionAvail().X;
+
+        var stopLabel = _form.IsStarting ? "Stopping..." : "Stop Session";
+        var btnSize = new Vector2(240f * scale, 46f * scale);
+        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - btnSize.X) * 0.5f));
+        using (UIHelper.PushRedButtonColours())
+        using (ImRaii.Disabled(_form.IsStarting))
+        {
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Stop, stopLabel, btnSize, "##StopHosting"))
+                TriggerStopSession();
+        }
+    }
+
+    private void DrawActiveField(string label, string value, float labelX)
+    {
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), label);
+        ImGui.SameLine(labelX);
+        ImGui.TextUnformatted(value);
     }
 
     private void DrawActiveRules()
@@ -249,28 +667,35 @@ public class HostGambaTab
         ImGuiHelpers.ScaledDummy(4f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
-        ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Game Info");
+
+        const string heading = "Game Info";
+        var headingWidth = ImGui.CalcTextSize(heading).X;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0f, (ImGui.GetContentRegionAvail().X - headingWidth) * 0.5f));
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), heading);
+
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(2f);
 
-        var offset = CalcActiveRulesLabelOffset(_sessionState.ActiveRules);
-        foreach (var (key, value) in _sessionState.ActiveRules)
-        {
-            ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), FormatRuleKey(key) + ":");
-            ImGui.SameLine(offset);
-            ImGui.TextUnformatted(FormatRuleValue(value, key));
-        }
+        DrawRuleKeyValues(_sessionState.ActiveRules);
     }
 
-    private float CalcActiveRulesLabelOffset(System.Collections.Generic.Dictionary<string, object> rules)
+    private void DrawRuleKeyValues(Dictionary<string, object> rules)
     {
-        var max = 0f;
-        foreach (var key in rules.Keys)
+        using var table = ImRaii.Table("##gw_rule_kv", 2, ImGuiTableFlags.SizingFixedFit);
+        if (!table)
+            return;
+
+        ImGui.TableSetupColumn("##key", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##value", ImGuiTableColumnFlags.WidthStretch);
+
+        foreach (var (key, value) in rules)
         {
-            var w = ImGui.CalcTextSize(FormatRuleKey(key) + ":").X;
-            if (w > max) max = w;
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), FormatRuleKey(key) + ":");
+            ImGui.TableNextColumn();
+            ImGui.TextColored(White, FormatRuleValue(value, key));
         }
-        return max + 16f * ImGuiHelpers.GlobalScale;
     }
 
     private static string FormatRuleKey(string camelCase) => RuleKeyFormatting.FormatDisplayKey(camelCase);
@@ -290,262 +715,29 @@ public class HostGambaTab
         };
     }
 
-    private static float CalcLabelOffset(string[] labels)
+    private Dictionary<string, object> ResolveRulesSnapshot(out bool usedAutomatic)
     {
-        var max = 0f;
-        foreach (var label in labels)
+        usedAutomatic = false;
+        var manual = _form.RuleConfig?.ToApiPayload() ?? new();
+
+        if (_form.RuleConfig is IAutomaticHostRuleSource automatic && _form.SelectedRuleSourceIndex > 0)
         {
-            var w = ImGui.CalcTextSize(label).X;
-            if (w > max) max = w;
-        }
-        return max + 16f * ImGuiHelpers.GlobalScale;
-    }
-
-    private void DrawConfigForm()
-    {
-        var topOffset = CalcLabelOffset(new[] { "Venue", "Game", "Preset" });
-        DrawVenueDropdown(topOffset);
-        ImGuiHelpers.ScaledDummy(4f);
-        DrawGameDropdown(topOffset);
-        ImGuiHelpers.ScaledDummy(4f);
-        DrawPresetBar(topOffset);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-
-        if (_form.RuleConfig is IAutomaticHostRuleSource automatic
-            && GetHostAutomaticRuleContext != null)
-        {
-            var ipcContext = GetHostAutomaticRuleContext();
-            ManualVsAutomaticHostRulesDraw.Draw(_form, _form.RuleConfig, automatic, ipcContext, _config.PrimaryColour, _config.SecondaryColour);
-        }
-        else
-        {
-            _form.RuleConfig?.Draw();
-        }
-
-        ImGuiHelpers.ScaledDummy(8f);
-        DrawDescriptionInput();
-    }
-
-    private void DrawVenueDropdown(float labelOffset)
-    {
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Venue");
-        ImGui.SameLine(labelOffset);
-        ImGui.SetNextItemWidth(240 * ImGuiHelpers.GlobalScale);
-        var venueName = _form.SelectedVenueName;
-        if (VenueSearchCombo.Draw("##VenuePicker", ref venueName, _config.FavouriteVenues, () => _config.Save()))
-            _form.SelectedVenueName = venueName;
-        ImGui.SameLine();
-        var fetching = _isFetchingVenues;
-        using var refreshColours = UIHelper.PushGreenButtonColours();
-        using (ImRaii.Disabled(fetching))
-        {
-            if (ImGuiComponents.IconButton("##RefreshVenues", FontAwesomeIcon.Sync))
-                FetchVenues();
-        }
-        if (fetching)
-        {
-            ImGui.SameLine();
-            ImGui.TextDisabled("Fetching latest venues...");
-        }
-
-        ImGui.SameLine(ImGui.GetContentRegionMax().X * 0.5f);
-        var autoEnd = _form.AutoEndEnabled;
-        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentText(_config.SecondaryColour)))
-        {
-            if (ImGui.Checkbox("Auto End Session##AutoEnd", ref autoEnd))
-                _form.AutoEndEnabled = autoEnd;
-        }
-    }
-
-    private void DrawAutoEndInputs()
-    {
-        var xPos = ImGui.GetContentRegionMax().X * 0.5f + 8f * ImGuiHelpers.GlobalScale;
-        var fieldWidth = 72 * ImGuiHelpers.GlobalScale;
-
-        ImGui.SameLine(xPos);
-        ImGui.SetNextItemWidth(fieldWidth);
-        var hours = _form.AutoEndHours;
-        if (ImGui.InputInt("##AutoEndHours", ref hours, 0))
-            _form.AutoEndHours = Math.Clamp(hours, 0, 23);
-        ImGui.SameLine();
-        ImGui.TextDisabled("h");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(fieldWidth);
-        var minutes = _form.AutoEndMinutes;
-        if (ImGui.InputInt("##AutoEndMinutes", ref minutes, 0))
-            _form.AutoEndMinutes = Math.Clamp(minutes, 0, 59);
-        ImGui.SameLine();
-        ImGui.TextDisabled("m");
-    }
-
-    private void DrawGameDropdown(float labelOffset)
-    {
-        var gameIdx = _form.SelectedGameIndex;
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Game");
-        ImGui.SameLine(labelOffset);
-        ImGui.SetNextItemWidth(240 * ImGuiHelpers.GlobalScale);
-        using (var gameCombo = ImRaii.Combo("##GamePicker", GameTypes[gameIdx]))
-        {
-            if (gameCombo)
+            var sources = GetSources();
+            var idx = _form.SelectedRuleSourceIndex - 1;
+            if (idx >= 0 && idx < sources.Count)
             {
-                for (var i = 0; i < GameTypes.Length; i++)
+                var context = sources[idx].GetContext();
+                if (context != null
+                    && automatic.TryGetAutomaticApiRules(context, out var autoRules)
+                    && autoRules != null)
                 {
-                    if (ImGui.Selectable(GameTypes[i], i == gameIdx) && i != _form.SelectedGameIndex)
-                    {
-                        _form.SelectedGameIndex = i;
-                        OnGameTypeChanged();
-                    }
+                    usedAutomatic = true;
+                    return new Dictionary<string, object>(autoRules);
                 }
             }
         }
 
-        if (_form.AutoEndEnabled)
-            DrawAutoEndInputs();
-    }
-
-    private void OnGameTypeChanged()
-    {
-        _form.RuleConfig = _ruleConfigs[_form.SelectedGameIndex];
-        _form.SelectedPresetIndex = 0;
-        LoadSelectedPreset();
-        _showAddPresetInput = false;
-        _showRenamePresetInput = false;
-        if (_form.RuleConfig is not IAutomaticHostRuleSource)
-            _form.UseManualHostRules = false;
-    }
-
-    private void DrawPresetBar(float labelOffset)
-    {
-        var gameType = GameTypes[_form.SelectedGameIndex];
-        var presets = GetOrInitPresets(gameType);
-
-        if (presets.Count == 0)
-            return;
-
-        var presetNames = presets.Select(p => p.Name).ToArray();
-        var presetIdx = _form.SelectedPresetIndex;
-
-        var startY       = ImGui.GetCursorPosY();
-        var textLineH    = ImGui.GetTextLineHeight();
-        var frameH       = ImGui.GetFrameHeight();
-        var itemSpacingY = ImGui.GetStyle().ItemSpacing.Y;
-
-        ImGui.SetCursorPosX(labelOffset);
-        {
-            using var c = UIHelper.PushGreenButtonColours();
-            if (UIHelper.IconTextButton(FontAwesomeIcon.FileImport, "Import Preset", "##ImportPresetBtn"))
-            {
-                _importNameBuffer = string.Empty;
-                _importKeyBuffer = string.Empty;
-                _importError = string.Empty;
-                ImGui.OpenPopup("ImportPresetPopup");
-            }
-        }
-        ImGui.SameLine();
-        {
-            using var c = UIHelper.PushRedButtonColours();
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Copy, "Export to Clipboard", "##ExportToClipboard"))
-                ExportCurrentPreset(presets);
-        }
-        if (DateTime.UtcNow < _clipboardNotificationUntil)
-        {
-            ImGui.SameLine();
-            ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), $"{_clipboardNotificationName} copied to clipboard!");
-        }
-
-        ImGui.SetCursorPosX(labelOffset);
-        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        using (var presetCombo = ImRaii.Combo("##PresetPicker", presetIdx < presetNames.Length ? presetNames[presetIdx] : string.Empty))
-        {
-            if (presetCombo)
-            {
-                for (var i = 0; i < presetNames.Length; i++)
-                {
-                    if (ImGui.Selectable(presetNames[i], i == presetIdx) && i != _form.SelectedPresetIndex)
-                    {
-                        _form.SelectedPresetIndex = i;
-                        LoadSelectedPreset();
-                    }
-                }
-            }
-        }
-
-        ImGui.SameLine();
-        {
-            using var c = UIHelper.PushBlueButtonColours();
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Save, "Save", "##SavePreset"))
-                SaveCurrentPreset(presets);
-        }
-
-        ImGui.SameLine();
-        {
-            using var c = UIHelper.PushGreenButtonColours();
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Plus, "Add", "##AddPreset"))
-            {
-                _showAddPresetInput = !_showAddPresetInput;
-                _showRenamePresetInput = false;
-                _newPresetNameBuffer = string.Empty;
-            }
-        }
-
-        ImGui.SameLine();
-        {
-            using var c = UIHelper.PushAmberButtonColours();
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Pen, "Rename", "##RenamePreset"))
-            {
-                _showRenamePresetInput = !_showRenamePresetInput;
-                _showAddPresetInput = false;
-                _renameBuffer = presets[_form.SelectedPresetIndex].Name;
-            }
-        }
-
-        if (presets.Count > 1)
-        {
-            ImGui.SameLine();
-            using var c = UIHelper.PushRedButtonColours();
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Delete", "##DeletePreset"))
-                DeleteCurrentPreset(presets);
-        }
-
-        if (DateTime.UtcNow < _saveNotificationUntil)
-        {
-            ImGui.SameLine();
-            ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), $"{_saveNotificationName} saved!");
-        }
-
-        var startLabel = _form.IsStarting ? "Starting..." : "Start Hosting";
-        var startBtnWidth = UIHelper.CalcButtonSize(FontAwesomeIcon.Play, startLabel).X;
-
-        if (!string.IsNullOrEmpty(_form.StatusMessage))
-        {
-            var msgWidth = ImGui.CalcTextSize(_form.StatusMessage).X;
-            var spacing = ImGui.GetStyle().ItemSpacing.X;
-            ImGui.SameLine(ImGui.GetContentRegionMax().X - startBtnWidth - spacing - msgWidth);
-            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), _form.StatusMessage);
-        }
-
-        ImGui.SameLine(ImGui.GetContentRegionMax().X - startBtnWidth);
-        using var startColours = UIHelper.PushGreenButtonColours();
-        using (ImRaii.Disabled(_form.IsStarting))
-        {
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Play, startLabel, "##StartHosting"))
-                TriggerStartSession();
-        }
-
-        var afterCursor = ImGui.GetCursorPos();
-        var labelY = startY + (textLineH + itemSpacingY + frameH) / 2f - textLineH / 2f;
-        ImGui.SetCursorPos(new System.Numerics.Vector2(0, labelY));
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Preset");
-        ImGui.SetCursorPos(afterCursor);
-
-        if (_showAddPresetInput)
-            DrawAddPresetInput(presets);
-
-        if (_showRenamePresetInput)
-            DrawRenamePresetInput(presets);
-
-        DrawImportPresetPopup(presets);
+        return ManualRulesApiOmitter.OmitEmptyOrDefault(manual);
     }
 
     private void DrawAddPresetInput(List<GamePreset> presets)
@@ -598,7 +790,7 @@ public class HostGambaTab
         if (!string.IsNullOrEmpty(_importError))
         {
             ImGui.Spacing();
-            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.4f, 0.4f, 1f), _importError);
+            ImGui.TextColored(SoftRed, _importError);
         }
 
         ImGui.Spacing();
@@ -696,80 +888,6 @@ public class HostGambaTab
         return list;
     }
 
-    private void DrawDescriptionInput()
-    {
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Description");
-        ImGui.SetNextItemWidth(-1);
-        var desc = _form.Description;
-        if (ImGui.InputTextMultiline("##Description", ref desc, 512,
-            new System.Numerics.Vector2(0, 60 * ImGuiHelpers.GlobalScale)))
-            _form.Description = desc;
-
-        var charCount = _form.Description.Length;
-        var overLimit = charCount >= 511;
-        var countColour = overLimit
-            ? new System.Numerics.Vector4(1f, 0.2f, 0.2f, 1f)
-            : new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1f);
-        ImGui.TextColored(countColour, $"{charCount} / 511");
-        if (overLimit)
-        {
-            ImGui.SameLine();
-            ImGui.TextColored(new System.Numerics.Vector4(1f, 0.2f, 0.2f, 1f), "- Description is too long!");
-        }
-
-        ImGui.TextDisabled("No URLs or HTML permitted.");
-        ImGui.TextColored(new System.Numerics.Vector4(1f, 1f, 0f, 1f), "Please use the rules provided above to describe your session. I will add any rules to the plugin, just let me know!");
-
-        ImGuiHelpers.ScaledDummy(4f);
-        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Current location");
-        var liveLocation = _playerInfo.GetCurrentLocation() ?? "Unknown";
-        ImGui.TextUnformatted(liveLocation);
-
-        ImGuiHelpers.ScaledDummy(6f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-        ImGui.PushStyleColor(ImGuiCol.Text, ThemeColours.AccentText(_config.SecondaryColour));
-        var previewOpen = ImGui.CollapsingHeader("Preview");
-        ImGui.PopStyleColor();
-        if (previewOpen)
-        {
-            ImGuiHelpers.ScaledDummy(4f);
-            DrawPreviewSection();
-        }
-    }
-
-    private Dictionary<string, object> BuildPreviewRules()
-    {
-        if (_form.RuleConfig is IAutomaticHostRuleSource automatic
-            && GetHostAutomaticRuleContext != null
-            && !_form.UseManualHostRules
-            && automatic.TryGetAutomaticApiRules(GetHostAutomaticRuleContext(), out var autoRules)
-            && autoRules != null)
-        {
-            return new Dictionary<string, object>(autoRules);
-        }
-
-        return ManualRulesApiOmitter.OmitEmptyOrDefault(_form.RuleConfig?.ToApiPayload() ?? new());
-    }
-
-    private void DrawPreviewSection()
-    {
-        var characterName = _playerInfo.IsLoggedIn
-            ? EventCardRenderer.FormatDisplayName(_playerInfo.GetCharacterName() ?? "Your Character")
-            : "Your Character";
-
-        var gameType = GameTypes[_form.SelectedGameIndex];
-        var venueName = _form.SelectedVenueName ?? "No Venue";
-        var rules = BuildPreviewRules();
-
-        EventCardRenderer.DrawPreviewCard(characterName, gameType, venueName, _form.Description, rules, _imageCache);
-
-        ImGuiHelpers.ScaledDummy(4f);
-        ImGui.TextColored(
-            new System.Numerics.Vector4(1f, 1f, 0f, 1f),
-            "Venue image and Discord will load upon posting. Use this preview to see how your rules and description will look.");
-    }
-
     private void TriggerStartSession()
     {
         if (!_playerInfo.IsLoggedIn)
@@ -784,7 +902,7 @@ public class HostGambaTab
             return;
         }
 
-        if (ContainsDisallowedContent(_form.Description))
+        if (UserTextGuard.ContainsDisallowedContent(_form.Description))
         {
             _form.StatusMessage = "Description must not contain URLs or HTML.";
             return;
@@ -803,22 +921,7 @@ public class HostGambaTab
         var location = _playerInfo.GetCurrentLocation() ?? "Unknown";
         var gameType = GameTypes[_form.SelectedGameIndex];
         var venueName = _form.SelectedVenueName ?? "No Venue";
-        var rulesSnapshot = _form.RuleConfig?.ToApiPayload() ?? new();
-        var usedAutomaticIpc = false;
-
-        if (_form.RuleConfig is IAutomaticHostRuleSource automatic
-            && GetHostAutomaticRuleContext != null
-            && !_form.UseManualHostRules
-            && automatic.TryGetAutomaticApiRules(GetHostAutomaticRuleContext(), out var autoRules)
-            && autoRules != null)
-        {
-            rulesSnapshot = new Dictionary<string, object>(autoRules);
-            usedAutomaticIpc = true;
-        }
-        else
-        {
-            rulesSnapshot = ManualRulesApiOmitter.OmitEmptyOrDefault(rulesSnapshot);
-        }
+        var rulesSnapshot = ResolveRulesSnapshot(out var usedAutomaticIpc);
 
         DateTime? autoEndAt = null;
         if (_form.AutoEndEnabled)
@@ -831,12 +934,16 @@ public class HostGambaTab
             Game = gameType,
             Rules = rulesSnapshot,
             Description = _form.Description.Trim(),
-            VenueName = venueName
+            VenueName = venueName,
+            BoosterKey = string.IsNullOrWhiteSpace(_config.BoosterKey) ? null : _config.BoosterKey.Trim()
         };
+
+        var profile = GetSelectedProfile();
+        var sentPictureHash = AttachProfile(request, profile);
 
         _ = Task.Run(async () =>
         {
-            var error = await _sessionService.StartSessionAsync(request, autoEndAt);
+            var (error, created) = await _sessionService.StartSessionAsync(request, autoEndAt);
             _form.IsStarting = false;
 
             if (error != null)
@@ -846,7 +953,36 @@ public class HostGambaTab
             }
 
             _sessionState.UsesAutomaticHostRules = usedAutomaticIpc;
+
+            if (profile != null && sentPictureHash != null && !string.IsNullOrEmpty(created?.ProfileImageUrl))
+            {
+                profile.UploadedImageUrl = created!.ProfileImageUrl;
+                profile.UploadedImageHash = sentPictureHash;
+                _config.Save();
+            }
         });
+    }
+
+    private string? AttachProfile(PostEventRequest request, GambaProfile? profile)
+    {
+        if (profile == null)
+            return null;
+
+        request.Bio = string.IsNullOrWhiteSpace(profile.Bio) ? null : profile.Bio.Trim();
+        request.PreferredGames = new List<string>(profile.PreferredGames);
+
+        var path = _profileImages.GetPath(profile.ImageFileName);
+        if (path == null || !ProfileImageEncoder.TryEncode(path, out var b64, out var hash))
+            return null;
+
+        if (!string.IsNullOrEmpty(profile.UploadedImageUrl) && profile.UploadedImageHash == hash)
+        {
+            request.ProfileImageUrl = profile.UploadedImageUrl;
+            return null;
+        }
+
+        request.ProfilePictureB64 = b64;
+        return hash;
     }
 
     private void TriggerStopSession()
@@ -862,7 +998,9 @@ public class HostGambaTab
 
     private void FetchVenues()
     {
-        _venuesFetched = true;
+        if (_isFetchingVenues)
+            return;
+
         _isFetchingVenues = true;
         _ = Task.Run(async () =>
         {
@@ -870,23 +1008,5 @@ public class HostGambaTab
             VenueSearchCombo.SetVenues(venues);
             _isFetchingVenues = false;
         });
-    }
-
-    private static readonly string[] DisallowedPatterns =
-    {
-        "http", "https://", "www.", ".com", ".gg", ".net", ".org", ".io", ".tv", "<", ">"
-    };
-
-    private static bool ContainsDisallowedContent(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        foreach (var pattern in DisallowedPatterns)
-        {
-            if (text.Contains(pattern, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
     }
 }

@@ -9,6 +9,7 @@ using Dalamud.Interface.Utility.Raii;
 
 namespace GambaWhere.UI.Components;
 
+/// <summary>Combo box for searching and selecting a venue.</summary>
 public static class VenueSearchCombo
 {
     private static volatile string[] _venues = [];

@@ -4,6 +4,7 @@ using System.Text.Json;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Reads bundled default rule presets.</summary>
 public static class PresetReader
 {
     public static int Int(Dictionary<string, object> dict, string key, int fallback)

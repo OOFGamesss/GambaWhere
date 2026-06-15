@@ -1,8 +1,5 @@
 using System.Collections.Generic;
-using System.Linq;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility;
-using ECommons.ImGuiMethods;
+using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 using SimpleRoulette.Data;
 
@@ -22,37 +19,19 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
     private int _maxBetInnerVip;
     private int _maxBetOuterVip;
 
-    private static readonly string[] RowLabels =
-    {
-        "Max Bet Inner (gil)",
-        "Max Bet Outer (gil)",
-        "Max Bet Inner VIP (gil)",
-        "Max Bet Outer VIP (gil)"
-    };
-
     public void Draw()
     {
-        var offset = RowLabels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
-
-        ImGui.Text(RowLabels[0]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##RouletteMaxInner", ref _maxBetInner,0);
-
-        ImGui.Text(RowLabels[1]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##RouletteMaxOuter", ref _maxBetOuter,0);
-
-        ImGui.Text(RowLabels[2]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##RouletteMaxInnerVip", ref _maxBetInnerVip,0);
-
-        ImGui.Text(RowLabels[3]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##RouletteMaxOuterVip", ref _maxBetOuterVip,0);
+        using (var grid = RuleGrid.Begin("##RouletteGrid"))
+        {
+            grid.Cell();
+            HostField.Money("Max Bet Inner (gil)", "##RouletteMaxInner", ref _maxBetInner);
+            grid.Cell();
+            HostField.Money("Max Bet Outer (gil)", "##RouletteMaxOuter", ref _maxBetOuter);
+            grid.Cell();
+            HostField.Money("Max Bet Inner VIP (gil)", "##RouletteMaxInnerVip", ref _maxBetInnerVip);
+            grid.Cell();
+            HostField.Money("Max Bet Outer VIP (gil)", "##RouletteMaxOuterVip", ref _maxBetOuterVip);
+        }
 
         _maxBetInner = RuleClamp.Min(_maxBetInner, 0);
         _maxBetOuter = RuleClamp.Min(_maxBetOuter, 0);
@@ -99,22 +78,4 @@ public class RouletteRules : IRuleConfig, IAutomaticHostRuleSource
         rules["playerCount"] = info.PlayerCount;
         return true;
     }
-
-    public void DrawAutomaticRulesSummary(object? ipcContext)
-    {
-        if (ipcContext is not GameInfoIPC rouletteInfo)
-        {
-            ImGui.TextDisabled("No session has been started");
-            return;
-        }
-
-        ImGui.Text($"Max bet (inner): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetInner, IpcMaxBetGilMultiplier)}");
-        ImGui.Text($"Max bet (outer): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetOuter, IpcMaxBetGilMultiplier)}");
-        ImGui.Text($"Max bet inner (VIP): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetInnerVIP, IpcMaxBetGilMultiplier)}");
-        ImGui.Text($"Max bet outer (VIP): {FormatIpcMaxBetAsGil(rouletteInfo.MaxBetOuterVIP, IpcMaxBetGilMultiplier)}");
-        ImGui.Text($"Player count: {rouletteInfo.PlayerCount:N0}");
-    }
-
-    private static string FormatIpcMaxBetAsGil(int? ipcUnits, int gilMultiplier) =>
-        ipcUnits is int v ? (v * (long)gilMultiplier).ToString("N0") : "Not set";
 }

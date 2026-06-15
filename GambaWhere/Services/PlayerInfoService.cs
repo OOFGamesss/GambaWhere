@@ -38,6 +38,16 @@ public class PlayerInfoService
         return $"{name} {world}";
     }
 
+    public string? GetHomeDataCentre()
+    {
+        var player = _objectTable.LocalPlayer;
+        if (player == null)
+            return null;
+
+        var dc = player.HomeWorld.Value.DataCenter.Value.Name.ToString();
+        return string.IsNullOrWhiteSpace(dc) ? null : dc;
+    }
+
     public string? GetCurrentLocation()
     {
         var player = _objectTable.LocalPlayer;

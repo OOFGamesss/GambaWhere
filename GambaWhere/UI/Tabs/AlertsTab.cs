@@ -79,9 +79,13 @@ public class AlertsTab
         drawList.ChannelsSplit(2);
         drawList.ChannelsSetCurrent(1);
 
+        var hPad = 12f * ImGuiHelpers.GlobalScale;
+
         try
         {
             ImGuiHelpers.ScaledDummy(6f);
+
+            using var indent = ImRaii.PushIndent(hPad, scaled: false);
 
             var enabled = rule.Enabled;
             if (ImGui.Checkbox("##Enabled", ref enabled))
@@ -92,7 +96,7 @@ public class AlertsTab
             ImGui.SameLine();
 
             var btn = 26f * ImGuiHelpers.GlobalScale;
-            var nameWidth = Math.Max(ImGui.GetContentRegionAvail().X - btn - ImGui.GetStyle().ItemSpacing.X, 120f);
+            var nameWidth = Math.Max(ImGui.GetContentRegionAvail().X - btn - ImGui.GetStyle().ItemSpacing.X - hPad, 120f);
             ImGui.SetNextItemWidth(nameWidth);
             var name = rule.Name;
             if (ImGui.InputTextWithHint("##Name", "Alert name", ref name, 128))

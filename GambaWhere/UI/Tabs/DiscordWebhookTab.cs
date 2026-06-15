@@ -22,7 +22,6 @@ public sealed class DiscordWebhookTab
 {
     private const int UrlBufferLength = 1536;
 
-
     private static readonly Vector4 VenueServiceTextColour = new(0.86f, 0.82f, 0.76f, 1f);
 
     private const string VenueServiceMessage =
@@ -30,7 +29,7 @@ public sealed class DiscordWebhookTab
             + "with filters on only allowing certain gamba hosts names and venue names.\n"
             + "Contact me on Discord for more information.";
 
-    private const float DiscordLogoMaxWidth = 196f;
+    private const float DiscordLogoMaxWidth = 98f;
 
     private const int PathBufferLength = 1024;
 
@@ -167,7 +166,7 @@ public sealed class DiscordWebhookTab
 
     private void GuideBullet(string text)
     {
-        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentTextMuted(_config.SecondaryColour)))
+        using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 1f)))
         {
             ImGui.Bullet();
             ImGui.SameLine();
@@ -181,10 +180,8 @@ public sealed class DiscordWebhookTab
         ImGuiHelpers.ScaledDummy(8f);
         DrawSectionHeader("Custom Banners");
 
-        using (ImRaii.PushColor(ImGuiCol.Text, ThemeColours.AccentTextMuted(_config.SecondaryColour)))
+        using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 1f)))
         {
-            ImGui.Bullet();
-            ImGui.SameLine();
             ImGui.TextWrapped(
                 "Replace the default banners in Discord embeds with your own images. "
                     + "Click the folder button to browse your PC, or paste a full file path and press Enter or click away. "
@@ -393,7 +390,7 @@ public sealed class DiscordWebhookTab
         DrawSectionHeader("Discord preview example");
 
         var scale = ImGuiHelpers.GlobalScale;
-        var tex = _imageCache.GetBundledImage("discordwebhookexample.png");
+        var tex = _imageCache.GetBundledImage("Screenshots/discordwebhookexample.png");
         var innerW = ImGui.GetContentRegionAvail().X;
 
         if (tex != null && tex.Width > 0 && tex.Height > 0 && innerW > 1f)

@@ -4,6 +4,7 @@ using Dalamud.Bindings.ImGui;
 
 namespace GambaWhere.UI.Components;
 
+/// <summary>Combo box allowing multiple options to be selected.</summary>
 public static class MultiSelectCombo
 {
 

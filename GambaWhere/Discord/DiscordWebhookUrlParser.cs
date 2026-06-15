@@ -2,6 +2,7 @@ using System;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Parses and validates Discord webhook URLs.</summary>
 public static class DiscordWebhookUrlParser
 {
     public static bool TryParseDiscordWebhook(string raw, out string webhookId, out string token)

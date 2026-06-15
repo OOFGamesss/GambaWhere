@@ -13,6 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace GambaWhere.IPC;
 
+/// <summary>IPC bridge to the Chocobo Racing Gamba plugin.</summary>
 public sealed class ChocoboRacingGambaIpc : IDisposable
 {
     private const string IpcKey = "ChocoboRacingGamba.WindowOpened";
@@ -120,7 +121,7 @@ public sealed class ChocoboRacingGambaIpc : IDisposable
         if (!_config.AutoSessionDetection)
             return;
 
-        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "Chocobo Racing Gamba");
+        IpcAutoSessionPrompt.Print(_chatGui, _linkPayload, "Chocobo Racing");
     }
 
     private void OnStartLinkClicked(uint id, SeString message)

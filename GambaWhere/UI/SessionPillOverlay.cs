@@ -15,6 +15,7 @@ using static GambaWhere.Utility.ThemeColours;
 
 namespace GambaWhere.UI;
 
+/// <summary>Floating overlay pill showing the active session at a glance.</summary>
 public class SessionPillOverlay : Window, IDisposable
 {
     private readonly SessionState _sessionState;

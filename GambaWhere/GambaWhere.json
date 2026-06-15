@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Anti crash added. Your session will auto continue after crashing if you return within 10 minutes.\n- Small UI changes.\n- Changed frequency of webhook patch requests to only when a session value changes.\n- You can now add your own banners to the webhook! You can add an idle image which replaces the \"no gamba available\" banner. You can also add an active banner to whatever you want instead of the game name banners.\n- Slightly tweaked roulette IPC.\n- Fixed X and Y formula due to some areas location being incorrect.",
+  "Changelog": "- Too many changes to list, check announcement for full list.",
   "Tags": [
     "gambling",
     "events",

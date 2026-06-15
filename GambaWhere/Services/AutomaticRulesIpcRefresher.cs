@@ -4,6 +4,7 @@ using GambaWhere.Rules;
 
 namespace GambaWhere.Services;
 
+/// <summary>Refreshes automatic host rules from connected game plugins over IPC.</summary>
 public sealed class AutomaticRulesIpcRefresher
 {
     private readonly SimpleBingoIpc _bingoIpc;

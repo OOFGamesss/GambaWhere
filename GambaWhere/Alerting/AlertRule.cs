@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace GambaWhere.Alerting;
 
+/// <summary>User-defined rule describing which events should raise an alert.</summary>
 [Serializable]
 public class AlertRule
 {

@@ -11,6 +11,7 @@ using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Components;
 
+/// <summary>Reusable renderer for an event card in the events list.</summary>
 public static class EventCardRenderer
 {
     private static readonly float ImageSize = 70f;

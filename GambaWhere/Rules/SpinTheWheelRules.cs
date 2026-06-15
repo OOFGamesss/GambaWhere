@@ -3,6 +3,7 @@ using Dalamud.Bindings.ImGui;
 
 namespace GambaWhere.Rules;
 
+/// <summary>Rule configuration for Spin the Wheel.</summary>
 public class SpinTheWheelRules : IRuleConfig
 {
     public string GameType => "Spin the Wheel";

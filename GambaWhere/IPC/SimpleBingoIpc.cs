@@ -11,6 +11,7 @@ using SimpleBingo.Data;
 
 namespace GambaWhere.IPC;
 
+/// <summary>IPC bridge to the Simple Bingo plugin.</summary>
 public sealed class SimpleBingoIpc : IDisposable
 {
     private const string IpcKey = "SimpleBingo.WindowOpened";

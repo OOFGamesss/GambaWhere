@@ -7,6 +7,7 @@ using Lumina.Excel.Sheets;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Finds the nearest open-world aetheryte to a map location.</summary>
 internal static class OpenWorldNearestAetheryte
 {
     internal static bool TryPickTerritoryByPlaceName(IDataManager data, string zoneQuery, out uint territoryRowId,

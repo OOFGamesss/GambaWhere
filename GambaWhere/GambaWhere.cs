@@ -42,6 +42,7 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly MainWindow _mainWindow;
     private readonly SessionPillOverlay _pillOverlay;
     private readonly GambaEventsTab _eventsTab;
+    private readonly RecruitmentTab _recruitmentTab;
     private readonly SessionState _sessionState;
 
     private readonly GambaWhereClient _client;
@@ -57,6 +58,7 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly SimpleScratchIpc _scratchIpc;
     private readonly MiniGamesEmporiumIpc _miniGamesIpc;
     private readonly AlertingService _alertingService;
+    private readonly EventAlertFeed _alertFeed;
 
     public GambaWhere()
     {
@@ -74,6 +76,7 @@ public sealed class GambaWhere : IDalamudPlugin
             PluginInterface.AssemblyLocation.DirectoryName ?? PluginInterface.AssemblyLocation.FullName;
 
         var customBanners = new CustomBannerStore(PluginInterface.ConfigDirectory.FullName, Log);
+        var profileImages = new ProfileImageStore(PluginInterface.ConfigDirectory.FullName, Log);
 
         _discordWebhook = new DiscordWebhookService(Log, Configuration, _sessionState, pluginDirectory, customBanners);
 
@@ -83,8 +86,10 @@ public sealed class GambaWhere : IDalamudPlugin
 
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
         _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration);
-        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache);
+        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache, profileImages);
         var gameListTab = new GameListTab(_imageCache, Configuration);
+        var profilesTab = new ProfilesTab(Configuration, _imageCache, profileImages);
+        _recruitmentTab = new RecruitmentTab(_client, _imageCache, Configuration, playerInfo, profileImages, ChatGui);
 
         _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
 
@@ -94,7 +99,7 @@ public sealed class GambaWhere : IDalamudPlugin
         var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =
-            new MainWindow(_eventsTab, hostTab, gameListTab, settingsTab, supportTab, discordTab, alertsTab, Configuration);
+            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _recruitmentTab, settingsTab, supportTab, discordTab, alertsTab, Configuration);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_pillOverlay);
 
@@ -105,7 +110,11 @@ public sealed class GambaWhere : IDalamudPlugin
             Framework,
             Log,
             _mainWindow.OpenEventsTabExpanded);
-        _eventsTab.OnEventsRefreshed = _alertingService.OnEventsRefreshed;
+
+        _alertFeed = new EventAlertFeed(_client)
+        {
+            OnEventsRefreshed = _alertingService.OnEventsRefreshed
+        };
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
         _bingoIpc = new SimpleBingoIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
@@ -119,13 +128,13 @@ public sealed class GambaWhere : IDalamudPlugin
         _sessionService.RefreshAutomaticRulesFromIpc =
             new AutomaticRulesIpcRefresher(_bingoIpc, _rouletteIpc, _chocoboIpc, _miniGamesIpc).TryRefresh;
 
-        hostTab.GetHostAutomaticRuleContext = () => hostTab.GetSelectedGameType() switch
+        hostTab.GetHostAutomaticRuleSources = () => hostTab.GetSelectedGameType() switch
         {
-            "Bingo" => _bingoIpc.GetGameInfo(),
-            "Roulette" => _rouletteIpc.GetGameInfo(),
-            "Chocobo Racing" => _chocoboIpc.GetGameInfo(),
-            "Mini Games" => _miniGamesIpc.GetGameInfo(),
-            _ => null
+            "Bingo" => new[] { new HostRuleSource("SimpleBingo", () => _bingoIpc.GetGameInfo()) },
+            "Roulette" => new[] { new HostRuleSource("SimpleRoulette", () => _rouletteIpc.GetGameInfo()) },
+            "Chocobo Racing" => new[] { new HostRuleSource("Chocobo Racing", () => _chocoboIpc.GetGameInfo()) },
+            "Mini Games" => new[] { new HostRuleSource("Mini Games Emporium", () => _miniGamesIpc.GetGameInfo()) },
+            _ => System.Array.Empty<HostRuleSource>()
         };
 
         CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
@@ -153,6 +162,8 @@ public sealed class GambaWhere : IDalamudPlugin
     {
         Framework.Update -= OnFrameworkUpdate;
         _eventsTab.Dispose();
+        _recruitmentTab.Dispose();
+        _alertFeed.Dispose();
         _alertingService.Dispose();
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;
@@ -184,6 +195,8 @@ public sealed class GambaWhere : IDalamudPlugin
     private void OnFrameworkUpdate(IFramework framework)
     {
         _eventsTab.Tick();
+        _recruitmentTab.Tick();
+        _alertFeed.Tick();
         _pillOverlay.IsOpen = (_sessionState.IsActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
     }
 

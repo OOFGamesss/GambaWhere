@@ -4,6 +4,7 @@ using System.Text;
 
 namespace SimpleRoulette.Data;
 
+/// <summary>Data contracts mirrored from the Simple Roulette plugin IPC.</summary>
 public sealed class GameInfoIPC
 {
     public int PlayerCount { get; set; }

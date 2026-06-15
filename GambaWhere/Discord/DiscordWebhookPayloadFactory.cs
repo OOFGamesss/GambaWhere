@@ -2,6 +2,7 @@ using System.Collections.Generic;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Builds Discord webhook payloads from a session snapshot.</summary>
 internal static class DiscordWebhookPayloadFactory
 {
     internal static DiscordOutboundPayloadDto ForIdleBanner(

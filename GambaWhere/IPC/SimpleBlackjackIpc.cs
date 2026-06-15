@@ -10,6 +10,7 @@ using GambaWhere.UI.Tabs;
 
 namespace GambaWhere.IPC;
 
+/// <summary>IPC bridge to the Simple Blackjack plugin.</summary>
 public sealed class SimpleBlackjackIpc : IDisposable
 {
     private const string IpcKey = "SimpleBlackjack.WindowOpened";

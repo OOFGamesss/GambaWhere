@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 
 namespace GambaWhere.Discord;
 
+/// <summary>Builds multipart form-data bodies for Discord webhooks with file attachments.</summary>
 internal static class DiscordWebhookMultipartBuilder
 {
     internal static IReadOnlyList<DiscordMultipartFilePart> BuildFileParts(

@@ -66,6 +66,52 @@ internal static class UIHelper
         return clicked;
     }
 
+    internal static bool IconTextButton(FontAwesomeIcon icon, string label, Vector2 size, string id)
+    {
+        var iconFont    = UiBuilder.IconFont;
+        var defaultFont = ImGui.GetFont();
+        var fontSize    = ImGui.GetFontSize();
+        var iconStr     = icon.ToIconString();
+        var style       = ImGui.GetStyle();
+
+        ImGui.PushFont(iconFont);
+        var iconSize = ImGui.CalcTextSize(iconStr);
+        ImGui.PopFont();
+
+        var textSize = ImGui.CalcTextSize(label);
+        var clicked  = ImGui.InvisibleButton(id, size);
+
+        var isHovered = ImGui.IsItemHovered();
+        var isActive  = ImGui.IsItemActive();
+
+        var bgColor = isActive  ? ImGui.GetColorU32(ImGuiCol.ButtonActive)
+                    : isHovered ? ImGui.GetColorU32(ImGuiCol.ButtonHovered)
+                    :             ImGui.GetColorU32(ImGuiCol.Button);
+
+        var dl  = ImGui.GetWindowDrawList();
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+
+        dl.AddRectFilled(min, max, bgColor, style.FrameRounding);
+
+        if (style.FrameBorderSize > 0f)
+            dl.AddRect(min, max, ImGui.GetColorU32(ImGuiCol.Border), style.FrameRounding,
+                ImDrawFlags.None, style.FrameBorderSize);
+
+        var textColor = ImGui.GetColorU32(ImGuiCol.Text);
+        var inner     = iconSize.X + style.ItemInnerSpacing.X + textSize.X;
+        var startX    = min.X + (size.X - inner) * 0.5f;
+        var centreY   = min.Y + size.Y * 0.5f;
+
+        var iconPos = new Vector2(startX, centreY - iconSize.Y * 0.5f);
+        dl.AddText(iconFont, fontSize, iconPos, textColor, iconStr);
+
+        var textPos = new Vector2(startX + iconSize.X + style.ItemInnerSpacing.X, centreY - textSize.Y * 0.5f);
+        dl.AddText(defaultFont, fontSize, textPos, textColor, label);
+
+        return clicked;
+    }
+
     internal static Vector2 CalcButtonSize(FontAwesomeIcon icon, string label)
     {
         var iconFont = UiBuilder.IconFont;
@@ -107,4 +153,37 @@ internal static class UIHelper
             .Push(ImGuiCol.Button,        new Vector4(0.7f,  0.5f,  0.0f,  1f))
             .Push(ImGuiCol.ButtonHovered, new Vector4(0.9f,  0.65f, 0.0f,  1f))
             .Push(ImGuiCol.ButtonActive,  new Vector4(0.5f,  0.35f, 0.0f,  1f));
+
+    internal static string TruncateToFit(string text, float wrapWidth, float maxHeight)
+    {
+        if (ImGui.CalcTextSize(text, false, wrapWidth).Y <= maxHeight)
+            return text;
+
+        const string ellipsis = "...";
+        var low = 0;
+        var high = text.Length;
+        var best = 0;
+
+        while (low <= high)
+        {
+            var mid = (low + high) / 2;
+            var candidate = text[..mid].TrimEnd() + ellipsis;
+            if (ImGui.CalcTextSize(candidate, false, wrapWidth).Y <= maxHeight)
+            {
+                best = mid;
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        var prefix = text[..best];
+        var lastSpace = prefix.LastIndexOf(' ');
+        if (lastSpace > 0)
+            prefix = prefix[..lastSpace];
+
+        return prefix.TrimEnd() + ellipsis;
+    }
 }

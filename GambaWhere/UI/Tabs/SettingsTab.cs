@@ -19,10 +19,15 @@ public class SettingsTab
 {
     private static readonly string[] SoundEffectOptions = BuildSoundEffectOptions();
 
+    private const int BoosterKeyBufferLength = 256;
+
     private readonly Configuration _config;
     private readonly ImageCache _imageCache;
     private readonly IPluginLog _log;
     private readonly SessionPillOverlay _pillOverlay;
+
+    private string _boosterKeyDraft = string.Empty;
+    private bool _boosterDraftLoaded;
 
     public SettingsTab(Configuration config, ImageCache imageCache, IPluginLog log, SessionPillOverlay pillOverlay)
     {
@@ -32,51 +37,113 @@ public class SettingsTab
         _pillOverlay = pillOverlay;
     }
 
-    public void Draw()
+    public void DrawUiSection()
     {
-        using var tabBar = ImRaii.TabBar("SettingsTabs");
-        if (!tabBar) return;
+        ImGui.Spacing();
+        DrawPillOverlaySettings();
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        DrawThemeColours();
+    }
 
-        ImGui.PushStyleColor(ImGuiCol.Text, _config.SecondaryColour);
-        using (var uiTab = ImRaii.TabItem("UI"))
+    public void DrawChatSection()
+    {
+        ImGui.Spacing();
+        DrawCompanionPluginDetection();
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        DrawAlertOptions();
+    }
+
+    public void DrawBoosterSection()
+    {
+        ImGui.Spacing();
+        DrawBoosterKeySettings();
+    }
+
+    public void DrawOtherSection()
+    {
+        ImGui.Spacing();
+        DrawImageCacheSettings();
+    }
+
+    private void DrawBoosterKeySettings()
+    {
+        if (!_boosterDraftLoaded)
         {
-            ImGui.PopStyleColor();
-            if (uiTab)
+            _boosterKeyDraft = _config.BoosterKey ?? string.Empty;
+            _boosterDraftLoaded = true;
+        }
+
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Discord Server Booster");
+        ImGuiHelpers.ScaledDummy(2f);
+
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X);
+        ImGui.TextUnformatted(
+            "Boost the OOF Games Discord server to unlock a shiny, holographic event card that "
+                + "shimmers like a foil trading card. Once you are boosting, claim your key in "
+                + "Discord and paste it below.");
+        ImGui.PopTextWrapPos();
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        GuideBullet("In the OOF Games Discord, run the /booster command in the booster channel.");
+        GuideBullet("The bot replies with your personal booster key (only you can see it).");
+        GuideBullet("Paste that key into the box below. It is sent with your events automatically.");
+
+        ImGuiHelpers.ScaledDummy(8f);
+
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Booster Key");
+        ImGuiHelpers.ScaledDummy(2f);
+
+        ImGui.SetNextItemWidth(Math.Min(360f * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X));
+        ImGui.InputTextWithHint("##BoosterKey", "GWB-xxxxxxxxxxxxxxxx", ref _boosterKeyDraft, BoosterKeyBufferLength);
+
+        if (ImGui.IsItemDeactivatedAfterEdit())
+            CommitBoosterKey();
+
+        var saved = !string.IsNullOrWhiteSpace(_config.BoosterKey);
+        if (saved)
+        {
+            ImGuiHelpers.ScaledDummy(4f);
+            ImGui.TextColored(new Vector4(0.35f, 0.85f, 0.45f, 1f),
+                "Key saved. Your hosted events and recruitment listings will show the booster card.");
+
+            ImGui.SameLine();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Clear", "##ClearBoosterKey"))
             {
-                ImGui.Spacing();
-                DrawPillOverlaySettings();
-                ImGui.Spacing();
-                ImGui.Separator();
-                ImGui.Spacing();
-                DrawThemeColours();
+                _boosterKeyDraft = string.Empty;
+                CommitBoosterKey();
             }
         }
 
-        ImGui.PushStyleColor(ImGuiCol.Text, _config.SecondaryColour);
-        using (var chatTab = ImRaii.TabItem("Chat"))
+        ImGuiHelpers.ScaledDummy(8f);
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X);
+        using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.65f, 0.1f, 1f)))
         {
-            ImGui.PopStyleColor();
-            if (chatTab)
-            {
-                ImGui.Spacing();
-                DrawCompanionPluginDetection();
-                ImGui.Spacing();
-                ImGui.Separator();
-                ImGui.Spacing();
-                DrawAlertOptions();
-            }
+            ImGui.TextUnformatted(
+                "Please do not share your key with anyone else. This is a thank you to you for boosting.");
         }
+        ImGui.PopTextWrapPos();
+    }
 
-        ImGui.PushStyleColor(ImGuiCol.Text, _config.SecondaryColour);
-        using (var otherTab = ImRaii.TabItem("Other"))
-        {
-            ImGui.PopStyleColor();
-            if (otherTab)
-            {
-                ImGui.Spacing();
-                DrawImageCacheSettings();
-            }
-        }
+    private void CommitBoosterKey()
+    {
+        var trimmed = _boosterKeyDraft.Trim();
+        _boosterKeyDraft = trimmed;
+        _config.BoosterKey = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+        _config.Save();
+    }
+
+    private void GuideBullet(string text)
+    {
+        ImGui.Bullet();
+        ImGui.SameLine();
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X);
+        ImGui.TextUnformatted(text);
+        ImGui.PopTextWrapPos();
     }
 
     private void DrawCompanionPluginDetection()
@@ -94,7 +161,7 @@ public class SettingsTab
         if (ImGui.IsItemHovered())
         {
             ImGui.SetTooltip(
-                "When a supported companion plugin opens (e.g. Chocobo Racing Gamba), a chat\n" +
+                "When a supported companion plugin opens (e.g. Chocobo Racing), a chat\n" +
                 "message will appear reminding you to start a session, with a clickable link\n" +
                 "that opens GambaWhere and pre-selects the correct game type for you.");
         }
@@ -246,11 +313,20 @@ public class SettingsTab
     private void DrawImageCacheSettings()
     {
         ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Image Cache");
-        var count = _imageCache.GetCachedImageCount();
-        ImGui.TextUnformatted($"Images stored: {count}");
+
+        var venueCount = _imageCache.GetCachedImageCount();
+        ImGui.TextUnformatted($"Venue images stored: {venueCount}");
 
         if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Clear Venue Image Cache", "##ClearImageCache"))
             _imageCache.ClearCache();
+
+        ImGui.Spacing();
+
+        var profileCount = _imageCache.GetCachedProfileImageCount();
+        ImGui.TextUnformatted($"Profile images stored: {profileCount}");
+
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Clear Profile Image Cache", "##ClearProfileImageCache"))
+            _imageCache.ClearProfileCache();
     }
 
     private void PlaySoundEffect(int id)

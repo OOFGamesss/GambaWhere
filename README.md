@@ -10,14 +10,19 @@ Find and host FFXIV gambling events near you.
 
 - **Browse active events** in a card-based feed with host name, venue, description, rules, location, and Discord copy helper.
 - **Filter quickly** by game type and data centre from the main events list.
-- **Host your own session** for Bingo, Blackjack, Chocobo Racing, Mini Games and much more!
+- **Host your own session** for Bingo, Blackjack, Chocobo Racing, Mini Games, Poker, Roulette, Scratchcards, and Spin the Wheel.
 - **Save and reuse presets** per game type (add, rename, update, delete).
-- **Auto-maintain your listing** with a background location/auto rules refresh every 1 minute while your session is active.
-- **Auto-detect rules** from companion plugins such as SimpleBingo, Simple Roulette, and Chocobo Racing Gamba, with clickable chat prompts where supported.
+- **Build host profiles** with a name, bio, avatar image, and the games you run, then attach them to your hosted events.
+- **Recruit and be recruited** through the Recruitment board: venues can advertise for hosts and hosts can advertise for venues.
+- **Auto-maintain your listing** with a background location and automatic rules refresh every minute while your session is active.
+- **Auto-detect rules** from companion plugins such as Simple Bingo, Simple Roulette, Chocobo Racing, and Mini Games Emporium, with clickable chat prompts where supported.
+- **Announce on Discord** via configurable webhooks, including a session snapshot embed and optional banner image.
+- **See your session at a glance** with the floating session pill overlay.
 - **Lifestream integration** (optional): one click takes you straight to the gamba. The Lifestream plugin is required for this feature.
 - **Game list**: find information on plugins that can help you host certain games.
 - **Support tab**: FAQ answers and a Discord link if you need help with this plugin.
 - **Alerts**: get an in-game chat line (and optional toast or sound) when a new event matches data centres, games, or venues you choose.
+- **Booster perks**: Discord server boosters can unlock a holographic profile treatment with a booster key.
 
 ## Commands
 
@@ -31,31 +36,42 @@ Find and host FFXIV gambling events near you.
 
 Discover active gambling events, refresh data from the API, apply filters, and expand cards to inspect full rule and location details.
 
-![Gamba Events Tab - screenshot placeholder](GambaWhere/Images/gamba-events-tab.png?v=2)
+![Gamba Events Tab](GambaWhere/Images/Screenshots/gambaevents.png)
 
 ### Host Gamba Tab
 
 Create and manage sessions with venue selection, game-specific rule controls, preset management, description input, and start/stop controls.
 
-![Host Gamba Tab - screenshot placeholder](GambaWhere/Images/host-gamba-tab.png?v=2)
-
-### Discord Webhook Tab
-
-Configure Discord webhooks for your session announcements from the plugin window.
-
-![Discord Webhook Tab](GambaWhere/Images/discord-webhook-tab.png)
+![Host Gamba Tab](GambaWhere/Images/Screenshots/hostgamba.png)
 
 ### Game List
 
 Browse plugins that pair with hosting: see what each one does and how it fits your events.
 
-### Support Tab
+![Game List Tab](GambaWhere/Images/Screenshots/gamelist.png)
 
-Read common questions and follow the Discord link for support specific to Gamba Where.
+### Recruitment
+
+Expand **Recruitment** in the sidebar to reach **Find a Venue** and **Find a Host**.
+
+- **Find a Venue**: hosts browse and post listings looking for a venue to run at.
+- **Find a Host**: venues browse and post listings looking for a host.
+
+![Recruitment - Find a Venue](GambaWhere/Images/Screenshots/findavenue.png)
+
+![Recruitment - Find a Host](GambaWhere/Images/Screenshots/findahost.png)
+
+### Profiles Tab
+
+Create, edit, and delete local host profiles. Each profile carries a name, a bio, an avatar image, and the games you run, and can be attached to the events you host.
+
+![Profiles Tab](GambaWhere/Images/Screenshots/profiles.png)
 
 ### Alerts Tab
 
 Set up in-game chat alerts for specific **data centres**, **games**, or **venues** from this tab.
+
+![Alerts Tab](GambaWhere/Images/Screenshots/alerts.png)
 
 Click **+ Add alert**, name the rule, then use the three multi-select rows:
 
@@ -65,6 +81,24 @@ Click **+ Add alert**, name the rule, then use the three multi-select rows:
 Each rule needs at least one concrete choice somewhere; an alert with only **Any** everywhere will not fire.
 
 After the first events refresh, matching sessions produce a coloured chat line tagged **GambaWhere** with game, venue or location, and host. Click that line to open **Gamba Events** with the relevant card expanded. Optional quest toasts and chat sound effects are on the **Settings** tab.
+
+### Settings
+
+Manage the plugin from the **Settings** sidebar group, split into **UI**, **Chat**, **Discord Webhook**, **Booster Key**, and **Other**.
+
+#### Discord Webhook
+
+Configure Discord webhooks for your session announcements from **Settings -> Discord Webhook** in the plugin window.
+
+![Discord Webhook Tab](GambaWhere/Images/Screenshots/discordwebhook.png)
+
+#### Booster Key
+
+Redeem a booster key under **Settings -> Booster Key** to unlock the holographic profile treatment for Discord server boosters.
+
+### Support Tab
+
+Read common questions and follow the Discord link for support specific to Gamba Where.
 
 ## How to Install Gamba Where
 

@@ -3,6 +3,7 @@ using System.Text;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Formats rule keys for display and API payloads.</summary>
 public static class RuleKeyFormatting
 {
     public static string FormatDisplayKey(string key)

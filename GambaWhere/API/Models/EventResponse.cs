@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace GambaWhere.API.Models;
 
+/// <summary>Event record as returned by the GambaWhere API.</summary>
 public class EventResponse
 {
     [JsonPropertyName("character_name")]
@@ -56,4 +57,16 @@ public class EventResponse
 
     [JsonPropertyName("is_active")]
     public bool IsActive { get; set; }
+
+    [JsonPropertyName("profile_image_url")]
+    public string? ProfileImageUrl { get; set; }
+
+    [JsonPropertyName("bio")]
+    public string? Bio { get; set; }
+
+    [JsonPropertyName("preferred_games")]
+    public List<string> PreferredGames { get; set; } = new();
+
+    [JsonPropertyName("booster")]
+    public bool Booster { get; set; }
 }

@@ -1,12 +1,10 @@
 using System.Collections.Generic;
-using System.Linq;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility;
-using ECommons.ImGuiMethods;
+using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
 namespace GambaWhere.Rules;
 
+/// <summary>Rule configuration for Poker.</summary>
 public class PokerRules : IRuleConfig
 {
     public string GameType => "Poker";
@@ -15,31 +13,17 @@ public class PokerRules : IRuleConfig
     private int _minBuyin = 1000000;
     private int _maxBuyin = 5000000;
 
-    private static readonly string[] RowLabels =
-    {
-        "Game Type",
-        "Min Buyin (gil)",
-        "Max Buyin (gil)"
-    };
-
     public void Draw()
     {
-        var offset = RowLabels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
-
-        ImGui.Text(RowLabels[0]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputText("##GameType", ref _gameType, 64);
-
-        ImGui.Text(RowLabels[1]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##MinBuyin", ref _minBuyin, 0);
-
-        ImGui.Text(RowLabels[2]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##MaxBuyin", ref _maxBuyin, 0);
+        using (var grid = RuleGrid.Begin("##PokerGrid"))
+        {
+            grid.Cell();
+            HostField.Text("Game Type", "##GameType", ref _gameType, 64);
+            grid.Cell();
+            HostField.Money("Min Buyin (gil)", "##MinBuyin", ref _minBuyin);
+            grid.Cell();
+            HostField.Money("Max Buyin (gil)", "##MaxBuyin", ref _maxBuyin);
+        }
 
         _minBuyin = RuleClamp.Min(_minBuyin, 0);
         _maxBuyin = RuleClamp.Min(_maxBuyin, 0);

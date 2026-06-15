@@ -11,6 +11,7 @@ using GambaWhere.UI.Tabs;
 
 namespace GambaWhere.Alerting;
 
+/// <summary>Watches refreshed event data and raises chat and toast alerts for matching rules.</summary>
 public sealed class AlertingService : IDisposable
 {
     private const uint LinkId = 8;

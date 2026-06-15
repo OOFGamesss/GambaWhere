@@ -2,6 +2,7 @@ using System.Diagnostics;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Opens a URL in the system default browser.</summary>
 internal static class OpenBrowser
 {
     public static void TryOpen(string url)

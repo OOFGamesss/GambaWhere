@@ -4,6 +4,7 @@ using System.Text;
 
 namespace SimpleBingo.Data;
 
+/// <summary>Data contracts mirrored from the Simple Bingo plugin IPC.</summary>
 public sealed class GameInfoIPC
 {
     [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]

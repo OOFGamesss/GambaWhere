@@ -1,13 +1,11 @@
 using System.Collections.Generic;
-using System.Linq;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility;
-using ECommons.ImGuiMethods;
 using GambaWhere.IPC;
+using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
 namespace GambaWhere.Rules;
 
+/// <summary>Rule configuration and automatic host rule source for Chocobo Racing.</summary>
 public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
 {
     public string GameType => "Chocobo Racing";
@@ -18,39 +16,21 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
     private float _payoutOdds = 2.0f;
     private float _perfectRaceOdds = 5.0f;
 
-    private static readonly string[] Labels =
-    {
-        "Chocobo Runners", "Race Track Length", "Max Bet per Chocobo (gil)", "Payout Odds", "Perfect Race Odds"
-    };
-
     public void Draw()
     {
-        var offset = Labels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
-
-        ImGui.Text(Labels[0]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##ChocoboRunners", ref _chocoboRunners);
-
-        ImGui.Text(Labels[1]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##RaceTrackLength", ref _raceTrackLength);
-
-        ImGui.Text(Labels[2]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##MaxBetPerChocobo", ref _maxBetPerChocobo,0);
-
-        ImGui.Text(Labels[3]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputFloat("##PayoutOdds", ref _payoutOdds, 0.1f, 1.0f, "%.2f");
-
-        ImGui.Text(Labels[4]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputFloat("##PerfectRaceOdds", ref _perfectRaceOdds, 0.1f, 1.0f, "%.2f");
+        using (var grid = RuleGrid.Begin("##ChocoboGrid"))
+        {
+            grid.Cell();
+            HostField.Int("Chocobo Runners", "##ChocoboRunners", ref _chocoboRunners);
+            grid.Cell();
+            HostField.Int("Race Track Length", "##RaceTrackLength", ref _raceTrackLength);
+            grid.Cell();
+            HostField.Money("Max Bet per Chocobo (gil)", "##MaxBetPerChocobo", ref _maxBetPerChocobo);
+            grid.Cell();
+            HostField.Float("Payout Odds", "##PayoutOdds", ref _payoutOdds);
+            grid.Cell();
+            HostField.Float("Perfect Race Odds", "##PerfectRaceOdds", ref _perfectRaceOdds);
+        }
 
         _chocoboRunners = RuleClamp.Range(_chocoboRunners, 2, 20);
         _raceTrackLength = RuleClamp.Min(_raceTrackLength, 1);
@@ -105,23 +85,5 @@ public class ChocoboRacingRules : IRuleConfig, IAutomaticHostRuleSource
             rules["perfectRaceOdds"] = info.PerfectRaceOdds;
         rules["currentPlayers"] = info.CurrentPlayers;
         return true;
-    }
-
-    public void DrawAutomaticRulesSummary(object? ipcContext)
-    {
-        if (ipcContext is not ChocoboRacingGambaData raceInfo)
-        {
-            ImGui.TextDisabled("No session has been started");
-            return;
-        }
-
-        ImGui.Text($"Chocobo runners: {raceInfo.ChocoboRunners}");
-        ImGui.Text($"Race track length: {raceInfo.RaceTrackLength}");
-        ImGui.Text($"Max bet per chocobo: {raceInfo.MaxBetPerChocobo:N0}");
-        ImGui.Text($"Payout odds: {raceInfo.PayoutOdds:N2}x");
-        if (raceInfo.PerfectRaceOdds > 0f)
-            ImGui.Text($"Perfect race odds: {raceInfo.PerfectRaceOdds:N2}x");
-
-        ImGui.Text($"Current players: {raceInfo.CurrentPlayers}");
     }
 }

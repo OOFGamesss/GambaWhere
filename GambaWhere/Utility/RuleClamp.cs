@@ -2,6 +2,7 @@ using System;
 
 namespace GambaWhere.Utility;
 
+/// <summary>Clamps rule values to their valid ranges.</summary>
 public static class RuleClamp
 {
     public static int Min(int value, int min) => Math.Max(value, min);

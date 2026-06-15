@@ -10,6 +10,7 @@ using GambaWhere.UI.Tabs;
 
 namespace GambaWhere.IPC;
 
+/// <summary>IPC bridge to the Spin the Wheel plugin.</summary>
 public sealed class SimpleWheelIpc : IDisposable
 {
     private const string IpcKey = "SimpleWheel.WindowOpened";

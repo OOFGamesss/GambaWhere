@@ -10,14 +10,17 @@ using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
+/// <summary>Tab with support and contact links.</summary>
 public class SupportTab
 {
     private readonly ImageCache _imageCache;
     private readonly Configuration _config;
 
     private const string OofGamesDiscordUrl = "https://discord.gg/vM6ff4h5Ym";
+    private const string OofGamesWebsiteUrl = "https://oofgames.fyi";
 
     private const string DiscordJoinLine = "Join the OOF Games Discord ";
+    private const string WebsiteVisitLine = "Visit the OOF Games Website ";
 
     private const float LogoSide = 160f;
 
@@ -36,7 +39,6 @@ public class SupportTab
         DrawSupportGuidance();
         DrawDiscordInvite();
     }
-
 
     private void DrawBranding()
     {
@@ -116,23 +118,31 @@ public class SupportTab
         var avail = ImGui.GetContentRegionAvail();
         var padBottom = 2f * ImGuiHelpers.GlobalScale;
         var liftUp = 14f * ImGuiHelpers.GlobalScale;
-        var spareY = Math.Max(0f, avail.Y - rowH - padBottom - liftUp);
+        var rowsH = (rowH * 2f) + style.ItemSpacing.Y;
+        var spareY = Math.Max(0f, avail.Y - rowsH - padBottom - liftUp);
         if (spareY > 0f)
             ImGui.Dummy(new Vector2(1f, spareY));
 
-        var btnW = rowH;
-        var rowW = ImGui.CalcTextSize(DiscordJoinLine).X + style.ItemSpacing.X + btnW;
+        DrawLinkRow("##openOofDiscord", DiscordJoinLine, OofGamesDiscordUrl);
+        DrawLinkRow("##openOofWebsite", WebsiteVisitLine, OofGamesWebsiteUrl);
+    }
+
+    private static void DrawLinkRow(string id, string label, string url)
+    {
+        var style = ImGui.GetStyle();
+        var btnW = ImGui.GetFrameHeight();
+        var rowW = ImGui.CalcTextSize(label).X + style.ItemSpacing.X + btnW;
         CentreForWidth(rowW);
 
         ImGui.BeginGroup();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(DiscordJoinLine);
+        ImGui.TextUnformatted(label);
         ImGui.SameLine();
-        if (ImGuiComponents.IconButton("##openOofDiscord", FontAwesomeIcon.Globe))
-            OpenBrowser.TryOpen(OofGamesDiscordUrl);
+        if (ImGuiComponents.IconButton(id, FontAwesomeIcon.Globe))
+            OpenBrowser.TryOpen(url);
 
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip($"Open in browser:\n{OofGamesDiscordUrl}");
+            ImGui.SetTooltip($"Open in browser:\n{url}");
 
         ImGui.EndGroup();
     }

@@ -14,6 +14,7 @@ using SimpleRoulette.Data;
 
 namespace GambaWhere.IPC;
 
+/// <summary>IPC bridge to the Simple Roulette plugin.</summary>
 public sealed class SimpleRouletteIpc : IDisposable
 {
     private const string IpcKey = "SimpleRoulette.WindowOpened";

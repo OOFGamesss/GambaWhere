@@ -1,12 +1,10 @@
 using System.Collections.Generic;
-using System.Linq;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility;
-using ECommons.ImGuiMethods;
+using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
 namespace GambaWhere.Rules;
 
+/// <summary>Rule configuration for Blackjack.</summary>
 public class BlackjackRules : IRuleConfig
 {
     public const string FiveCardCharlieRuleKey = "5 Card Charlie";
@@ -17,57 +15,33 @@ public class BlackjackRules : IRuleConfig
 
     public string GameType => "Blackjack";
 
-    private int _maxBet = 100000;
-    private int _maxPush = 3;
+    private int _maxBet = 1000000;
+    private int _maxPush = 1000000;
     private int _standsSoftOn = 17;
     private int _standsHardOn = 17;
     private int _maxSplits = 2;
     private bool _allowNonMatchingSplits = false;
     private bool _fiveCardCharlie = false;
 
-    private static readonly string[] Labels =
-    {
-        "Max Bet (gil)", "Max Push (gil)", "Stands Soft On", "Stands Hard On",
-        "Max Splits", "Allow Non-Matching Splits", "5 Card Charlie"
-    };
-
     public void Draw()
     {
-        var offset = Labels.Max(l => ImGui.CalcTextSize(l).X) + 16f * ImGuiHelpers.GlobalScale;
-
-        ImGui.Text(Labels[0]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##MaxBet", ref _maxBet,0);
-        
-
-        ImGui.Text(Labels[1]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##MaxPush", ref _maxPush,0);
-
-        ImGui.Text(Labels[2]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGuiEx.InputFancyNumeric("##StandsSoftOn", ref _standsSoftOn,0);
-
-        ImGui.Text(Labels[3]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##StandsHardOn", ref _standsHardOn);
-
-        ImGui.Text(Labels[4]);
-        ImGui.SameLine(offset);
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        ImGui.InputInt("##MaxSplits", ref _maxSplits);
-
-        ImGui.Text(Labels[5]);
-        ImGui.SameLine(offset);
-        ImGui.Checkbox("##AllowNonMatchingSplits", ref _allowNonMatchingSplits);
-
-        ImGui.Text(Labels[6]);
-        ImGui.SameLine(offset);
-        ImGui.Checkbox("##FiveCardCharlie", ref _fiveCardCharlie);
+        using (var grid = RuleGrid.Begin("##BlackjackGrid"))
+        {
+            grid.Cell();
+            HostField.Money("Max Bet (gil)", "##MaxBet", ref _maxBet);
+            grid.Cell();
+            HostField.Money("Max Push (gil)", "##MaxPush", ref _maxPush);
+            grid.Cell();
+            HostField.Int("Stands Soft On", "##StandsSoftOn", ref _standsSoftOn);
+            grid.Cell();
+            HostField.Int("Stands Hard On", "##StandsHardOn", ref _standsHardOn);
+            grid.Cell();
+            HostField.Int("Max Splits", "##MaxSplits", ref _maxSplits);
+            grid.Cell();
+            HostField.Toggle("Allow Non-Matching Splits", "##AllowNonMatchingSplits", ref _allowNonMatchingSplits);
+            grid.Cell();
+            HostField.Toggle("5 Card Charlie", "##FiveCardCharlie", ref _fiveCardCharlie);
+        }
 
         _maxBet = RuleClamp.Min(_maxBet, 0);
         _maxPush = RuleClamp.Min(_maxPush, 0);

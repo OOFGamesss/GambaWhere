@@ -6,6 +6,7 @@ using Lumina.Excel.Sheets;
 
 namespace GambaWhere.UI.Components;
 
+/// <summary>Combo box for searching and selecting a game item.</summary>
 public static class ItemSearchCombo
 {
     private static Dictionary<uint, string>? _itemById;
