@@ -18,6 +18,9 @@ Find and host FFXIV gambling events near you.
 - **Auto-detect rules** from companion plugins such as Simple Bingo, Simple Roulette, Chocobo Racing, and Mini Games Emporium, with clickable chat prompts where supported.
 - **Announce on Discord** via configurable webhooks, including a session snapshot embed and optional banner image.
 - **See your session at a glance** with the floating session pill overlay.
+- **Spot hosts on your minimap** with colour-coded dice icons for nearby active hosts in your current area, with a hover tooltip showing the host, game, and rules. Each game type has its own colour, and you can toggle the markers and per-game visibility from **Settings -> UI**.
+- **Create a Party Finder listing** for your active session in one click. **Create Party** and **Create Alliance** pre-fill the native Party Finder recruitment window with your game, venue, and current location ready for you to register manually.
+- **Find a host in the Party Finder** straight from an event card. The **Find in PF** button locates the host's live listing and opens it so you can join (available when the event is on your current data centre).
 - **Lifestream integration** (optional): one click takes you straight to the gamba. The Lifestream plugin is required for this feature.
 - **Game list**: find information on plugins that can help you host certain games.
 - **Support tab**: FAQ answers and a Discord link if you need help with this plugin.
@@ -34,13 +37,15 @@ Find and host FFXIV gambling events near you.
 
 ### Gamba Events Tab
 
-Discover active gambling events, refresh data from the API, apply filters, and expand cards to inspect full rule and location details.
+Discover active gambling events, refresh data from the API, apply filters, and expand cards to inspect full rule and location details. Each card has a **Find in PF** button that locates the host's live Party Finder listing and opens it so you can join, available when the event is on your current data centre.
 
 ![Gamba Events Tab](GambaWhere/Images/Screenshots/gambaevents.png)
 
 ### Host Gamba Tab
 
 Create and manage sessions with venue selection, game-specific rule controls, preset management, description input, and start/stop controls.
+
+While a session is active, use **Create Party in Partyfinder** or **Create Alliance in Partyfinder** to open the native Party Finder recruitment window pre-filled with your game, venue, and current location. You then review and click Recruit Members yourself; nothing is registered automatically.
 
 ![Host Gamba Tab](GambaWhere/Images/Screenshots/hostgamba.png)
 
@@ -85,6 +90,10 @@ After the first events refresh, matching sessions produce a coloured chat line t
 ### Settings
 
 Manage the plugin from the **Settings** sidebar group, split into **UI**, **Chat**, **Discord Webhook**, **Booster Key**, and **Other**.
+
+#### UI
+
+Under **UI** you can toggle **Minimap Host Icons** on or off, and choose which game types show a dice marker on your minimap. Each game's marker uses its own colour, shown next to its name.
 
 #### Discord Webhook
 

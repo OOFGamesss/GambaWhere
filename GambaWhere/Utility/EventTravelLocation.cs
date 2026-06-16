@@ -215,6 +215,8 @@ public static class EventTravelLocation
         if (string.IsNullOrWhiteSpace(area))
             area = InferDistrictHaystack(haystack) ?? "";
 
+        area = NormalizeLifestreamDistrict(area);
+
         if (!TryResolveWard(ev, haystack, out var ward))
         {
             error =
@@ -266,6 +268,16 @@ public static class EventTravelLocation
 
         resolved = new Resolved(world, area, ward, plot, HasSpecificPlot: true, isApartment, subdivision);
         return Validate(resolved, ev, out error);
+    }
+
+    public static string FormatLifestreamHousingAddress(in Resolved resolved)
+    {
+        var plotToken = resolved.HasSpecificPlot ? $"P{resolved.Plot}" : "P0";
+        var address = $"{resolved.World.Trim()} {resolved.Area.Trim()} W{resolved.Ward} {plotToken}";
+        if (resolved.IsApartment && resolved.Subdivision)
+            address += " subdivision";
+
+        return address;
     }
 
     private static readonly char[] HaystackLines = ['\r', '\n'];
@@ -347,9 +359,15 @@ public static class EventTravelLocation
         if (RxLavender.IsMatch(haystack))
             return "The Lavender Beds";
         if (RxMist.IsMatch(haystack))
-            return "The Mist";
+            return "Mist";
 
         return null;
+    }
+
+    private static string NormalizeLifestreamDistrict(string area)
+    {
+        var trimmed = area.Trim();
+        return trimmed.Equals("The Mist", StringComparison.OrdinalIgnoreCase) ? "Mist" : trimmed;
     }
 
     private static string? TryTaggedWorld(string haystack)

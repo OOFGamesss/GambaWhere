@@ -7,6 +7,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 using GambaWhere.API;
 using GambaWhere.Config;
+using GambaWhere.Partyfinder;
 using GambaWhere.Discord;
 using GambaWhere.IPC;
 using GambaWhere.Images;
@@ -31,6 +32,11 @@ public sealed class GambaWhere : IDalamudPlugin
     [PluginService] internal static IFramework Framework { get; private set; } = null!;
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
     [PluginService] internal static IToastGui Toasts { get; private set; } = null!;
+    [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
+    [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
+    [PluginService] internal static ICondition Condition { get; private set; } = null!;
+    [PluginService] internal static IPartyList PartyList { get; private set; } = null!;
+    [PluginService] internal static IPartyFinderGui PartyFinderGui { get; private set; } = null!;
 
     private const string MainCommand = "/gambawhere";
     private const string AliasCommand = "/gw";
@@ -59,6 +65,10 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly MiniGamesEmporiumIpc _miniGamesIpc;
     private readonly AlertingService _alertingService;
     private readonly EventAlertFeed _alertFeed;
+    private readonly HostMarkerService _hostMarkerService;
+    private readonly MinimapHostOverlay _minimapHostOverlay;
+    private readonly PartyFinderCreator _partyFinderCreator;
+    private readonly PartyFinderLocator _partyFinderLocator;
 
     public GambaWhere()
     {
@@ -85,8 +95,12 @@ public sealed class GambaWhere : IDalamudPlugin
             _discordWebhook, ChatGui);
 
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
-        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration);
-        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache, profileImages);
+        var pfInterop = new LookingForGroupInterop(Log);
+        _partyFinderCreator = new PartyFinderCreator(AddonLifecycle, Framework, GameGui, Log, pfInterop, Condition, PartyList, ObjectTable);
+        _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop);
+        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration, playerInfo, _partyFinderLocator);
+
+        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache, profileImages, _partyFinderCreator);
         var gameListTab = new GameListTab(_imageCache, Configuration);
         var profilesTab = new ProfilesTab(Configuration, _imageCache, profileImages);
         _recruitmentTab = new RecruitmentTab(_client, _imageCache, Configuration, playerInfo, profileImages, ChatGui);
@@ -111,9 +125,17 @@ public sealed class GambaWhere : IDalamudPlugin
             Log,
             _mainWindow.OpenEventsTabExpanded);
 
+        _hostMarkerService = new HostMarkerService(ObjectTable, ClientState, Configuration);
+        _minimapHostOverlay = new MinimapHostOverlay(_hostMarkerService, GameGui, ClientState, ObjectTable, DataManager, Configuration);
+        _windowSystem.AddWindow(_minimapHostOverlay);
+
         _alertFeed = new EventAlertFeed(_client)
         {
-            OnEventsRefreshed = _alertingService.OnEventsRefreshed
+            OnEventsRefreshed = events =>
+            {
+                _alertingService.OnEventsRefreshed(events);
+                _hostMarkerService.OnEventsRefreshed(events);
+            }
         };
 
         _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
@@ -172,6 +194,10 @@ public sealed class GambaWhere : IDalamudPlugin
         _windowSystem.RemoveAllWindows();
         _mainWindow.Dispose();
         _pillOverlay.Dispose();
+        _minimapHostOverlay.Dispose();
+        _hostMarkerService.Dispose();
+        _partyFinderCreator.Dispose();
+        _partyFinderLocator.Dispose();
 
         _chocoboIpc.Dispose();
         _bingoIpc.Dispose();
@@ -197,7 +223,10 @@ public sealed class GambaWhere : IDalamudPlugin
         _eventsTab.Tick();
         _recruitmentTab.Tick();
         _alertFeed.Tick();
+        _hostMarkerService.Tick();
         _pillOverlay.IsOpen = (_sessionState.IsActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
+        _minimapHostOverlay.IsOpen =
+            Configuration.MinimapHostIconsEnabled && ClientState.IsLoggedIn && _hostMarkerService.Markers.Count > 0;
     }
 
     private void OnCommand(string command, string args) => _mainWindow.Toggle();

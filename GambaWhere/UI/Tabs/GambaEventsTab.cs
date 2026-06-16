@@ -12,6 +12,7 @@ using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
 using GambaWhere.Images;
+using GambaWhere.Partyfinder;
 using GambaWhere.Services;
 using GambaWhere.UI.Components;
 using GambaWhere.Utility;
@@ -27,6 +28,8 @@ public class GambaEventsTab : IDisposable
     private readonly ImageCache _imageCache;
     private readonly EventLocationTeleportService _teleport;
     private readonly Configuration _config;
+    private readonly PlayerInfoService _playerInfo;
+    private readonly PartyFinderLocator _pfLocator;
 
     private const int PageSize = 12;
 
@@ -89,12 +92,14 @@ public class GambaEventsTab : IDisposable
     private const string InfoPopupId = "##GambaGameInfoPopup";
     private const string ProfilePopupId = "##GambaProfilePopup";
 
-    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport, Configuration config)
+    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport, Configuration config, PlayerInfoService playerInfo, PartyFinderLocator pfLocator)
     {
         _client = client;
         _imageCache = imageCache;
         _teleport = teleport;
         _config = config;
+        _playerInfo = playerInfo;
+        _pfLocator = pfLocator;
 
         _querySignature = BuildQuerySignature();
         TriggerRefresh();
@@ -653,8 +658,9 @@ public class GambaEventsTab : IDisposable
     private void DrawCardButtons(EventResponse ev, float rowWidth)
     {
         var spacing = ImGui.GetStyle().ItemSpacing.X;
-        var buttonWidth = (rowWidth - spacing) / 2f;
-        var buttonSize = new Vector2(buttonWidth, ImGui.GetFrameHeight());
+        var frameHeight = ImGui.GetFrameHeight();
+        var buttonWidth = (rowWidth - frameHeight - spacing * 2f) / 2f;
+        var buttonSize = new Vector2(buttonWidth, frameHeight);
 
         using var buttonColours = ImRaii.PushColor(ImGuiCol.Button, ThemeColours.ButtonNormal(_config.PrimaryColour))
             .Push(ImGuiCol.ButtonHovered, ThemeColours.ButtonHovered(_config.PrimaryColour))
@@ -681,6 +687,51 @@ public class GambaEventsTab : IDisposable
                     ? "Travel through Lifestream using world, housing district, ward, and plot when this listing includes them."
                     : "Install NightmareXIV Lifestream from the plugin installer, enable it on this character, then reload plugins.");
         }
+
+        ImGui.SameLine();
+        DrawFindInPfButton(ev, iconOnly: true, new Vector2(frameHeight, frameHeight));
+    }
+
+    private void DrawFindInPfButton(EventResponse ev, bool iconOnly, Vector2 iconSize = default)
+    {
+        var onDataCentre = IsOnCurrentDataCentre(ev);
+        var searching = _pfLocator.IsRunning;
+
+        using (ImRaii.Disabled(!onDataCentre || searching))
+        {
+            var clicked = iconOnly
+                ? UIHelper.IconTextButton(FontAwesomeIcon.Search, string.Empty, iconSize, "##findPf")
+                : UIHelper.IconTextButton(FontAwesomeIcon.Search, "Find in PF", "##findPf");
+
+            if (clicked)
+                _pfLocator.Find(ev.CharacterName);
+        }
+
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip(FindInPfTooltip(onDataCentre, searching));
+    }
+
+    private static string FindInPfTooltip(bool onDataCentre, bool searching)
+    {
+        if (searching)
+            return "Searching the Party Finder...";
+
+        return onDataCentre
+            ? "Find this host's Party Finder listing and open it so you can join."
+            : "Only available when the event is on your current data centre.";
+    }
+
+    private bool IsOnCurrentDataCentre(EventResponse ev)
+    {
+        var current = _playerInfo.GetCurrentDataCentre();
+        if (string.IsNullOrWhiteSpace(current))
+            return false;
+
+        var eventDc = !string.IsNullOrWhiteSpace(ev.DataCentre)
+            ? ev.DataCentre!
+            : InferDataCentre(ev.Location);
+
+        return string.Equals(eventDc, current, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void DrawCardBorder(ImDrawListPtr dl, Vector2 min, Vector2 max, Vector4 accent, float rounding)
@@ -768,6 +819,9 @@ public class GambaEventsTab : IDisposable
                     ? "Travel through Lifestream using world, housing district, ward, and plot when this listing includes them."
                     : "Install NightmareXIV Lifestream from the plugin installer, enable it on this character, then reload plugins.");
         }
+
+        ImGui.SameLine();
+        DrawFindInPfButton(ev, iconOnly: false);
 
         ImGui.SameLine();
         if (ImGui.Button("Close##popupClose"))

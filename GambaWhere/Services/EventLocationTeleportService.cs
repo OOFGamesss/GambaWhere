@@ -100,6 +100,8 @@ public sealed class EventLocationTeleportService
 
             if (IsOnResolvedWorld(openWorld.World.Trim()))
             {
+                _log.Information("[Teleport] Lifestream.Teleport aetheryte {AetheryteRowId} (world: {World}).",
+                    openWorld.AetheryteRowId, openWorld.World.Trim());
                 if (!LifestreamHouseIpc.TryTeleportToAetheryte(_pluginInterface, openWorld.AetheryteRowId, 0, _log))
                     PrintFault(OpenWorldTeleportFailed);
 
@@ -126,8 +128,9 @@ public sealed class EventLocationTeleportService
                 return;
             }
 
-            if (!LifestreamHouseIpc.TryEnqueueLiSlashArgs(_pluginInterface,
-                    $"{openWorld.World.Trim()}, tp {tpLabel.Trim()}", _log))
+            var openWorldLiAddress = $"{openWorld.World.Trim()}, tp {tpLabel.Trim()}";
+            _log.Information("[Teleport] Lifestream.ExecuteCommand /li {Address}.", openWorldLiAddress);
+            if (!LifestreamHouseIpc.TryEnqueueLiSlashArgs(_pluginInterface, openWorldLiAddress, _log))
                 PrintFault(OpenWorldTeleportFailed);
 
             return;
@@ -159,9 +162,7 @@ public sealed class EventLocationTeleportService
 
         if (!resolved.HasSpecificPlot)
         {
-            var district = resolved.Area.Trim();
-            var liAddressLine =
-                $"{resolved.World.Trim()}, {district}, Ward {resolved.Ward}, Plot 0";
+            var liAddressLine = EventTravelLocation.FormatLifestreamHousingAddress(resolved);
 
             if (!IsOnResolvedWorld(resolved.World))
             {
@@ -179,6 +180,7 @@ public sealed class EventLocationTeleportService
                 }
             }
 
+            _log.Information("[Teleport] Lifestream.ExecuteCommand /li {Address}.", liAddressLine);
             if (!LifestreamHouseIpc.TryEnqueueLiSlashArgs(_pluginInterface, liAddressLine, _log))
             {
                 PrintFault(WardSubdivisionEnqueueFailed);
@@ -212,6 +214,10 @@ public sealed class EventLocationTeleportService
             return;
         }
 
+        var housingAddress = EventTravelLocation.FormatLifestreamHousingAddress(resolved);
+        tuple = LifestreamHouseIpc.WithHousingAddressLabel(tuple, housingAddress);
+
+        _log.Information("[Teleport] Lifestream.GoToHousingAddress {Address}.", housingAddress);
         if (!LifestreamHouseIpc.TryEnqueueGo(_pluginInterface, tuple, _log))
             PrintFault(LifestreamDownMessage);
     }

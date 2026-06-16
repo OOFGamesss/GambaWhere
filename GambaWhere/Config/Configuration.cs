@@ -46,6 +46,13 @@ public class Configuration : IPluginConfiguration
     public float PillPositionX { get; set; } = 50f;
     public float PillPositionY { get; set; } = 50f;
 
+    public bool MinimapHostIconsEnabled { get; set; } = true;
+
+    public Dictionary<string, bool> MinimapHostGameTypeEnabled { get; set; } = new();
+
+    public bool IsMinimapGameTypeEnabled(string gameType) =>
+        !MinimapHostGameTypeEnabled.TryGetValue(gameType, out var enabled) || enabled;
+
     public List<string> FavouriteVenues { get; set; } = new();
 
     public List<GambaProfile> Profiles { get; set; } = new();

@@ -44,6 +44,10 @@ public class SettingsTab
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
+        DrawMinimapHostSettings();
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
         DrawThemeColours();
     }
 
@@ -212,6 +216,52 @@ public class SettingsTab
 
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                     ImGui.SetTooltip("Drag the overlay to reposition it, then return here to lock it in place.");
+            }
+
+            ImGui.Unindent();
+        }
+    }
+
+    private void DrawMinimapHostSettings()
+    {
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Minimap Host Icons");
+
+        var enabled = _config.MinimapHostIconsEnabled;
+        if (ImGui.Checkbox("Show a dice icon on the minimap for nearby hosts", ref enabled))
+        {
+            _config.MinimapHostIconsEnabled = enabled;
+            _config.Save();
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(
+                "Places a game-coloured dice marker on your minimap for any active host\n" +
+                "who is in your current area/instance. Hover the marker to see who they are.\n" +
+                "Uses the existing 30-second event refresh, so it adds no extra network traffic.");
+        }
+
+        using (ImRaii.Disabled(!_config.MinimapHostIconsEnabled))
+        {
+            ImGui.Indent();
+            ImGui.TextDisabled("Show markers for these games:");
+            ImGui.Spacing();
+
+            foreach (var game in GambaEventsTab.KnownGameTypes)
+            {
+                var (_, accent) = GameTypeColours.ForGame(game);
+                var swatch = accent;
+                ImGui.ColorButton($"##MinimapSwatch_{game}", swatch,
+                    ImGuiColorEditFlags.NoTooltip | ImGuiColorEditFlags.NoAlpha,
+                    new Vector2(ImGui.GetTextLineHeight(), ImGui.GetTextLineHeight()));
+                ImGui.SameLine();
+
+                var gameEnabled = _config.IsMinimapGameTypeEnabled(game);
+                if (ImGui.Checkbox($"{game}##MinimapGame_{game}", ref gameEnabled))
+                {
+                    _config.MinimapHostGameTypeEnabled[game] = gameEnabled;
+                    _config.Save();
+                }
             }
 
             ImGui.Unindent();

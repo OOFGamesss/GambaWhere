@@ -10,6 +10,7 @@ using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
+using GambaWhere.Partyfinder;
 using GambaWhere.Images;
 using GambaWhere.Rules;
 using GambaWhere.Services;
@@ -30,6 +31,7 @@ public class HostGambaTab
     private readonly HostFormState _form;
     private readonly ImageCache _imageCache;
     private readonly ProfileImageStore _profileImages;
+    private readonly PartyFinderCreator _partyFinderCreator;
 
     private static readonly string[] GameTypes = { "Bingo", "Blackjack", "Chocobo Racing", "Mini Games", "Poker", "Roulette", "Scratchcards", "Spin the Wheel" };
 
@@ -69,7 +71,8 @@ public class HostGambaTab
         Configuration config,
         HostFormState form,
         ImageCache imageCache,
-        ProfileImageStore profileImages)
+        ProfileImageStore profileImages,
+        PartyFinderCreator partyFinderCreator)
     {
         _sessionService = sessionService;
         _playerInfo = playerInfo;
@@ -79,6 +82,7 @@ public class HostGambaTab
         _form = form;
         _imageCache = imageCache;
         _profileImages = profileImages;
+        _partyFinderCreator = partyFinderCreator;
 
         _ruleConfigs = new IRuleConfig[]
         {
@@ -146,6 +150,8 @@ public class HostGambaTab
                 {
                     ImGuiHelpers.ScaledDummy(8f);
                     DrawCard("##gw_active_session", "Active Session", DrawActiveSessionBody);
+                    ImGuiHelpers.ScaledDummy(8f);
+                    DrawPartyFinderButtons();
                 }
                 else
                 {
@@ -677,6 +683,73 @@ public class HostGambaTab
         ImGuiHelpers.ScaledDummy(2f);
 
         DrawRuleKeyValues(_sessionState.ActiveRules);
+    }
+
+    private void DrawPartyFinderButtons()
+    {
+        const string partyLabel = "Create Party in Partyfinder";
+        const string allianceLabel = "Create Alliance in Partyfinder";
+
+        var gameType = _sessionState.GameType;
+        var venueName = _sessionState.VenueName;
+        var location = _sessionState.Location;
+
+        var running = _partyFinderCreator.IsRunning;
+        var eligible = _partyFinderCreator.CanCreate(out var ineligibleReason);
+        var disabled = running || !eligible;
+
+        var groupWidth = MeasureIconTextButtonWidth(FontAwesomeIcon.Users, partyLabel)
+                         + MeasureIconTextButtonWidth(FontAwesomeIcon.PeopleGroup, allianceLabel)
+                         + ImGui.GetStyle().ItemSpacing.X;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX()
+            + Math.Max(0f, (ImGui.GetContentRegionAvail().X - groupWidth) * 0.5f));
+
+        using (ImRaii.Disabled(disabled))
+        {
+            using (UIHelper.PushBlueButtonColours())
+            {
+                if (UIHelper.IconTextButton(FontAwesomeIcon.Users, partyLabel, "##gw_pf_party"))
+                    _partyFinderCreator.CreateParty(gameType, venueName, location);
+            }
+            DrawDisabledReasonTooltip(disabled, eligible, ineligibleReason);
+
+            ImGui.SameLine();
+
+            using (UIHelper.PushAmberButtonColours())
+            {
+                if (UIHelper.IconTextButton(FontAwesomeIcon.PeopleGroup, allianceLabel, "##gw_pf_alliance"))
+                    _partyFinderCreator.CreateAlliance(gameType, venueName, location);
+            }
+            DrawDisabledReasonTooltip(disabled, eligible, ineligibleReason);
+        }
+
+        var status = _partyFinderCreator.StatusMessage;
+        if (!string.IsNullOrEmpty(status))
+        {
+            ImGuiHelpers.ScaledDummy(2f);
+            ImGui.TextWrapped(status);
+        }
+    }
+
+    private static float MeasureIconTextButtonWidth(FontAwesomeIcon icon, string label)
+    {
+        var style = ImGui.GetStyle();
+
+        ImGui.PushFont(UiBuilder.IconFont);
+        var iconWidth = ImGui.CalcTextSize(icon.ToIconString()).X;
+        ImGui.PopFont();
+
+        var textWidth = ImGui.CalcTextSize(label).X;
+        return style.FramePadding.X * 2 + iconWidth + style.ItemInnerSpacing.X + textWidth;
+    }
+
+    private static void DrawDisabledReasonTooltip(bool disabled, bool eligible, string reason)
+    {
+        if (!disabled || eligible || string.IsNullOrEmpty(reason))
+            return;
+
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip(reason);
     }
 
     private void DrawRuleKeyValues(Dictionary<string, object> rules)

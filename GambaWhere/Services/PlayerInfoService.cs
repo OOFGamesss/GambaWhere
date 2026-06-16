@@ -48,6 +48,19 @@ public class PlayerInfoService
         return string.IsNullOrWhiteSpace(dc) ? null : dc;
     }
 
+    public string? GetCurrentDataCentre()
+    {
+        var player = _objectTable.LocalPlayer;
+        if (player == null)
+            return null;
+
+        var dc = player.CurrentWorld.Value.DataCenter.Value.Name.ToString();
+        if (string.IsNullOrWhiteSpace(dc))
+            dc = player.HomeWorld.Value.DataCenter.Value.Name.ToString();
+
+        return string.IsNullOrWhiteSpace(dc) ? null : dc;
+    }
+
     public string? GetCurrentLocation()
     {
         var player = _objectTable.LocalPlayer;

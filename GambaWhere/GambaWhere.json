@@ -8,12 +8,18 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Too many changes to list, check announcement for full list.",
+  "Changelog": "- Live gamba will now display on the minimap. These are coolour coded to each game type. Go to settings > UI to toggle which games you want to see on the mini maps and what colours are associated with each game type. Hover over the icon to see live game information.\n- You can now create a pf within the plugin. This will open up the recruitment for you and fill in the description with your game, venue and location. Feel free to change any info and start recruitment. A new find in pf button has been added to cards. This will open PF and search for the player. It will let you know if they cannot find one or open it up if there is.",
   "Tags": [
     "gambling",
     "events",
     "gamba",
-    "hosting"
+    "hosting",
+    "recruitment",
+    "venues",
+    "hosts",
+    "alerts",
+    "lifestream",
+    "profiles"
   ],
   "DalamudApiLevel": 15,
   "DownloadLinkInstall": "https://github.com/OOFGamesss/GambaWhere/releases/latest/download/latest.zip",

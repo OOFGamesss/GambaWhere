@@ -70,6 +70,13 @@ internal static class LifestreamHouseIpc
         }
     }
 
+    internal static HousingAddrTuple WithHousingAddressLabel(in HousingAddrTuple tuple, string label)
+    {
+        var labelled = tuple;
+        labelled.Name = label;
+        return labelled;
+    }
+
     internal static bool TryEnqueueGo(IDalamudPluginInterface pi, in HousingAddrTuple tuple, IPluginLog log)
     {
         try
