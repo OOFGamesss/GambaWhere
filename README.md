@@ -1,4 +1,4 @@
-<div align="center"><img src="GambaWhere/Images/gamba-where-icon.png" alt="Gamba Where Icon" /></div>
+<div align="center"><img src="GambaWhere/Images/Icons/gambawhere.png" alt="Gamba Where Icon" /></div>
 
 # Gamba Where
 

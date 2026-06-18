@@ -1,14 +1,14 @@
 using System;
+using System.Collections.Generic;
 using GambaWhere.Rules;
 
 namespace GambaWhere.State;
 
 /// <summary>
-/// A named provider of live automatic rules for the currently selected game (for example a specific
-/// other plugin or game mode). <see cref="GetContext"/> returns the live IPC context, or null when
-/// that source has no active session and should not be offered.
+/// A named provider of live automatic rules for the currently selected game. <see cref="GetRules"/>
+/// returns the live rule payload, or null when that source has no active session and should not be offered.
 /// </summary>
-public sealed record HostRuleSource(string Name, Func<object?> GetContext);
+public sealed record HostRuleSource(string Name, Func<Dictionary<string, object>?> GetRules);
 
 public class HostFormState
 {

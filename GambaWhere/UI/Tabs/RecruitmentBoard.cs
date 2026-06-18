@@ -579,7 +579,7 @@ internal sealed class RecruitmentBoard : IDisposable
 
     private void DrawBoosterRing(ImDrawListPtr dl, Vector2 pos, float size)
     {
-        var tex = _imageCache.GetBundledImage("boosterborder.png");
+        var tex = _imageCache.GetBundledImage("Profile Borders/boosterborder.png");
         if (tex == null)
             return;
 

@@ -327,9 +327,7 @@ public sealed class DiscordWebhookService : IDisposable
 
     private byte[] SerializeIdle(string bannerFileName, bool isFirstPost)
     {
-        var dto = DiscordWebhookPayloadFactory.ForIdleBanner(
-            bannerFileName,
-            isFirstPost);
+        var dto = DiscordWebhookPayloadFactory.ForIdleBanner(bannerFileName, isFirstPost);
 
         return JsonSerializer.SerializeToUtf8Bytes(dto, _serializerOptions);
     }
@@ -340,11 +338,7 @@ public sealed class DiscordWebhookService : IDisposable
         string bannerFileName,
         bool isFirstPost)
     {
-        var dto = DiscordWebhookPayloadFactory.ForActive(
-            snapshot,
-            theme,
-            bannerFileName,
-            isFirstPost);
+        var dto = DiscordWebhookPayloadFactory.ForActive(snapshot, theme, bannerFileName, isFirstPost);
 
         return JsonSerializer.SerializeToUtf8Bytes(dto, _serializerOptions);
     }

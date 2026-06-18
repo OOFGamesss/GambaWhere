@@ -6,7 +6,7 @@ public static class DiscordWebhookProfile
     public const string DisplayName = "Gamba Where";
 
     public const string AvatarImageHttpsUrl =
-        "https://raw.githubusercontent.com/OOFGamesss/GambaWhere/main/GambaWhere/Images/gamba-where-icon.png";
+        "https://raw.githubusercontent.com/OOFGamesss/GambaWhere/main/GambaWhere/Images/Icons/gambawhere.png";
 
     public const string ActiveEmbedFooterText = "Create by Gamba Where Plogon";
 }

@@ -307,11 +307,7 @@ public class SessionService : IDisposable
     private bool ShouldRefreshRulesFromIpc()
     {
         return _sessionState.UsesAutomaticHostRules
-               && RefreshAutomaticRulesFromIpc != null
-               && (_sessionState.GameType == "Bingo"
-                   || _sessionState.GameType == "Roulette"
-                   || _sessionState.GameType == "Chocobo Racing"
-                   || _sessionState.GameType == "Mini Games");
+               && RefreshAutomaticRulesFromIpc != null;
     }
 
     public void Dispose()

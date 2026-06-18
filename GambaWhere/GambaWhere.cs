@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Dalamud.Game;
 using Dalamud.Game.Command;
 using Dalamud.IoC;
@@ -55,14 +56,8 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly SessionService _sessionService;
     private readonly DiscordWebhookService _discordWebhook;
     private readonly ImageCache _imageCache;
-    private readonly ChocoboRacingGambaIpc _chocoboIpc;
-    private readonly SimpleBingoIpc _bingoIpc;
-    private readonly SimpleRouletteIpc _rouletteIpc;
-    private readonly SimpleBlackjackIpc _blackjackIpc;
-    private readonly SimpleWheelIpc _wheelIpc;
-    private readonly SimplePokerIpc _pokerIpc;
-    private readonly SimpleScratchIpc _scratchIpc;
-    private readonly MiniGamesEmporiumIpc _miniGamesIpc;
+    private readonly PartnerIpcManager _partnerIpcManager;
+    private readonly PartnerIpcV2Manager _partnerIpcV2Manager;
     private readonly AlertingService _alertingService;
     private readonly EventAlertFeed _alertFeed;
     private readonly HostMarkerService _hostMarkerService;
@@ -97,7 +92,7 @@ public sealed class GambaWhere : IDalamudPlugin
         var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
         var pfInterop = new LookingForGroupInterop(Log);
         _partyFinderCreator = new PartyFinderCreator(AddonLifecycle, Framework, GameGui, Log, pfInterop, Condition, PartyList, ObjectTable);
-        _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop);
+        _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop, Condition);
         _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration, playerInfo, _partyFinderLocator);
 
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache, profileImages, _partyFinderCreator);
@@ -138,26 +133,15 @@ public sealed class GambaWhere : IDalamudPlugin
             }
         };
 
-        _chocoboIpc = new ChocoboRacingGambaIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
-        _bingoIpc = new SimpleBingoIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
-        _rouletteIpc = new SimpleRouletteIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
-        _blackjackIpc = new SimpleBlackjackIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
-        _wheelIpc = new SimpleWheelIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
-        _pokerIpc = new SimplePokerIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
-        _scratchIpc = new SimpleScratchIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
-        _miniGamesIpc = new MiniGamesEmporiumIpc(PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _partnerIpcManager = new PartnerIpcManager(
+            PluginInterface, _mainWindow, hostTab, ChatGui, Configuration, Log);
+        _partnerIpcV2Manager = new PartnerIpcV2Manager(
+            PluginInterface, _mainWindow, hostTab, ChatGui, Framework, Configuration, Log);
 
-        _sessionService.RefreshAutomaticRulesFromIpc =
-            new AutomaticRulesIpcRefresher(_bingoIpc, _rouletteIpc, _chocoboIpc, _miniGamesIpc).TryRefresh;
+        hostTab.GetHostAutomaticRuleSources = () => BuildHostRuleSources(hostTab.GetSelectedGameType());
 
-        hostTab.GetHostAutomaticRuleSources = () => hostTab.GetSelectedGameType() switch
-        {
-            "Bingo" => new[] { new HostRuleSource("SimpleBingo", () => _bingoIpc.GetGameInfo()) },
-            "Roulette" => new[] { new HostRuleSource("SimpleRoulette", () => _rouletteIpc.GetGameInfo()) },
-            "Chocobo Racing" => new[] { new HostRuleSource("Chocobo Racing", () => _chocoboIpc.GetGameInfo()) },
-            "Mini Games" => new[] { new HostRuleSource("Mini Games Emporium", () => _miniGamesIpc.GetGameInfo()) },
-            _ => System.Array.Empty<HostRuleSource>()
-        };
+        _sessionService.RefreshAutomaticRulesFromIpc = category =>
+            _partnerIpcV2Manager.GetRules(category) ?? _partnerIpcManager.GetRules(category);
 
         CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
@@ -199,14 +183,8 @@ public sealed class GambaWhere : IDalamudPlugin
         _partyFinderCreator.Dispose();
         _partyFinderLocator.Dispose();
 
-        _chocoboIpc.Dispose();
-        _bingoIpc.Dispose();
-        _rouletteIpc.Dispose();
-        _blackjackIpc.Dispose();
-        _wheelIpc.Dispose();
-        _pokerIpc.Dispose();
-        _scratchIpc.Dispose();
-        _miniGamesIpc.Dispose();
+        _partnerIpcManager.Dispose();
+        _partnerIpcV2Manager.Dispose();
 
         CommandManager.RemoveHandler(MainCommand);
         CommandManager.RemoveHandler(AliasCommand);
@@ -227,6 +205,22 @@ public sealed class GambaWhere : IDalamudPlugin
         _pillOverlay.IsOpen = (_sessionState.IsActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
         _minimapHostOverlay.IsOpen =
             Configuration.MinimapHostIconsEnabled && ClientState.IsLoggedIn && _hostMarkerService.Markers.Count > 0;
+    }
+
+    private List<HostRuleSource> BuildHostRuleSources(string category)
+    {
+        var v2Sources = _partnerIpcV2Manager.GetRuleSources(category);
+        var v2Names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var source in v2Sources)
+            v2Names.Add(source.Name);
+
+        var sources = new List<HostRuleSource>();
+        foreach (var v1Source in _partnerIpcManager.GetRuleSources(category))
+            if (!v2Names.Contains(v1Source.Name))
+                sources.Add(v1Source);
+
+        sources.AddRange(v2Sources);
+        return sources;
     }
 
     private void OnCommand(string command, string args) => _mainWindow.Toggle();

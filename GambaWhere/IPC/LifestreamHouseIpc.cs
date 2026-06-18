@@ -12,6 +12,8 @@ using HousingAddrTuple =
 /// <summary>IPC wrapper for Lifestream house and travel commands.</summary>
 internal static class LifestreamHouseIpc
 {
+    internal const uint LinkId = 1;
+
     internal const string RequiredPluginInternalName = "Lifestream";
 
     internal const string GateBuildAddress = RequiredPluginInternalName + ".BuildAddressBookEntry";

@@ -1,4 +1,5 @@
 using System;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.Gui.PartyFinder.Types;
 using Dalamud.Plugin.Services;
 
@@ -38,6 +39,7 @@ public sealed class PartyFinderLocator : IDisposable
     private readonly IChatGui _chat;
     private readonly IPluginLog _log;
     private readonly LookingForGroupInterop _interop;
+    private readonly ICondition _condition;
 
     private Stage _stage = Stage.Idle;
     private string _targetName = string.Empty;
@@ -55,13 +57,15 @@ public sealed class PartyFinderLocator : IDisposable
         IFramework framework,
         IChatGui chat,
         IPluginLog log,
-        LookingForGroupInterop interop)
+        LookingForGroupInterop interop,
+        ICondition condition)
     {
         _partyFinderGui = partyFinderGui;
         _framework = framework;
         _chat = chat;
         _log = log;
         _interop = interop;
+        _condition = condition;
 
         _framework.Update += OnFrameworkUpdate;
         _partyFinderGui.ReceiveListing += OnReceiveListing;
@@ -70,6 +74,21 @@ public sealed class PartyFinderLocator : IDisposable
     public bool IsRunning => _stage != Stage.Idle;
 
     public string StatusMessage => DateTime.UtcNow < _statusUntil ? _statusMessage : string.Empty;
+
+    public bool CanFind(out string reason)
+    {
+        if (_condition[ConditionFlag.BoundByDuty]
+            || _condition[ConditionFlag.BoundByDuty56]
+            || _condition[ConditionFlag.BoundByDuty95]
+            || _condition[ConditionFlag.InDeepDungeon])
+        {
+            reason = "You cannot search the Party Finder while in a duty.";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
+    }
 
     public void Find(string characterName)
     {

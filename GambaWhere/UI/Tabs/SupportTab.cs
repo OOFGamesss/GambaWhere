@@ -46,7 +46,7 @@ public class SupportTab
         var logoDrawSize = new Vector2(side, side);
         CentreForWidth(logoDrawSize.X);
 
-        var tex = _imageCache.GetBundledPng("oofgames.png");
+        var tex = _imageCache.GetBundledPng("Icons/oofgames.png");
         if (tex != null)
             ImGui.Image(tex.Handle, logoDrawSize);
         else

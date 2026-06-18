@@ -132,7 +132,7 @@ internal static class ProfilePopup
 
         if (data.Booster)
         {
-            var ring = imageCache.GetBundledImage("boosterborder.png");
+            var ring = imageCache.GetBundledImage("Profile Borders/boosterborder.png");
             if (ring != null)
             {
                 var centre = pos + new Vector2(diameter * 0.5f, diameter * 0.5f);

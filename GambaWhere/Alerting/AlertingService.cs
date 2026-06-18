@@ -14,7 +14,8 @@ namespace GambaWhere.Alerting;
 /// <summary>Watches refreshed event data and raises chat and toast alerts for matching rules.</summary>
 public sealed class AlertingService : IDisposable
 {
-    private const uint LinkId = 8;
+    public const uint LinkId = 2;
+
     private const ushort AlertColour = 25;
     private const string CharacterMarker = " by ";
     private const string ChatSourceTag = "GambaWhere";

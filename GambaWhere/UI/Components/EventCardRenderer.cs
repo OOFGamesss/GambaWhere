@@ -42,7 +42,7 @@ public static class EventCardRenderer
                 ImGui.TableNextRow();
 
                 ImGui.TableSetColumnIndex(0);
-                var logo = imageCache.GetBundledImage("gamba-where-icon.png");
+                var logo = imageCache.GetBundledImage("Icons/gambawhere.png");
                 if (logo != null)
                     ImGui.Image(logo.Handle, scaledImageSize);
                 else
@@ -189,18 +189,8 @@ public static class EventCardRenderer
         ImGuiHelpers.ScaledDummy(2f);
     }
 
-    public static (Vector4 bg, Vector4 text) GetGameTypeColors(string gameType) => gameType switch
-    {
-        "Bingo"          => (new Vector4(0.85f, 0.25f, 0.25f, 0.18f), new Vector4(1.00f, 0.50f, 0.50f, 1f)),
-        "Blackjack"      => (new Vector4(0.25f, 0.50f, 0.90f, 0.18f), new Vector4(0.50f, 0.75f, 1.00f, 1f)),
-        "Chocobo Racing" => (new Vector4(0.85f, 0.80f, 0.15f, 0.18f), new Vector4(1.00f, 0.95f, 0.30f, 1f)),
-        "Mini Games"     => (new Vector4(0.20f, 0.80f, 0.40f, 0.18f), new Vector4(0.40f, 1.00f, 0.55f, 1f)),
-        "Poker"          => (new Vector4(0.00f, 0.80f, 0.80f, 0.18f), new Vector4(0.00f, 1.00f, 1.00f, 1f)),
-        "Roulette"       => (new Vector4(0.52f, 0.38f, 0.78f, 0.18f), new Vector4(0.82f, 0.68f, 1.00f, 1f)),
-        "Scratchcards"   => (new Vector4(0.85f, 0.45f, 0.00f, 0.18f), new Vector4(1.00f, 0.60f, 0.00f, 1f)),
-        "Spin the Wheel" => (new Vector4(0.90f, 0.60f, 0.70f, 0.18f), new Vector4(1.00f, 0.75f, 0.85f, 1f)),
-        _                => (new Vector4(0.50f, 0.50f, 0.50f, 0.12f), new Vector4(0.75f, 0.75f, 0.75f, 1f)),
-    };
+    public static (Vector4 bg, Vector4 text) GetGameTypeColors(string gameType) =>
+        GameTypeColours.ForGame(gameType);
 
     public static string FormatRuleValue(object? value, string key = "")
     {

@@ -118,7 +118,7 @@ public sealed class DiscordWebhookTab
         var maxW = DiscordLogoMaxWidth * scale;
 
         Vector2 drawSize;
-        var tex = _imageCache.GetBundledImage("discordlogo.png");
+        var tex = _imageCache.GetBundledImage("Icons/discordlogo.png");
         if (tex != null && tex.Width > 0 && tex.Height > 0)
         {
             var ratio = tex.Height / (float)tex.Width;

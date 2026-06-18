@@ -11,6 +11,7 @@ using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
+using GambaWhere.Games;
 using GambaWhere.Images;
 using GambaWhere.Partyfinder;
 using GambaWhere.Services;
@@ -54,11 +55,7 @@ public class GambaEventsTab : IDisposable
     private readonly HashSet<string> _selectedDataCentres = new();
     private readonly CancellationTokenSource _cts = new();
 
-    public static readonly string[] KnownGameTypes =
-    {
-        "Bingo", "Blackjack", "Chocobo Racing", "Mini Games",
-        "Poker", "Roulette", "Scratchcards", "Spin the Wheel"
-    };
+    public static readonly string[] KnownGameTypes = GameCategories.Keys;
 
     public static readonly string[] KnownDataCentres =
     {
@@ -587,7 +584,7 @@ public class GambaEventsTab : IDisposable
             return;
         }
 
-        var placeholder = _imageCache.GetBundledImage("profileplaceholder.png");
+        var placeholder = _imageCache.GetBundledImage("Icons/profileplaceholder.png");
         if (placeholder != null)
         {
             dl.AddImageRounded(placeholder.Handle, pos, pos + new Vector2(size, size),
@@ -607,7 +604,7 @@ public class GambaEventsTab : IDisposable
         if (!ev.Booster)
             return;
 
-        var tex = _imageCache.GetBundledImage("boosterborder.png");
+        var tex = _imageCache.GetBundledImage("Profile Borders/boosterborder.png");
         if (tex == null)
             return;
 
@@ -696,8 +693,9 @@ public class GambaEventsTab : IDisposable
     {
         var onDataCentre = IsOnCurrentDataCentre(ev);
         var searching = _pfLocator.IsRunning;
+        var eligible = _pfLocator.CanFind(out var ineligibleReason);
 
-        using (ImRaii.Disabled(!onDataCentre || searching))
+        using (ImRaii.Disabled(!onDataCentre || searching || !eligible))
         {
             var clicked = iconOnly
                 ? UIHelper.IconTextButton(FontAwesomeIcon.Search, string.Empty, iconSize, "##findPf")
@@ -708,13 +706,16 @@ public class GambaEventsTab : IDisposable
         }
 
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip(FindInPfTooltip(onDataCentre, searching));
+            ImGui.SetTooltip(FindInPfTooltip(onDataCentre, searching, eligible, ineligibleReason));
     }
 
-    private static string FindInPfTooltip(bool onDataCentre, bool searching)
+    private static string FindInPfTooltip(bool onDataCentre, bool searching, bool eligible, string ineligibleReason)
     {
         if (searching)
             return "Searching the Party Finder...";
+
+        if (!eligible)
+            return ineligibleReason;
 
         return onDataCentre
             ? "Find this host's Party Finder listing and open it so you can join."
