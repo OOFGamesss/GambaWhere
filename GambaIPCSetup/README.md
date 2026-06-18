@@ -103,7 +103,7 @@ Entries that fail are dropped. If nothing valid remains, the whole submission is
 ## Threading
 
 Invoke the gates from the framework thread, for example inside your `Framework.Update` handler or a UI
-event such as a window's `OnOpen`. This is the standard pattern for Dalamud IPC.
+event such as a window's `OnOpen`.
 
 ## Quick start
 

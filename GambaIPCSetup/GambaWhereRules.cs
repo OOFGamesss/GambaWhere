@@ -97,7 +97,7 @@ public sealed class GambaWhereRules : IDisposable
     }
 }
 
-// Mirror of GambaWhere's IPC v2 rules contract. Keep these property names (Rules, Label, Value) exactly;
+// Keep these property names (Rules, Label, Value) exactly;
 // GambaWhere reads the object you pass by reflection.
 public sealed class GambaWhereRulesPayload
 {
