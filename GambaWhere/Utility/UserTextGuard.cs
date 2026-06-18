@@ -18,6 +18,9 @@ public static class UserTextGuard
         if (string.IsNullOrWhiteSpace(text))
             return false;
 
+        if (IsAllowedGambaProUrl(text))
+            return false;
+
         foreach (var pattern in DisallowedPatterns)
         {
             if (text.Contains(pattern, StringComparison.OrdinalIgnoreCase))
@@ -25,5 +28,21 @@ public static class UserTextGuard
         }
 
         return false;
+    }
+
+    private static bool IsAllowedGambaProUrl(string text)
+    {
+        var s = text.Trim();
+        string hostAndPath;
+        if (s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            hostAndPath = s[8..];
+        else
+            return false;
+
+        var slashIdx = hostAndPath.IndexOf('/');
+        var host = slashIdx >= 0 ? hostAndPath[..slashIdx] : hostAndPath;
+
+        return host.Equals("gamba.pro", StringComparison.OrdinalIgnoreCase) ||
+               host.EndsWith(".gamba.pro", StringComparison.OrdinalIgnoreCase);
     }
 }

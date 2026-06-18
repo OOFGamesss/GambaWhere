@@ -104,6 +104,19 @@ public class HostGambaTab
         OnGameTypeChanged();
     }
 
+    public void SelectRuleSourceByName(string name)
+    {
+        var sources = GetSources();
+        for (var i = 0; i < sources.Count; i++)
+        {
+            if (string.Equals(sources[i].Name, name, StringComparison.Ordinal))
+            {
+                _form.SelectedRuleSourceIndex = i + 1;
+                return;
+            }
+        }
+    }
+
     public void Draw()
     {
         var frame = ImGui.GetFrameCount();
@@ -637,7 +650,7 @@ public class HostGambaTab
         DrawActiveRules();
 
         ImGuiHelpers.ScaledDummy(8f);
-        ImGui.TextColored(Yellow, "Location updates automatically every 1 minute.");
+        ImGui.TextColored(Yellow, "Session data syncs to the server every 1 minute.");
 
         if (!string.IsNullOrEmpty(_form.StatusMessage))
         {

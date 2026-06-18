@@ -176,6 +176,7 @@ public sealed class PartnerIpcV2Manager : IDisposable
             return;
 
         _hostTab.SelectGame(category);
+        _hostTab.SelectRuleSourceByName(name);
         _mainWindow.OpenHostGambaTab();
     }
 

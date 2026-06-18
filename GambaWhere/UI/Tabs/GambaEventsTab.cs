@@ -904,7 +904,25 @@ public class GambaEventsTab : IDisposable
                         using (ImRaii.PushColor(ImGuiCol.Text, disabledColour))
                             ImGui.TextUnformatted(RuleKeyFormatting.FormatDisplayKey(rule.Key));
                         ImGui.TableSetColumnIndex(1);
-                        ImGui.TextUnformatted(EventCardRenderer.FormatRuleValue(rule.Value, rule.Key));
+                        var formatted = EventCardRenderer.FormatRuleValue(rule.Value, rule.Key);
+                        var isUrl = formatted.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                                    || formatted.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+                        if (isUrl)
+                        {
+                            using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(0.4f, 0.6f, 1f, 1f)))
+                                ImGui.TextUnformatted(formatted);
+                            if (ImGui.IsItemHovered())
+                            {
+                                ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                                ImGui.SetTooltip($"Open in browser:\n{formatted}");
+                            }
+                            if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
+                                OpenBrowser.TryOpen(formatted);
+                        }
+                        else
+                        {
+                            ImGui.TextUnformatted(formatted);
+                        }
                     }
                 }
             }

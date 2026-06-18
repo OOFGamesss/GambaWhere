@@ -82,7 +82,7 @@ public class SessionService : IDisposable
         var cts = new CancellationTokenSource();
         _sessionState.LoopCts = cts;
 
-        _ = Task.Run(() => RunHeartbeatLoopAsync(cts.Token));
+        _ = Task.Run(() => RunSessionLoopAsync(cts.Token));
 
         if (autoEndAt.HasValue)
             _ = Task.Run(() => RunAutoEndAsync(autoEndAt.Value, cts.Token));
@@ -217,7 +217,7 @@ public class SessionService : IDisposable
         }
     }
 
-    private async Task RunHeartbeatLoopAsync(CancellationToken ct)
+    private async Task RunSessionLoopAsync(CancellationToken ct)
     {
         try
         {
@@ -236,7 +236,7 @@ public class SessionService : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Unexpected error in location heartbeat loop.");
+            _log.Error(ex, "Unexpected error in session loop.");
         }
     }
 
@@ -379,7 +379,7 @@ public class SessionService : IDisposable
 
         var cts = new CancellationTokenSource();
         _sessionState.LoopCts = cts;
-        _ = Task.Run(() => RunHeartbeatLoopAsync(cts.Token));
+        _ = Task.Run(() => RunSessionLoopAsync(cts.Token));
 
         if (_config.ActiveAutoEndAt.HasValue && _config.ActiveAutoEndAt.Value > DateTime.UtcNow)
             _ = Task.Run(() => RunAutoEndAsync(_config.ActiveAutoEndAt.Value, cts.Token));
