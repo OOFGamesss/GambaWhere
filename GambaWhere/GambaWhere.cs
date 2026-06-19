@@ -93,12 +93,12 @@ public sealed class GambaWhere : IDalamudPlugin
         var pfInterop = new LookingForGroupInterop(Log);
         _partyFinderCreator = new PartyFinderCreator(AddonLifecycle, Framework, GameGui, Log, pfInterop, Condition, PartyList, ObjectTable);
         _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop, Condition);
-        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration, playerInfo, _partyFinderLocator);
+        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration, playerInfo, _partyFinderLocator, Log);
 
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache, profileImages, _partyFinderCreator);
         var gameListTab = new GameListTab(_imageCache, Configuration);
         var profilesTab = new ProfilesTab(Configuration, _imageCache, profileImages);
-        _recruitmentTab = new RecruitmentTab(_client, _imageCache, Configuration, playerInfo, profileImages, ChatGui);
+        _recruitmentTab = new RecruitmentTab(_client, _imageCache, Configuration, playerInfo, profileImages, ChatGui, Log);
 
         _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
 
@@ -124,7 +124,7 @@ public sealed class GambaWhere : IDalamudPlugin
         _minimapHostOverlay = new MinimapHostOverlay(_hostMarkerService, GameGui, ClientState, ObjectTable, DataManager, Configuration);
         _windowSystem.AddWindow(_minimapHostOverlay);
 
-        _alertFeed = new EventAlertFeed(_client)
+        _alertFeed = new EventAlertFeed(_client, Log)
         {
             OnEventsRefreshed = events =>
             {
@@ -198,8 +198,8 @@ public sealed class GambaWhere : IDalamudPlugin
 
     private void OnFrameworkUpdate(IFramework framework)
     {
-        _eventsTab.Tick();
-        _recruitmentTab.Tick();
+        if (_mainWindow.IsEventsTabSelected)
+            _eventsTab.Tick();
         _alertFeed.Tick();
         _hostMarkerService.Tick();
         _pillOverlay.IsOpen = (_sessionState.IsActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;

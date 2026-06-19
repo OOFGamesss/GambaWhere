@@ -23,21 +23,20 @@ public class RecruitmentTab : IDisposable
         Configuration config,
         PlayerInfoService playerInfo,
         ProfileImageStore profileImages,
-        IChatGui chatGui)
+        IChatGui chatGui,
+        IPluginLog log)
     {
-        _venueBoard = new RecruitmentBoard("venue", client, imageCache, config, playerInfo, profileImages, chatGui);
-        _hostBoard = new RecruitmentBoard("host", client, imageCache, config, playerInfo, profileImages, chatGui);
+        _venueBoard = new RecruitmentBoard("venue", client, imageCache, config, playerInfo, profileImages, chatGui, log);
+        _hostBoard = new RecruitmentBoard("host", client, imageCache, config, playerInfo, profileImages, chatGui, log);
     }
 
     public void DrawFindVenueSection() => _venueBoard.Draw();
 
     public void DrawFindHostSection() => _hostBoard.Draw();
 
-    public void Tick()
-    {
-        _venueBoard.Tick();
-        _hostBoard.Tick();
-    }
+    public void OnVenueSelected() => _venueBoard.RequestRefresh();
+
+    public void OnHostSelected() => _hostBoard.RequestRefresh();
 
     public void Dispose()
     {

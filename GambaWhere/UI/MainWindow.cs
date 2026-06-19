@@ -104,10 +104,13 @@ public class MainWindow : Window, IDisposable
         _selected = Tab.Host;
     }
 
+    public bool IsEventsTabSelected => IsOpen && _selected == Tab.Events;
+
     public void OpenEventsTabExpanded(string characterName)
     {
         IsOpen = true;
         _selected = Tab.Events;
+        _eventsTab.EnsureLoaded();
         _eventsTab.ExpandAndScrollTo(characterName);
     }
 
@@ -202,6 +205,8 @@ public class MainWindow : Window, IDisposable
             _selected = tab;
             _settingsExpanded = false;
             _recruitmentExpanded = false;
+            if (tab == Tab.Events)
+                _eventsTab.RequestRefresh();
         }
     }
 
@@ -217,6 +222,7 @@ public class MainWindow : Window, IDisposable
                 _selected = Tab.Recruitment;
                 _recruitmentSection = RecruitmentSection.FindVenue;
                 _settingsExpanded = false;
+                _recruitmentTab.OnVenueSelected();
             }
         }
 
@@ -235,6 +241,10 @@ public class MainWindow : Window, IDisposable
         {
             _selected = Tab.Recruitment;
             _recruitmentSection = section;
+            if (section == RecruitmentSection.FindVenue)
+                _recruitmentTab.OnVenueSelected();
+            else
+                _recruitmentTab.OnHostSelected();
         }
     }
 
@@ -333,7 +343,7 @@ public class MainWindow : Window, IDisposable
     {
         switch (_selected)
         {
-            case Tab.Events:   _eventsTab.Draw(); break;
+            case Tab.Events:   _eventsTab.EnsureLoaded(); _eventsTab.Draw(); break;
             case Tab.Host:     _hostTab.Draw(); break;
             case Tab.Profiles: _profilesTab.Draw(); break;
             case Tab.GameList: _gameListTab.Draw(); break;

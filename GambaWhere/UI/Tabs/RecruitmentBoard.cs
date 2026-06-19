@@ -58,6 +58,7 @@ internal sealed class RecruitmentBoard : IDisposable
     private readonly PlayerInfoService _playerInfo;
     private readonly ProfileImageStore _profileImages;
     private readonly IChatGui _chatGui;
+    private readonly IPluginLog _log;
     private readonly CancellationTokenSource _cts = new();
     private readonly ThemedCard _formCard = new();
 
@@ -107,7 +108,8 @@ internal sealed class RecruitmentBoard : IDisposable
         Configuration config,
         PlayerInfoService playerInfo,
         ProfileImageStore profileImages,
-        IChatGui chatGui)
+        IChatGui chatGui,
+        IPluginLog log)
     {
         _postType = postType;
         _isVenue = postType == "venue";
@@ -117,22 +119,23 @@ internal sealed class RecruitmentBoard : IDisposable
         _playerInfo = playerInfo;
         _profileImages = profileImages;
         _chatGui = chatGui;
+        _log = log;
 
         _includeNsfw = _config.ShowNsfwRecruitment;
 
         _querySignature = BuildQuerySignature();
-        TriggerRefresh();
+        TriggerRefresh(); // one-time startup fetch (lazy load A)
+    }
+
+    public void RequestRefresh()
+    {
+        if (!_isRefreshing)
+            TriggerRefresh();
     }
 
     private string IdScope => _isVenue ? "venue" : "host";
 
-    public void Tick()
-    {
-        if (_isRefreshing || DateTime.UtcNow < _nextAutoRefreshUtc)
-            return;
-
-        TriggerRefresh();
-    }
+    // Background polling removed; refreshes are triggered by user navigation only.
 
     public void Draw()
     {
@@ -268,6 +271,8 @@ internal sealed class RecruitmentBoard : IDisposable
         var includeNsfw = _includeNsfw;
         var bank = BankFilterValue();
         var hasFilters = gameTypes != null || dataCentres != null || bank != null;
+
+        // _log.Information("[GambaWhere/Recruitment] GET /recruitment/page (postType={PostType}, page={Page}, pageSize={PageSize})", _postType, page, PageSize);
 
         _ = Task.Run(async () =>
         {

@@ -8,6 +8,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using Dalamud.Plugin.Services;
 using GambaWhere.API;
 using GambaWhere.API.Models;
 using GambaWhere.Config;
@@ -31,6 +32,7 @@ public class GambaEventsTab : IDisposable
     private readonly Configuration _config;
     private readonly PlayerInfoService _playerInfo;
     private readonly PartyFinderLocator _pfLocator;
+    private readonly IPluginLog _log;
 
     private const int PageSize = 12;
 
@@ -89,7 +91,7 @@ public class GambaEventsTab : IDisposable
     private const string InfoPopupId = "##GambaGameInfoPopup";
     private const string ProfilePopupId = "##GambaProfilePopup";
 
-    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport, Configuration config, PlayerInfoService playerInfo, PartyFinderLocator pfLocator)
+    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport, Configuration config, PlayerInfoService playerInfo, PartyFinderLocator pfLocator, IPluginLog log)
     {
         _client = client;
         _imageCache = imageCache;
@@ -97,9 +99,21 @@ public class GambaEventsTab : IDisposable
         _config = config;
         _playerInfo = playerInfo;
         _pfLocator = pfLocator;
+        _log = log;
 
         _querySignature = BuildQuerySignature();
-        TriggerRefresh();
+    }
+
+    public void EnsureLoaded()
+    {
+        if (!_hasLoaded && !_isRefreshing)
+            TriggerRefresh();
+    }
+
+    public void RequestRefresh()
+    {
+        if (!_isRefreshing)
+            TriggerRefresh();
     }
 
     public void ExpandAndScrollTo(string characterName)
@@ -222,6 +236,8 @@ public class GambaEventsTab : IDisposable
         var gameTypes = _selectedGameTypes.Count > 0 ? _selectedGameTypes.ToArray() : null;
         var dataCentres = _selectedDataCentres.Count > 0 ? _selectedDataCentres.ToArray() : null;
         var hasFilters = gameTypes != null || dataCentres != null;
+
+        // _log.Information("[GambaWhere/EventsTab] GET /events/page (page={Page}, pageSize={PageSize})", page, PageSize);
 
         _ = Task.Run(async () =>
         {
