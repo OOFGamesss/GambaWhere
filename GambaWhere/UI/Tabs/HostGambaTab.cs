@@ -1059,6 +1059,8 @@ public class HostGambaTab
 
         request.Bio = string.IsNullOrWhiteSpace(profile.Bio) ? null : profile.Bio.Trim();
         request.PreferredGames = new List<string>(profile.PreferredGames);
+        request.BorderStyle = profile.BorderStyle;
+        request.CardEffectStyle = profile.CardEffectStyle;
 
         var path = _profileImages.GetPath(profile.ImageFileName);
         if (path == null || !ProfileImageEncoder.TryEncode(path, out var b64, out var hash))

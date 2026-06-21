@@ -60,4 +60,12 @@ public class PostRecruitmentRequest
     [JsonPropertyName("booster_key")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? BoosterKey { get; set; }
+
+    [JsonPropertyName("border_style")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BorderStyle { get; set; }
+
+    [JsonPropertyName("card_effect_style")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CardEffectStyle { get; set; }
 }

@@ -16,6 +16,7 @@ using GambaWhere.Games;
 using GambaWhere.Images;
 using GambaWhere.Partyfinder;
 using GambaWhere.Services;
+using GambaWhere.UI.CardEffects;
 using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
@@ -428,7 +429,8 @@ public class GambaEventsTab : IDisposable
         var rounding = CardRounding * scale;
         var (bgColour, accent) = EventCardRenderer.GetGameTypeColors(ev.Game);
 
-        var cardBg = ev.Booster ? BoosterCardEffect.BaseColour : bgColour;
+        var cardEffect = GetCardEffect(ev);
+        var cardBg = CardEffectResolver.BaseColour(cardEffect) ?? bgColour;
         ImGui.PushStyleColor(ImGuiCol.ChildBg, cardBg);
         ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, rounding);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(pad, pad));
@@ -437,17 +439,20 @@ public class GambaEventsTab : IDisposable
         ImGui.PopStyleVar(2);
         ImGui.PopStyleColor();
 
+        var borderMin = Vector2.Zero;
+        var borderMax = Vector2.Zero;
         using (child)
         {
             if (child.Success)
             {
                 var p0 = ImGui.GetWindowPos();
                 var sz = ImGui.GetWindowSize();
+                borderMin = p0;
+                borderMax = p0 + sz;
                 var dl = ImGui.GetWindowDrawList();
                 var cardTopRight = new Vector2(p0.X + sz.X, p0.Y);
 
-                if (ev.Booster)
-                    BoosterCardEffect.DrawHolographicFill(dl, p0, p0 + sz, ImGui.GetTime(), BoosterCardEffect.Seed(ev.CharacterName));
+                CardEffectDrawer.DrawFill(dl, cardEffect, p0, p0 + sz, ImGui.GetTime(), CardEffectHelpers.Seed(ev.CharacterName));
 
                 var offset = AvatarOffset * scale;
                 var logoSize = VenueLogoSize * scale;
@@ -456,9 +461,7 @@ public class GambaEventsTab : IDisposable
                 DrawVenueLogo(dl, ev, cardTopRight, logoTop, logoSize);
                 DrawGameTypeBadge(dl, ev, accent, cardTopRight, pad, pad + offset - GameBadgeTopNudge * scale);
 
-                if (ev.Booster)
-                    BoosterCardEffect.DrawHolographicBorder(dl, p0, p0 + sz, rounding, ImGui.GetTime());
-                else
+                if (cardEffect == CardEffectType.None)
                     DrawCardBorder(dl, p0, p0 + sz, accent, rounding);
 
                 var contentWidth = sz.X - pad * 2f;
@@ -474,6 +477,9 @@ public class GambaEventsTab : IDisposable
                 DrawCardButtons(ev, contentWidth);
             }
         }
+
+        if (borderMin != borderMax)
+            CardEffectDrawer.DrawBorderAfterChildWindow(cardEffect, borderMin, borderMax, rounding, ImGui.GetTime());
 
         if (_pendingScrollCharacter == ev.CharacterName)
         {
@@ -596,7 +602,7 @@ public class GambaEventsTab : IDisposable
         if (profileTex != null)
         {
             CircleImage.DrawAt(dl, pos, size, profileTex);
-            DrawBoosterFrame(ev, dl, pos, size);
+            DrawBorderFrame(ev, dl, pos, size);
             return;
         }
 
@@ -612,15 +618,16 @@ public class GambaEventsTab : IDisposable
                 ImGui.GetColorU32(new Vector4(0.22f, 0.22f, 0.26f, 1f)), rounding);
         }
 
-        DrawBoosterFrame(ev, dl, pos, size);
+        DrawBorderFrame(ev, dl, pos, size);
     }
 
-    private void DrawBoosterFrame(EventResponse ev, ImDrawListPtr dl, Vector2 pos, float size)
+    private void DrawBorderFrame(EventResponse ev, ImDrawListPtr dl, Vector2 pos, float size)
     {
-        if (!ev.Booster)
+        var imagePath = AvatarBorder.ImagePath(ev.BorderStyle, ev.Booster);
+        if (imagePath == null)
             return;
 
-        var tex = _imageCache.GetBundledImage("Profile Borders/boosterborder.png");
+        var tex = _imageCache.GetBundledImage(imagePath);
         if (tex == null)
             return;
 
@@ -631,6 +638,9 @@ public class GambaEventsTab : IDisposable
         dl.AddImage(tex.Handle, min, max, Vector2.Zero, Vector2.One,
             ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 1f)));
     }
+
+    private static CardEffectType GetCardEffect(EventResponse ev) =>
+        CardEffectResolver.Resolve(ev.CardEffectStyle, ev.Booster);
 
     private void DrawVenueLogo(ImDrawListPtr dl, EventResponse ev, Vector2 cardTopRight, float topOffset, float logoSize)
     {
@@ -768,11 +778,11 @@ public class GambaEventsTab : IDisposable
         var scale = ImGuiHelpers.GlobalScale;
         var ev = _events.FirstOrDefault(e => e.CharacterName == _infoPopupCharacter);
 
-        var booster = ev?.Booster ?? false;
+        var cardEffect = ev != null ? GetCardEffect(ev) : CardEffectType.None;
         var (bgColour, accent) = ev != null
             ? EventCardRenderer.GetGameTypeColors(ev.Game)
             : (default, default);
-        var cardBg = booster ? BoosterCardEffect.BaseColour : SolidCardBg(bgColour);
+        var cardBg = CardEffectResolver.BaseColour(cardEffect) ?? SolidCardBg(bgColour);
         var rounding = CardRounding * scale;
 
         ImGui.SetNextWindowSizeConstraints(Vector2.Zero, new Vector2(float.MaxValue, float.MaxValue));
@@ -857,10 +867,11 @@ public class GambaEventsTab : IDisposable
 
         dl.ChannelsSetCurrent(0);
         dl.PushClipRect(new Vector2(-10000f, -10000f), new Vector2(100000f, 100000f), false);
-        if (booster)
+        var t = ImGui.GetTime();
+        if (cardEffect != CardEffectType.None)
         {
-            BoosterCardEffect.DrawHolographicFoil(dl, p0, p0 + sz, ImGui.GetTime());
-            BoosterCardEffect.DrawHolographicBorder(dl, p0, p0 + sz, rounding, ImGui.GetTime());
+            CardEffectDrawer.DrawFoil(dl, cardEffect, p0, p0 + sz, t);
+            CardEffectDrawer.DrawBorder(dl, cardEffect, p0, p0 + sz, rounding, t);
         }
         else
         {
@@ -882,6 +893,8 @@ public class GambaEventsTab : IDisposable
                 Bio = ev.Bio,
                 PreferredGames = ev.PreferredGames,
                 Booster = ev.Booster,
+                BorderStyle = ev.BorderStyle,
+                CardEffectStyle = ev.CardEffectStyle,
             };
 
         ProfilePopup.Draw(ProfilePopupId, ref _openProfileRequested, _imageCache, _config, data);

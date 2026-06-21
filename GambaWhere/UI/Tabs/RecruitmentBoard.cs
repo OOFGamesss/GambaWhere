@@ -15,16 +15,13 @@ using GambaWhere.API.Models;
 using GambaWhere.Config;
 using GambaWhere.Images;
 using GambaWhere.Services;
+using GambaWhere.UI.CardEffects;
 using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
-/// <summary>
-/// One recruitment board (either "venue" or "host"). Owns its own paging, filters, auto-refresh and
-/// the create/edit form for that post type. Browsing mirrors the Gamba Events grid: server-side
-/// paged (12 per page), newest first, with data-centre, game-type, NSFW and bank filters.
-/// </summary>
+/// <summary>Recruitment board tab for browsing and posting venue or host listings.</summary>
 internal sealed class RecruitmentBoard : IDisposable
 {
     private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(30);
@@ -451,9 +448,9 @@ internal sealed class RecruitmentBoard : IDisposable
         var pad = CardPad * scale;
         var rounding = CardRounding * scale;
         var accent = _config.SecondaryColour;
-        var booster = post.Booster;
+        var cardEffect = GetCardEffect(post);
 
-        var cardBg = booster ? BoosterCardEffect.BaseColour : ThemeColours.CardBackground(_config.PrimaryColour);
+        var cardBg = CardEffectResolver.BaseColour(cardEffect) ?? ThemeColours.CardBackground(_config.PrimaryColour);
         ImGui.PushStyleColor(ImGuiCol.ChildBg, cardBg);
         ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, rounding);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(pad, pad));
@@ -462,17 +459,20 @@ internal sealed class RecruitmentBoard : IDisposable
         ImGui.PopStyleVar(2);
         ImGui.PopStyleColor();
 
+        var borderMin = Vector2.Zero;
+        var borderMax = Vector2.Zero;
         using (child)
         {
             if (child.Success)
             {
                 var p0 = ImGui.GetWindowPos();
                 var sz = ImGui.GetWindowSize();
+                borderMin = p0;
+                borderMax = p0 + sz;
                 var dl = ImGui.GetWindowDrawList();
                 var contentWidth = sz.X - pad * 2f;
 
-                if (booster)
-                    BoosterCardEffect.DrawHolographicFill(dl, p0, p0 + sz, ImGui.GetTime(), BoosterCardEffect.Seed(post.Id));
+                CardEffectDrawer.DrawFill(dl, cardEffect, p0, p0 + sz, ImGui.GetTime(), CardEffectHelpers.Seed(post.Id));
 
                 var manageW = isMine ? 2f * ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X : 0f;
                 var rightReserve = Math.Max(manageW, MaxCornerBadgeWidth(post)) + 8f * scale;
@@ -500,13 +500,14 @@ internal sealed class RecruitmentBoard : IDisposable
 
                 DrawCornerBadges(post, p0, sz, pad, isMine);
 
-                if (booster)
-                    BoosterCardEffect.DrawHolographicBorder(dl, p0, p0 + sz, rounding, ImGui.GetTime());
-                else
+                if (cardEffect == CardEffectType.None)
                     dl.AddRect(p0, p0 + sz, ImGui.GetColorU32(new Vector4(accent.X, accent.Y, accent.Z, 0.55f)),
                         rounding, ImDrawFlags.None, 1.5f * scale);
             }
         }
+
+        if (borderMin != borderMax)
+            CardEffectDrawer.DrawBorderAfterChildWindow(cardEffect, borderMin, borderMax, rounding, ImGui.GetTime());
     }
 
     private void DrawCardHeader(RecruitmentPost post, float contentWidth, float rightReserve)
@@ -537,8 +538,8 @@ internal sealed class RecruitmentBoard : IDisposable
                 CircleImage.DrawPlaceholderAt(dl, pos, avatar);
         }
 
-        if (post.Booster && !_isVenue)
-            DrawBoosterRing(dl, pos, avatar);
+        if (!_isVenue)
+            DrawBoosterRing(dl, pos, avatar, post);
 
         ImGui.Dummy(new Vector2(avatar, avatar));
         ImGui.SameLine(0f, gap);
@@ -582,9 +583,13 @@ internal sealed class RecruitmentBoard : IDisposable
         || post.PreferredGames.Count > 0
         || post.Booster;
 
-    private void DrawBoosterRing(ImDrawListPtr dl, Vector2 pos, float size)
+    private void DrawBoosterRing(ImDrawListPtr dl, Vector2 pos, float size, RecruitmentPost post)
     {
-        var tex = _imageCache.GetBundledImage("Profile Borders/boosterborder.png");
+        var imagePath = AvatarBorder.ImagePath(post.BorderStyle, post.Booster);
+        if (imagePath == null)
+            return;
+
+        var tex = _imageCache.GetBundledImage(imagePath);
         if (tex == null)
             return;
 
@@ -593,6 +598,9 @@ internal sealed class RecruitmentBoard : IDisposable
         dl.AddImage(tex.Handle, centre - new Vector2(half, half), centre + new Vector2(half, half),
             Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 1f)));
     }
+
+    private static CardEffectType GetCardEffect(RecruitmentPost post) =>
+        CardEffectResolver.Resolve(post.CardEffectStyle, post.Booster);
 
     private static Vector4 BankBadgeColour => new(0.36f, 0.8f, 0.46f, 1f);
 
@@ -757,9 +765,9 @@ internal sealed class RecruitmentBoard : IDisposable
 
         var scale = ImGuiHelpers.GlobalScale;
         var post = _posts.FirstOrDefault(p => p.Id == _detailsId);
-        var booster = post?.Booster ?? false;
+        var detailsCardEffect = post != null ? GetCardEffect(post) : CardEffectType.None;
         var rounding = CardRounding * scale;
-        var cardBg = booster ? BoosterCardEffect.BaseColour : ThemeColours.TintedWindowBg(_config.PrimaryColour);
+        var cardBg = CardEffectResolver.BaseColour(detailsCardEffect) ?? ThemeColours.TintedWindowBg(_config.PrimaryColour);
 
         ImGui.SetNextWindowSizeConstraints(new Vector2(420f * scale, 0f), new Vector2(560f * scale, float.MaxValue));
 
@@ -855,10 +863,11 @@ internal sealed class RecruitmentBoard : IDisposable
         var sz = ImGui.GetWindowSize();
         dl.ChannelsSetCurrent(0);
         dl.PushClipRect(new Vector2(-10000f, -10000f), new Vector2(100000f, 100000f), false);
-        if (booster)
+        var t = ImGui.GetTime();
+        if (detailsCardEffect != CardEffectType.None)
         {
-            BoosterCardEffect.DrawHolographicFoil(dl, p0, p0 + sz, ImGui.GetTime());
-            BoosterCardEffect.DrawHolographicBorder(dl, p0, p0 + sz, rounding, ImGui.GetTime());
+            CardEffectDrawer.DrawFoil(dl, detailsCardEffect, p0, p0 + sz, t);
+            CardEffectDrawer.DrawBorder(dl, detailsCardEffect, p0, p0 + sz, rounding, t);
         }
         else
         {
@@ -881,6 +890,8 @@ internal sealed class RecruitmentBoard : IDisposable
                 Bio = post.Bio,
                 PreferredGames = post.PreferredGames,
                 Booster = post.Booster,
+                BorderStyle = post.BorderStyle,
+                CardEffectStyle = post.CardEffectStyle,
             };
 
         ProfilePopup.Draw($"##rec_profile_popup_{IdScope}", ref _openProfileRequested, _imageCache, _config, data);
@@ -1486,6 +1497,8 @@ internal sealed class RecruitmentBoard : IDisposable
 
         request.Bio = string.IsNullOrWhiteSpace(profile.Bio) ? null : profile.Bio.Trim();
         request.PreferredGames = new List<string>(profile.PreferredGames);
+        request.BorderStyle = profile.BorderStyle;
+        request.CardEffectStyle = profile.CardEffectStyle;
 
         var path = _profileImages.GetPath(profile.ImageFileName);
         if (path == null || !ProfileImageEncoder.TryEncode(path, out var b64, out var hash))
@@ -1508,6 +1521,8 @@ internal sealed class RecruitmentBoard : IDisposable
 
         request.Bio = string.IsNullOrWhiteSpace(profile.Bio) ? null : profile.Bio.Trim();
         request.PreferredGames = new List<string>(profile.PreferredGames);
+        request.BorderStyle = profile.BorderStyle;
+        request.CardEffectStyle = profile.CardEffectStyle;
 
         var path = _profileImages.GetPath(profile.ImageFileName);
         if (path == null || !ProfileImageEncoder.TryEncode(path, out var b64, out var hash))

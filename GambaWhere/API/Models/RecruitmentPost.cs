@@ -63,4 +63,10 @@ public class RecruitmentPost
 
     [JsonPropertyName("booster")]
     public bool Booster { get; set; }
+
+    [JsonPropertyName("border_style")]
+    public string? BorderStyle { get; set; }
+
+    [JsonPropertyName("card_effect_style")]
+    public string? CardEffectStyle { get; set; }
 }

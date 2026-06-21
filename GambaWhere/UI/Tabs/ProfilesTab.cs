@@ -12,6 +12,8 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.Config;
 using GambaWhere.Images;
+using GambaWhere.Services;
+using GambaWhere.UI.CardEffects;
 using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
@@ -23,10 +25,14 @@ public class ProfilesTab
     private readonly Configuration _config;
     private readonly ImageCache _imageCache;
     private readonly ProfileImageStore _profileImages;
+    private readonly PlayerInfoService _playerInfo;
     private readonly FileDialogManager _fileDialog = new();
     private readonly ThemedCard _card = new();
 
     private static readonly string[] PreferredGameOptions = GambaEventsTab.KnownGameTypes;
+
+    private static readonly string[] DecorationLabels = ["None", "Booster", "Gamba Where Beta"];
+    private static readonly string[] DecorationValues = ["none", "booster", "gwbeta"];
 
     private const int MaxBioLines = 5;
 
@@ -40,11 +46,12 @@ public class ProfilesTab
 
     private static readonly Vector4 SoftRed = new(1f, 0.4f, 0.4f, 1f);
 
-    public ProfilesTab(Configuration config, ImageCache imageCache, ProfileImageStore profileImages)
+    public ProfilesTab(Configuration config, ImageCache imageCache, ProfileImageStore profileImages, PlayerInfoService playerInfo)
     {
         _config = config;
         _imageCache = imageCache;
         _profileImages = profileImages;
+        _playerInfo = playerInfo;
     }
 
     public void Draw()
@@ -77,23 +84,19 @@ public class ProfilesTab
         }
 
         var scale = ImGuiHelpers.GlobalScale;
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
         var minCardWidth = 300f * scale;
         var avail = ImGui.GetContentRegionAvail().X;
-        var columns = avail >= minCardWidth * 2f + ImGui.GetStyle().ItemSpacing.X ? 2 : 1;
+        var columns = avail >= minCardWidth * 2f + spacing ? 2 : 1;
+        var cardW = columns == 2 ? (avail - spacing) * 0.5f : avail;
+        var cardHeight = 315f * scale;
 
-        using var grid = ImRaii.Table("##profiles_grid", columns, ImGuiTableFlags.SizingStretchSame);
-        if (!grid)
-            return;
-
-        var cardHeight = 220f * scale;
-        foreach (var profile in _config.Profiles.ToList())
+        var profiles = _config.Profiles.ToList();
+        for (var i = 0; i < profiles.Count; i++)
         {
-            ImGui.TableNextColumn();
-            var title = string.IsNullOrWhiteSpace(profile.Name) ? "(unnamed)" : profile.Name;
-            _card.Draw($"##profile_{profile.Id}", title, _config.PrimaryColour, _config.SecondaryColour,
-                cardHeight, () => DrawProfileCardBody(profile), () => DrawProfileCardHeaderActions(profile),
-                ProfileHeaderActionsWidth());
-            ImGuiHelpers.ScaledDummy(8f);
+            if (columns == 2 && i % 2 == 1)
+                ImGui.SameLine();
+            DrawProfileCard(profiles[i], cardW, cardHeight);
         }
     }
 
@@ -111,33 +114,93 @@ public class ProfilesTab
         }
     }
 
-    private void DrawProfileCardBody(GambaProfile profile)
+    private void DrawProfileCard(GambaProfile profile, float cardW, float cardHeight)
     {
         using var id = ImRaii.PushId(profile.Id);
 
         var scale = ImGuiHelpers.GlobalScale;
-        var diameter = 90f * scale;
+        var rounding = 6f * scale;
+        var accent = _config.SecondaryColour;
+        var cardEffect = CardEffectResolver.Resolve(profile.CardEffectStyle, profile.Booster);
+        var cardBg = CardEffectResolver.BaseColour(cardEffect) ?? ThemeColours.CardBackground(_config.PrimaryColour);
 
-        using (var table = ImRaii.Table("##pcard", 2, ImGuiTableFlags.SizingFixedFit))
+        var clipMin = ImGui.GetWindowDrawList().GetClipRectMin();
+        var clipMax = ImGui.GetWindowDrawList().GetClipRectMax();
+
+        using var svRounding = ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, rounding);
+        using var svBorder = ImRaii.PushStyle(ImGuiStyleVar.ChildBorderSize, 0f);
+        using var svPad = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, new Vector2(14f * scale, 12f * scale));
+        using var colBg = ImRaii.PushColor(ImGuiCol.ChildBg, cardBg);
+
+        using var child = ImRaii.Child("##pcard", new Vector2(cardW, cardHeight), false,
+            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.AlwaysUseWindowPadding);
+        if (!child.Success)
+            return;
+
+        var dl = ImGui.GetWindowDrawList();
+        dl.ChannelsSplit(2);
+        dl.ChannelsSetCurrent(1);
+
+        var title = string.IsNullOrWhiteSpace(profile.Name) ? "(unnamed)" : profile.Name;
+
+        var rowStartX = ImGui.GetCursorPosX();
+        var rowY = ImGui.GetCursorPosY();
+        var availW = ImGui.GetContentRegionAvail().X;
+        var actionsW = ProfileHeaderActionsWidth();
+        ImGui.SetCursorPos(new Vector2(rowStartX + availW - actionsW, rowY));
+        DrawProfileCardHeaderActions(profile);
+        ImGui.SetCursorPos(new Vector2(rowStartX, rowY));
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        var width = ImGui.GetContentRegionAvail().X;
+        var diameter = 80f * scale;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0f, (width - diameter) * 0.5f));
+        var path = _profileImages.GetPath(profile.ImageFileName);
+        var tex = path != null ? _imageCache.GetFromPath(path) : null;
+        ProfilePopup.DrawAvatarAt(dl, _imageCache, ImGui.GetCursorScreenPos(), diameter, tex, profile.BorderStyle, profile.Booster);
+        ImGui.Dummy(new Vector2(diameter, diameter));
+
+        ImGuiHelpers.ScaledDummy(6f);
+        var nameSize = ImGui.CalcTextSize(title);
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0f, (ImGui.GetContentRegionAvail().X - nameSize.X) * 0.5f));
+        ImGui.TextColored(accent, title);
+
+        if (profile.Booster)
         {
-            if (table)
-            {
-                ImGui.TableSetupColumn("##pic", ImGuiTableColumnFlags.WidthFixed, diameter);
-                ImGui.TableSetupColumn("##info", ImGuiTableColumnFlags.WidthStretch);
-                ImGui.TableNextRow();
-
-                ImGui.TableNextColumn();
-                var path = _profileImages.GetPath(profile.ImageFileName);
-                var tex = path != null ? _imageCache.GetFromPath(path) : null;
-                CircleImage.DrawInline(diameter, tex);
-
-                ImGui.TableNextColumn();
-                DrawBio(profile.Bio, ImGui.GetContentRegionAvail().X, diameter);
-            }
+            ImGuiHelpers.ScaledDummy(2f);
+            const string label = "Booster";
+            var lblSize = ImGui.CalcTextSize(label);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0f, (ImGui.GetContentRegionAvail().X - lblSize.X) * 0.5f));
+            ImGui.TextColored(new Vector4(0.95f, 0.45f, 0.78f, 1f), label);
         }
 
-        ImGuiHelpers.ScaledDummy(2f);
-        DrawPreferredGamesAboveButtons(profile);
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        var contentWidth = ImGui.GetContentRegionAvail().X;
+        ImGui.TextDisabled("Bio");
+        if (!string.IsNullOrWhiteSpace(profile.Bio))
+        {
+            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + contentWidth);
+            ImGui.TextWrapped(TextTruncate.ToLines(profile.Bio, contentWidth, 2));
+            ImGui.PopTextWrapPos();
+        }
+        else
+        {
+            ImGui.TextDisabled("No bio.");
+        }
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.TextDisabled("Preferred Games");
+        if (profile.PreferredGames.Count > 0)
+            GamePill.DrawList(profile.PreferredGames, contentWidth);
+        else
+            ImGui.TextDisabled("None listed.");
+
+        var p0 = ImGui.GetWindowPos();
+        ProfilePopup.DrawCardBackground(dl, p0, ImGui.GetWindowSize(), rounding, cardEffect, profile.Name, accent, (clipMin, clipMax));
     }
 
     private static float ProfileHeaderActionsWidth()
@@ -175,102 +238,10 @@ public class ProfilesTab
         }
     }
 
-    private void DrawPreferredGamesAboveButtons(GambaProfile profile)
-    {
-        if (profile.PreferredGames.Count == 0)
-            return;
-
-        var width = ImGui.GetContentRegionAvail().X;
-        var scale = ImGuiHelpers.GlobalScale;
-        var bottomGap = 14f * scale;
-        var bioGap = 10f * scale;
-        var pillsHeight = GamePill.CalcWrappedHeight(profile.PreferredGames, width);
-
-        var bottom = ImGui.GetWindowContentRegionMax().Y;
-        var bottomPinned = bottom - bottomGap - pillsHeight;
-        var minPillsY = ImGui.GetCursorPosY() + bioGap;
-        var pillsY = Math.Min(Math.Max(minPillsY, ImGui.GetCursorPosY()), bottomPinned);
-        if (pillsY > ImGui.GetCursorPosY())
-            ImGui.SetCursorPosY(pillsY);
-
-        GamePill.DrawList(profile.PreferredGames, width);
-    }
-
-    private void DrawBio(string bio, float width, float height)
-    {
-        var scale = ImGuiHelpers.GlobalScale;
-        var pad = 6f * scale;
-
-        using (ImRaii.PushColor(ImGuiCol.ChildBg, new Vector4(0f, 0f, 0f, 0.28f)))
-        using (ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, 5f * scale))
-        using (ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero))
-        {
-            using var child = ImRaii.Child("##bio_panel", new Vector2(width, height), false,
-                ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
-            if (!child.Success)
-                return;
-
-            const string label = "Bio";
-            var labelSize = ImGui.CalcTextSize(label);
-            ImGui.SetCursorPos(new Vector2((width - labelSize.X) * 0.5f, pad));
-            ImGui.TextColored(_config.SecondaryColour, label);
-
-            var lineHeight = ImGui.GetTextLineHeight();
-            var regionTop = pad + labelSize.Y + 2f * scale;
-            var regionH = Math.Max(lineHeight, height - regionTop - pad);
-            var avail = Math.Max(10f, width - pad * 2f);
-
-            var hasBio = !string.IsNullOrWhiteSpace(bio);
-            var maxLines = Math.Max(1, (int)(regionH / lineHeight));
-            var text = hasBio ? TruncateToLines(bio, avail, maxLines) : "No bio.";
-
-            var textSize = ImGui.CalcTextSize(text, false, avail);
-            var textX = pad;
-            var textY = regionTop + Math.Max(0f, (regionH - textSize.Y) * 0.5f);
-
-            ImGui.SetCursorPos(new Vector2(textX, textY));
-            ImGui.PushTextWrapPos(textX + avail);
-            if (hasBio)
-                ImGui.TextWrapped(text);
-            else
-                ImGui.TextDisabled(text);
-            ImGui.PopTextWrapPos();
-        }
-    }
-
     private static string ClampLines(string text, int maxLines)
     {
         var parts = text.Split('\n');
         return parts.Length <= maxLines ? text : string.Join("\n", parts.Take(maxLines));
-    }
-
-    private static string TruncateToLines(string text, float wrapWidth, int maxLines)
-    {
-        var maxHeight = maxLines * ImGui.GetTextLineHeight() + 1f;
-        if (ImGui.CalcTextSize(text, false, wrapWidth).Y <= maxHeight)
-            return text;
-
-        const string ellipsis = "...";
-        var low = 0;
-        var high = text.Length;
-        var best = 0;
-
-        while (low <= high)
-        {
-            var mid = (low + high) / 2;
-            var candidate = text.Substring(0, mid).TrimEnd() + ellipsis;
-            if (ImGui.CalcTextSize(candidate, false, wrapWidth).Y <= maxHeight)
-            {
-                best = mid;
-                low = mid + 1;
-            }
-            else
-            {
-                high = mid - 1;
-            }
-        }
-
-        return text.Substring(0, best).TrimEnd() + ellipsis;
     }
 
     private void DrawEditorCard()
@@ -288,7 +259,7 @@ public class ProfilesTab
 
         DrawEditorTopRow(draft);
 
-        ImGuiHelpers.ScaledDummy(8f);
+        ImGuiHelpers.ScaledDummy(4f);
 
         ImGui.TextColored(_config.SecondaryColour, "Bio");
         ImGui.SetNextItemWidth(-1);
@@ -306,10 +277,71 @@ public class ProfilesTab
         ImGuiHelpers.ScaledDummy(2f);
         GamePill.DrawSelector(PreferredGameOptions, _draftGames, ImGui.GetContentRegionAvail().X, "editor");
 
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawDecorationPickers(draft);
+
+        ImGuiHelpers.ScaledDummy(8f);
+        ImGui.TextColored(_config.SecondaryColour, "Preview");
+        ImGuiHelpers.ScaledDummy(4f);
+        var previewData = new ProfilePopup.Data
+        {
+            DisplayName = FormatCharacterName(_playerInfo.GetCharacterName()),
+            Bio = draft.Bio,
+            PreferredGames = PreferredGameOptions.Where(_draftGames.Contains).ToList(),
+            Booster = draft.Booster,
+            BorderStyle = draft.BorderStyle,
+            CardEffectStyle = draft.CardEffectStyle,
+        };
+        ProfilePopup.DrawInlinePreview(_imageCache, _config, previewData, ResolveDraftTexture(draft));
+
         if (!string.IsNullOrEmpty(_editError))
         {
             ImGuiHelpers.ScaledDummy(6f);
             ImGui.TextColored(SoftRed, _editError);
+        }
+    }
+
+    private void DrawDecorationPickers(GambaProfile draft)
+    {
+        ImGui.TextColored(_config.SecondaryColour, "Decorations");
+        ImGuiHelpers.ScaledDummy(2f);
+
+        var hasKey = !string.IsNullOrWhiteSpace(_config.BoosterKey);
+
+        using var table = ImRaii.Table("##deco_pickers", 2, ImGuiTableFlags.SizingStretchSame);
+        if (!table)
+            return;
+
+        ImGui.TableNextColumn();
+        ImGui.TextDisabled("Profile Border");
+        ImGui.SetNextItemWidth(-1);
+        var borderIdx = Array.IndexOf(DecorationValues, draft.BorderStyle);
+        if (borderIdx < 0) borderIdx = 0;
+        if (ImGui.BeginCombo("##BorderStyle", DecorationLabels[borderIdx]))
+        {
+            for (var i = 0; i < DecorationValues.Length; i++)
+            {
+                using var itemDisabled = ImRaii.Disabled(DecorationValues[i] == "booster" && !hasKey);
+                if (ImGui.Selectable(DecorationLabels[i], i == borderIdx))
+                    draft.BorderStyle = DecorationValues[i];
+            }
+            ImGui.EndCombo();
+        }
+
+        ImGui.TableNextColumn();
+        ImGui.TextDisabled("Card Effect");
+        ImGui.SetNextItemWidth(-1);
+        var effectIdx = Array.IndexOf(DecorationValues, draft.CardEffectStyle);
+        if (effectIdx < 0) effectIdx = 0;
+        if (ImGui.BeginCombo("##CardEffectStyle", DecorationLabels[effectIdx]))
+        {
+            for (var i = 0; i < DecorationValues.Length; i++)
+            {
+                using var itemDisabled = ImRaii.Disabled(DecorationValues[i] == "booster" && !hasKey);
+                if (ImGui.Selectable(DecorationLabels[i], i == effectIdx))
+                    draft.CardEffectStyle = DecorationValues[i];
+            }
+            ImGui.EndCombo();
         }
     }
 
@@ -329,21 +361,10 @@ public class ProfilesTab
         ImGui.TableNextColumn();
         ImGui.TextColored(_config.SecondaryColour, "Picture");
 
-        using (ImRaii.Group())
-        {
-            if (UIHelper.IconTextButton(FontAwesomeIcon.FolderOpen, HasPicture(draft) ? "Change Picture" : "Choose Picture", "##ChoosePicture"))
-                OpenPicturePicker();
-
-            ImGui.TextDisabled("PNG or JPG,");
-            ImGui.TextDisabled("max 5 MB.");
-        }
-
+        if (UIHelper.IconTextButton(FontAwesomeIcon.FolderOpen, HasPicture(draft) ? "Change Picture" : "Choose Picture", "##ChoosePicture"))
+            OpenPicturePicker();
         ImGui.SameLine();
-        var diameter = 130f * ImGuiHelpers.GlobalScale;
-        var remaining = ImGui.GetContentRegionAvail().X;
-        if (remaining > diameter)
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (remaining - diameter) / 2f);
-        CircleImage.DrawInline(diameter, ResolveDraftTexture(draft));
+        ImGui.TextDisabled("PNG or JPG, max 5 MB.");
 
         if (_pendingImageError != null)
             ImGui.TextColored(SoftRed, _pendingImageError);
@@ -562,6 +583,13 @@ public class ProfilesTab
         _config.Save();
     }
 
+    private static string FormatCharacterName(string? raw)
+    {
+        if (raw == null) return "(not logged in)";
+        var parts = raw.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? $"{string.Join(' ', parts[..^1])}@{parts[^1]}" : raw;
+    }
+
     private static GambaProfile Clone(GambaProfile source) => new()
     {
         Id = source.Id,
@@ -570,6 +598,8 @@ public class ProfilesTab
         Bio = source.Bio,
         PreferredGames = new List<string>(source.PreferredGames),
         Booster = source.Booster,
+        BorderStyle = source.BorderStyle,
+        CardEffectStyle = source.CardEffectStyle,
         UploadedImageUrl = source.UploadedImageUrl,
         UploadedImageHash = source.UploadedImageHash
     };

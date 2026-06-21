@@ -22,6 +22,10 @@ public class GambaProfile
 
     public bool Booster { get; set; }
 
+    public string BorderStyle { get; set; } = "none";
+
+    public string CardEffectStyle { get; set; } = "none";
+
     public string? UploadedImageUrl { get; set; }
 
     public string? UploadedImageHash { get; set; }

@@ -97,7 +97,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
         var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache, profileImages, _partyFinderCreator);
         var gameListTab = new GameListTab(_imageCache, Configuration);
-        var profilesTab = new ProfilesTab(Configuration, _imageCache, profileImages);
+        var profilesTab = new ProfilesTab(Configuration, _imageCache, profileImages, playerInfo);
         _recruitmentTab = new RecruitmentTab(_client, _imageCache, Configuration, playerInfo, profileImages, ChatGui, Log);
 
         _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
