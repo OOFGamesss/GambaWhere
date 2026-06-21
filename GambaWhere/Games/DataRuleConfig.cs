@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Dalamud.Bindings.ImGui;
 using GambaWhere.Rules;
 using GambaWhere.UI.Components;
@@ -118,6 +119,13 @@ public sealed class DataRuleConfig : IRuleConfig
                 var name = ItemSearchCombo.GetItemName((uint)_values[field.Name]);
                 if (name != null)
                     payload[field.Name] = name;
+                continue;
+            }
+
+            if (field.Kind == RuleKind.Text)
+            {
+                var raw = (string)_values[field.Name];
+                payload[field.Name] = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(raw.ToLowerInvariant());
                 continue;
             }
 

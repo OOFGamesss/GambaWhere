@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Added options to edit profile to select picture border and card effect.\n- Added preview within edit profile to visually see your profile card before saving.\n- Changed cards on profiles tab to reflect chosen border/card effect for each profile.\n- Added new beta tester border/card effect.",
+  "Changelog": "- Changed Mini Games game name field to text input instead of combo box.",
   "Tags": [
     "gambling",
     "events",

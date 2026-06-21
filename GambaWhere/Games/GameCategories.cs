@@ -78,7 +78,7 @@ public static class GameCategories
         new("Mini Games", new(0.20f, 0.80f, 0.40f, 0.18f), new(0.40f, 1.00f, 0.55f, 1f), 0x30A050, "🎲", "minigamesbanner.png",
             ManualFields: new RuleField[]
             {
-                new("gameType", RuleKind.Combo, "Game", "Deathroll", Options: new[] { "Deathroll" }),
+                new("gameType", RuleKind.Text, "Game", "Deathroll", TextMax: 64),
                 new("entryCost", RuleKind.Money, "Entry Cost (gil)", 0, Min: 0),
             }),
 
