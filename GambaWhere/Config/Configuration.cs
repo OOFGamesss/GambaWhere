@@ -41,6 +41,7 @@ public class Configuration : IPluginConfiguration
     public bool AlertToastEnabled { get; set; } = false;
     public bool AlertSoundEnabled { get; set; } = false;
     public int AlertSoundEffectId { get; set; } = 1;
+    public bool AlertPauseInDuty { get; set; } = false;
 
     public bool PillOverlayEnabled { get; set; } = true;
     public float PillPositionX { get; set; } = 50f;

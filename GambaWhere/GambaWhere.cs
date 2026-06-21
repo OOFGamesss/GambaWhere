@@ -124,7 +124,7 @@ public sealed class GambaWhere : IDalamudPlugin
         _minimapHostOverlay = new MinimapHostOverlay(_hostMarkerService, GameGui, ClientState, ObjectTable, DataManager, Configuration);
         _windowSystem.AddWindow(_minimapHostOverlay);
 
-        _alertFeed = new EventAlertFeed(_client, Log)
+        _alertFeed = new EventAlertFeed(_client, Log, Condition, Configuration)
         {
             OnEventsRefreshed = events =>
             {

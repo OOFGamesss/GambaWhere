@@ -307,6 +307,13 @@ public class SettingsTab
 
             ImGui.Unindent();
         }
+
+        var pauseInDuty = _config.AlertPauseInDuty;
+        if (ImGui.Checkbox("Turn off alerts while in a duty", ref pauseInDuty))
+        {
+            _config.AlertPauseInDuty = pauseInDuty;
+            _config.Save();
+        }
     }
 
     private void DrawThemeColours()

@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Services;
 using GambaWhere.API;
 using GambaWhere.API.Models;
+using GambaWhere.Config;
 
 namespace GambaWhere.Services;
 
@@ -15,15 +17,19 @@ public sealed class EventAlertFeed : IDisposable
 
     private readonly GambaWhereClient _client;
     private readonly IPluginLog _log;
+    private readonly ICondition _condition;
+    private readonly Configuration _config;
     private readonly CancellationTokenSource _cts = new();
 
     private volatile bool _isRefreshing;
     private DateTime _nextRefreshUtc = DateTime.MinValue;
 
-    public EventAlertFeed(GambaWhereClient client, IPluginLog log)
+    public EventAlertFeed(GambaWhereClient client, IPluginLog log, ICondition condition, Configuration config)
     {
         _client = client;
         _log = log;
+        _condition = condition;
+        _config = config;
     }
 
     public Action<IReadOnlyList<EventResponse>>? OnEventsRefreshed { get; set; }
@@ -35,6 +41,12 @@ public sealed class EventAlertFeed : IDisposable
 
         if (DateTime.UtcNow < _nextRefreshUtc)
             return;
+
+        if (_config.AlertPauseInDuty && IsInDuty())
+        {
+            _nextRefreshUtc = DateTime.UtcNow + RefreshInterval;
+            return;
+        }
 
         _isRefreshing = true;
         _nextRefreshUtc = DateTime.UtcNow + RefreshInterval;
@@ -63,6 +75,12 @@ public sealed class EventAlertFeed : IDisposable
             }
         }, ct);
     }
+
+    private bool IsInDuty() =>
+        _condition[ConditionFlag.BoundByDuty]
+        || _condition[ConditionFlag.BoundByDuty56]
+        || _condition[ConditionFlag.BoundByDuty95]
+        || _condition[ConditionFlag.InDeepDungeon];
 
     public void Dispose()
     {
