@@ -9,9 +9,7 @@ using GambaWhere.Utility;
 namespace GambaWhere.UI.Components;
 
 /// <summary>
-/// Themed, labelled field renderers shared by the host setup form and the game rule configs.
-/// Each renderer draws an accent label, then a full-cell input, so fields tile neatly inside a
-/// <see cref="RuleGrid"/>. Accent colours are read from <see cref="HostFieldTheme"/>.
+/// Themed, labelled field renderers for the host setup form and game rule configs.
 /// </summary>
 internal static class HostField
 {

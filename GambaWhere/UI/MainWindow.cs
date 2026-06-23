@@ -45,7 +45,8 @@ public class MainWindow : Window, IDisposable
     private readonly HostGambaTab _hostTab;
     private readonly ProfilesTab _profilesTab;
     private readonly GameListTab _gameListTab;
-    private readonly RecruitmentTab _recruitmentTab;
+    private readonly FindAVenueTab _findAVenueTab;
+    private readonly FindAHostTab _findAHostTab;
     private readonly DiscordWebhookTab _discordWebhookTab;
     private readonly SettingsTab _settingsTab;
     private readonly SupportTab _supportTab;
@@ -64,7 +65,8 @@ public class MainWindow : Window, IDisposable
         HostGambaTab hostTab,
         ProfilesTab profilesTab,
         GameListTab gameListTab,
-        RecruitmentTab recruitmentTab,
+        FindAVenueTab findAVenueTab,
+        FindAHostTab findAHostTab,
         SettingsTab settingsTab,
         SupportTab supportTab,
         DiscordWebhookTab discordWebhookTab,
@@ -82,7 +84,8 @@ public class MainWindow : Window, IDisposable
         _hostTab = hostTab;
         _profilesTab = profilesTab;
         _gameListTab = gameListTab;
-        _recruitmentTab = recruitmentTab;
+        _findAVenueTab = findAVenueTab;
+        _findAHostTab = findAHostTab;
         _settingsTab = settingsTab;
         _supportTab = supportTab;
         _discordWebhookTab = discordWebhookTab;
@@ -222,7 +225,7 @@ public class MainWindow : Window, IDisposable
                 _selected = Tab.Recruitment;
                 _recruitmentSection = RecruitmentSection.FindVenue;
                 _settingsExpanded = false;
-                _recruitmentTab.OnVenueSelected();
+                _findAVenueTab.OnSelected();
             }
         }
 
@@ -242,9 +245,9 @@ public class MainWindow : Window, IDisposable
             _selected = Tab.Recruitment;
             _recruitmentSection = section;
             if (section == RecruitmentSection.FindVenue)
-                _recruitmentTab.OnVenueSelected();
+                _findAVenueTab.OnSelected();
             else
-                _recruitmentTab.OnHostSelected();
+                _findAHostTab.OnSelected();
         }
     }
 
@@ -358,8 +361,8 @@ public class MainWindow : Window, IDisposable
     {
         switch (_recruitmentSection)
         {
-            case RecruitmentSection.FindVenue: _recruitmentTab.DrawFindVenueSection(); break;
-            case RecruitmentSection.FindHost:  _recruitmentTab.DrawFindHostSection(); break;
+            case RecruitmentSection.FindVenue: _findAVenueTab.Draw(); break;
+            case RecruitmentSection.FindHost:  _findAHostTab.Draw(); break;
         }
     }
 

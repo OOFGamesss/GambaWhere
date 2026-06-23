@@ -5,6 +5,7 @@ using Dalamud.Plugin.Services;
 using GambaWhere.Alerting;
 using GambaWhere.Config;
 using GambaWhere.Games;
+using GambaWhere.Services;
 using GambaWhere.State;
 using GambaWhere.UI;
 using GambaWhere.UI.Tabs;
@@ -25,7 +26,7 @@ public sealed class PartnerIpcManager : IDisposable
         Configuration config,
         IPluginLog log)
     {
-        var reserved = new HashSet<uint> { LifestreamHouseIpc.LinkId, AlertingService.LinkId };
+        var reserved = new HashSet<uint> { LifestreamService.LinkId, AlertingService.LinkId };
 
         uint linkId = 1;
         foreach (var game in GameCatalog.IpcGames)

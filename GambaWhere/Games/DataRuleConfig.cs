@@ -1,14 +1,26 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text.Json;
 using Dalamud.Bindings.ImGui;
-using GambaWhere.Rules;
 using GambaWhere.UI.Components;
-using GambaWhere.Utility;
 
 namespace GambaWhere.Games;
 
-/// <summary>Generic, data-driven rule editor built from a game's RuleField list: renders the manual UI, presets, and API payload.</summary>
+/// <summary>A game's editable rule configuration.</summary>
+public interface IRuleConfig
+{
+    string GameType { get; }
+
+    void Draw();
+
+    Dictionary<string, object> ToApiPayload();
+
+    void LoadFromPreset(Dictionary<string, object> values);
+
+    Dictionary<string, object> SaveToPreset();
+}
+
 public sealed class DataRuleConfig : IRuleConfig
 {
     private readonly string _categoryKey;
@@ -67,7 +79,7 @@ public sealed class DataRuleConfig : IRuleConfig
             {
                 var v = (float)_values[field.Name];
                 HostField.Float(field.Label, id, ref v);
-                _values[field.Name] = field.Min.HasValue ? RuleClamp.MinF(v, (float)field.Min.Value) : v;
+                _values[field.Name] = field.Min.HasValue ? ClampToMinF(v, (float)field.Min.Value) : v;
                 break;
             }
             case RuleKind.Toggle:
@@ -157,21 +169,21 @@ public sealed class DataRuleConfig : IRuleConfig
             {
                 case RuleKind.Money:
                 case RuleKind.Int:
-                    _values[field.Name] = ClampInt(field, PresetReader.Int(values, field.Name, (int)_values[field.Name]));
+                    _values[field.Name] = ClampInt(field, PresetInt(values, field.Name, (int)_values[field.Name]));
                     break;
                 case RuleKind.Float:
-                    var f = PresetReader.Float(values, field.Name, (float)_values[field.Name]);
-                    _values[field.Name] = field.Min.HasValue ? RuleClamp.MinF(f, (float)field.Min.Value) : f;
+                    var f = PresetFloat(values, field.Name, (float)_values[field.Name]);
+                    _values[field.Name] = field.Min.HasValue ? ClampToMinF(f, (float)field.Min.Value) : f;
                     break;
                 case RuleKind.Toggle:
-                    _values[field.Name] = PresetReader.Bool(values, field.Name, (bool)_values[field.Name]);
+                    _values[field.Name] = PresetBool(values, field.Name, (bool)_values[field.Name]);
                     break;
                 case RuleKind.Text:
                 case RuleKind.Combo:
-                    _values[field.Name] = PresetReader.String(values, field.Name, (string)_values[field.Name]);
+                    _values[field.Name] = PresetString(values, field.Name, (string)_values[field.Name]);
                     break;
                 case RuleKind.ItemSearch:
-                    _values[field.Name] = (uint)PresetReader.Int(values, $"{field.Name}ItemId", (int)(uint)_values[field.Name]);
+                    _values[field.Name] = (uint)PresetInt(values, $"{field.Name}ItemId", (int)(uint)_values[field.Name]);
                     break;
             }
         }
@@ -190,7 +202,70 @@ public sealed class DataRuleConfig : IRuleConfig
     private static int ClampInt(RuleField field, int value)
     {
         if (field.Min.HasValue && field.Max.HasValue)
-            return RuleClamp.Range(value, (int)field.Min.Value, (int)field.Max.Value);
-        return field.Min.HasValue ? RuleClamp.Min(value, (int)field.Min.Value) : value;
+            return ClampToRange(value, (int)field.Min.Value, (int)field.Max.Value);
+        return field.Min.HasValue ? ClampToMin(value, (int)field.Min.Value) : value;
+    }
+
+    private static int ClampToRange(int value, int min, int max) => Math.Clamp(value, min, max);
+
+    private static int ClampToMin(int value, int min) => Math.Max(value, min);
+
+    private static float ClampToMinF(float value, float min) => MathF.Max(value, min);
+
+    private static int PresetInt(Dictionary<string, object> values, string key, int fallback)
+    {
+        if (!values.TryGetValue(key, out var raw))
+            return fallback;
+
+        return raw switch
+        {
+            JsonElement el when el.ValueKind == JsonValueKind.Number => el.GetInt32(),
+            int i => i,
+            long l => (int)l,
+            double d => (int)d,
+            _ => fallback
+        };
+    }
+
+    private static float PresetFloat(Dictionary<string, object> values, string key, float fallback)
+    {
+        if (!values.TryGetValue(key, out var raw))
+            return fallback;
+
+        return raw switch
+        {
+            JsonElement el when el.ValueKind == JsonValueKind.Number => el.GetSingle(),
+            float f => f,
+            double d => (float)d,
+            int i => i,
+            _ => fallback
+        };
+    }
+
+    private static bool PresetBool(Dictionary<string, object> values, string key, bool fallback)
+    {
+        if (!values.TryGetValue(key, out var raw))
+            return fallback;
+
+        return raw switch
+        {
+            JsonElement el when el.ValueKind == JsonValueKind.True => true,
+            JsonElement el when el.ValueKind == JsonValueKind.False => false,
+            bool b => b,
+            _ => fallback
+        };
+    }
+
+    private static string PresetString(Dictionary<string, object> values, string key, string fallback)
+    {
+        if (!values.TryGetValue(key, out var raw))
+            return fallback;
+
+        return raw switch
+        {
+            JsonElement el when el.ValueKind == JsonValueKind.String => el.GetString() ?? fallback,
+            string s => s,
+            _ => fallback
+        };
     }
 }

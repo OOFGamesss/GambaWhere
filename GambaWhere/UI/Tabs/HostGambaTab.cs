@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -9,12 +11,10 @@ using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.API;
-using GambaWhere.API.Models;
+using GambaWhere.Models;
 using GambaWhere.Config;
 using GambaWhere.Games;
 using GambaWhere.Partyfinder;
-using GambaWhere.Images;
-using GambaWhere.Rules;
 using GambaWhere.Services;
 using GambaWhere.State;
 using GambaWhere.Utility;
@@ -31,8 +31,7 @@ public class HostGambaTab
     private readonly SessionState _sessionState;
     private readonly Configuration _config;
     private readonly HostFormState _form;
-    private readonly ImageCache _imageCache;
-    private readonly ProfileImageStore _profileImages;
+    private readonly ImageService _imageService;
     private readonly PartyFinderCreator _partyFinderCreator;
 
     private static readonly string[] GameTypes = GameCategories.Keys;
@@ -72,8 +71,7 @@ public class HostGambaTab
         SessionState sessionState,
         Configuration config,
         HostFormState form,
-        ImageCache imageCache,
-        ProfileImageStore profileImages,
+        ImageService imageService,
         PartyFinderCreator partyFinderCreator)
     {
         _sessionService = sessionService;
@@ -82,8 +80,7 @@ public class HostGambaTab
         _sessionState = sessionState;
         _config = config;
         _form = form;
-        _imageCache = imageCache;
-        _profileImages = profileImages;
+        _imageService = imageService;
         _partyFinderCreator = partyFinderCreator;
 
         _ruleConfigs = GameCatalog.CreateRuleConfigs();
@@ -196,8 +193,8 @@ public class HostGambaTab
         var comboWidth = 200f * scale;
         var selected = GetSelectedProfile();
 
-        var path = selected != null ? _profileImages.GetPath(selected.ImageFileName) : null;
-        var tex = path != null ? _imageCache.GetFromPath(path) : null;
+        var path = selected != null ? _imageService.GetProfileImagePath(selected.ImageFileName) : null;
+        var tex = path != null ? _imageService.GetFromPath(path) : null;
 
         var avail = ImGui.GetContentRegionAvail().X;
         var blockWidth = diameter + ImGui.GetStyle().ItemSpacing.X + comboWidth;
@@ -826,7 +823,38 @@ public class HostGambaTab
             }
         }
 
-        return ManualRulesApiOmitter.OmitEmptyOrDefault(manual);
+        var result = new Dictionary<string, object>(StringComparer.Ordinal);
+        foreach (var kv in manual)
+        {
+            if (IsSendableRuleValue(kv.Value))
+                result[kv.Key] = kv.Value;
+        }
+
+        return result;
+    }
+
+    private static bool IsSendableRuleValue(object? value)
+    {
+        if (value is null)
+            return false;
+
+        return value switch
+        {
+            string s => !string.IsNullOrWhiteSpace(s),
+            bool b => b,
+            byte n => n != 0,
+            sbyte n => n != 0,
+            short n => n != 0,
+            ushort n => n != 0,
+            int n => n != 0,
+            uint n => n != 0,
+            long n => n != 0,
+            ulong n => n != 0,
+            float f => f != 0f,
+            double d => d != 0d,
+            decimal m => m != 0m,
+            _ => true
+        };
     }
 
     private void DrawAddPresetInput(List<GamePreset> presets)
@@ -902,7 +930,7 @@ public class HostGambaTab
             return;
         }
 
-        if (!PresetCodec.TryDecode(_importKeyBuffer.Trim(), out var ruleValues, out var description))
+        if (!TryDecodePreset(_importKeyBuffer.Trim(), out var ruleValues, out var description))
         {
             _importError = "Invalid import key.";
             return;
@@ -922,10 +950,39 @@ public class HostGambaTab
             return;
 
         var preset = presets[_form.SelectedPresetIndex];
-        var key = PresetCodec.Encode(preset.RuleValues, preset.Description);
+        var key = EncodePreset(preset.RuleValues, preset.Description);
         ImGui.SetClipboardText(key);
         _clipboardNotificationName = preset.Name;
         _clipboardNotificationUntil = DateTime.UtcNow.AddSeconds(3);
+    }
+
+    private static string EncodePreset(Dictionary<string, object> ruleValues, string description)
+    {
+        var payload = JsonSerializer.Serialize(new { r = ruleValues, d = description });
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
+    }
+
+    private static bool TryDecodePreset(string key, out Dictionary<string, object> ruleValues, out string description)
+    {
+        ruleValues = new();
+        description = string.Empty;
+        try
+        {
+            var json = Encoding.UTF8.GetString(Convert.FromBase64String(key.Trim()));
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            description = root.TryGetProperty("d", out var d) ? d.GetString() ?? string.Empty : string.Empty;
+            if (root.TryGetProperty("r", out var r) && r.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in r.EnumerateObject())
+                    ruleValues[prop.Name] = prop.Value.Clone();
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void SaveCurrentPreset(List<GamePreset> presets)
@@ -1062,8 +1119,8 @@ public class HostGambaTab
         request.BorderStyle = profile.BorderStyle;
         request.CardEffectStyle = profile.CardEffectStyle;
 
-        var path = _profileImages.GetPath(profile.ImageFileName);
-        if (path == null || !ProfileImageEncoder.TryEncode(path, out var b64, out var hash))
+        var path = _imageService.GetProfileImagePath(profile.ImageFileName);
+        if (path == null || !_imageService.TryEncodeProfileImage(path, out var b64, out var hash))
             return null;
 
         if (!string.IsNullOrEmpty(profile.UploadedImageUrl) && profile.UploadedImageHash == hash)

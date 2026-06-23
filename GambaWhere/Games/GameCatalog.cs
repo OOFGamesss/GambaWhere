@@ -1,15 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GambaWhere.Rules;
 
 namespace GambaWhere.Games;
 
 /// <summary>
-/// The registry of games. A Game carries its display card, the category it falls under (defined in GameCategories.cs,
-/// which owns the manual rules), and its optional companion-plugin IPC: the WindowOpened auto-session prompt plus this
-/// game's own automatic rules section. Manual rules are NOT here - they belong to the category and are shared by every
-/// game in it. One day an API will let users add their own games to our categories; this is the shape that data takes.
+/// The registry of games. Each Game has its display card, its category (in GameCategories.cs, which owns the shared
+/// manual rules), and optional companion IPC (the WindowOpened prompt plus its own automatic rules). Manual rules live
+/// on the category, not here.
 /// </summary>
 public static class GameCatalog
 {
@@ -18,17 +16,13 @@ public static class GameCatalog
     private const string Asuna = "https://puni.sh/api/repository/asuna";
 
     // ==========================================================================================
-    // ADD A GAME HERE: one Game per offering. It belongs to a Category (see GameCategories.cs, which owns the manual
-    // rules the host edits) and carries the display card plus its own optional IPC.
+    // ADD A GAME HERE: one Game per offering, in a Category (see GameCategories.cs).
     //   Category, CompanionPlugin, Description, Creator, Url, IconFile : the Games-tab card (IconFile under Images/).
-    //   IpcBaseName   : companion IPC base, e.g. "SimpleBingo" -> "SimpleBingo.WindowOpened"/".GetGameInfo"/".GameJoined".
-    //                   Drives the auto-session prompt (WindowOpened). Leave null for a display-only game.
-    //                   LinkId is auto-assigned by PartnerIpcManager (Lifestream=1, Alerts=2, games from 3 up).
-    //   AutomaticFields : THIS game's automatic rules section. Each field maps a partner IPC JSON value onto a rule key
-    //                     (Name matched case-insensitively; Source/Multiplier/SkipIfMissing/SkipIfZero/
-    //                     SpacesFromUnderscores/AutoType for the transform). A field that shares a Name with one of the
-    //                     category's manual fields describes the same value (auto-captured instead of hand-set).
-    //                     Leave null if this game has no automatic rules (it can still have a WindowOpened prompt).
+    //   IpcBaseName   : companion IPC base, e.g. "SimpleBingo" -> ".WindowOpened"/".GetGameInfo"/".GameJoined". Drives the
+    //                   auto-session prompt; null = display-only. (LinkId auto-assigned by PartnerIpcManager.)
+    //   AutomaticFields : this game's automatic rules. Each maps an IPC JSON value to a rule key (Name case-insensitive;
+    //                     Source/Multiplier/SkipIfMissing/SkipIfZero/SpacesFromUnderscores/AutoType transform it). A Name
+    //                     shared with a category manual field auto-captures that value. Null = no automatic rules.
     //   UsesGameJoined: subscribe to "{base}.GameJoined" to refresh the rules cache.
     //   AutomaticShapesOverride / InvalidationKeysOverride : only for odd companions (e.g. Mini Games' two info keys).
     // ==========================================================================================

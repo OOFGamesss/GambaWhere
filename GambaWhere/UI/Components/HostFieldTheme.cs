@@ -3,10 +3,7 @@ using System.Numerics;
 namespace GambaWhere.UI.Components;
 
 /// <summary>
-/// Holds the host panel's accent colours for the current frame so that shared field helpers
-/// (and game rule configs) can theme themselves without changing the parameterless
-/// <see cref="GambaWhere.Rules.IRuleConfig.Draw"/> signature.
-/// Set once per frame by the host tab before any rule fields are drawn.
+/// Holds the host panel's accent colours for the current frame so that shared field helpers can theme themselves.
 /// </summary>
 internal static class HostFieldTheme
 {

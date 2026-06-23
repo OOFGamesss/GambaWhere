@@ -4,7 +4,7 @@ using System.Numerics;
 
 namespace GambaWhere.Games;
 
-/// <summary>A game category (Bingo, Blackjack, ...): the colour/theme bucket AND the manual rules every game in it shares. Decoupled from the games themselves (GameCatalog.cs).</summary>
+/// <summary>A game category (Bingo, Blackjack, ...): its colour/theme bucket and the manual rules every game in it shares.</summary>
 public sealed record GameCategory(
     string Key,
     Vector4 Background,
@@ -16,17 +16,16 @@ public sealed record GameCategory(
     string? EmptyRulesMessage = null);
 
 /// <summary>
-/// The registry of game categories. A category owns its presentation AND the manual rule fields a host edits
-/// (automatic IPC rules live per-game in GameCatalog.cs). Deliberately separate from GameCatalog so categories and
-/// games can evolve independently.
-///   Key            : display name and the value stored on events, e.g. "Blackjack".
+/// The registry of game categories. A category owns its presentation and the manual rule fields a host edits (automatic
+/// IPC rules live per-game in GameCatalog.cs).
+///   Key            : display name, also stored on events, e.g. "Blackjack".
 ///   Background     : translucent card fill (Vector4 r,g,b,a).
-///   Accent         : vivid accent text colour.
+///   Accent         : accent text colour.
 ///   DiscordColour  : Discord embed colour as a hex int, e.g. 0xE03030.
-///   Emoji          : emoji shown in the Discord embed title.
-///   BannerFile     : Discord banner image file under Images/DiscordBanners.
-///   ManualFields   : the rules shown in the host editor for this category (Kind/Label/Default/Min/Max/Options).
-///   EmptyRulesMessage : shown in the editor when the category has no manual fields.
+///   Emoji          : emoji in the Discord embed title.
+///   BannerFile     : Discord banner under Images/DiscordBanners.
+///   ManualFields   : rules shown in the host editor (Kind/Label/Default/Min/Max/Options).
+///   EmptyRulesMessage : shown when the category has no manual fields.
 /// </summary>
 public static class GameCategories
 {

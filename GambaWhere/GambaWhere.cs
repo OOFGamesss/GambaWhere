@@ -11,8 +11,8 @@ using GambaWhere.Config;
 using GambaWhere.Partyfinder;
 using GambaWhere.Discord;
 using GambaWhere.IPC;
-using GambaWhere.Images;
 using GambaWhere.Services;
+using ECommons;
 using GambaWhere.State;
 using GambaWhere.Alerting;
 using GambaWhere.UI;
@@ -49,17 +49,19 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly MainWindow _mainWindow;
     private readonly SessionPillOverlay _pillOverlay;
     private readonly GambaEventsTab _eventsTab;
-    private readonly RecruitmentTab _recruitmentTab;
+    private readonly FindAVenueTab _findAVenueTab;
+    private readonly FindAHostTab _findAHostTab;
     private readonly SessionState _sessionState;
 
     private readonly GambaWhereClient _client;
+    private readonly PlayerInfoService _playerInfo;
     private readonly SessionService _sessionService;
-    private readonly DiscordWebhookService _discordWebhook;
-    private readonly ImageCache _imageCache;
+    private readonly WebhookService _discordWebhook;
+    private readonly ImageService _imageService;
     private readonly PartnerIpcManager _partnerIpcManager;
     private readonly PartnerIpcV2Manager _partnerIpcV2Manager;
     private readonly AlertingService _alertingService;
-    private readonly EventAlertFeed _alertFeed;
+    private readonly EventAlertFeedService _alertFeed;
     private readonly HostMarkerService _hostMarkerService;
     private readonly MinimapHostOverlay _minimapHostOverlay;
     private readonly PartyFinderCreator _partyFinderCreator;
@@ -67,48 +69,48 @@ public sealed class GambaWhere : IDalamudPlugin
 
     public GambaWhere()
     {
+        ECommonsMain.Init(PluginInterface, this);
+
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.EnsureDefaultPresets();
 
         _client = new GambaWhereClient(Log);
-        _imageCache = new ImageCache(PluginInterface, TextureProvider, Log);
+        _imageService = new ImageService(PluginInterface, Log);
 
-        var playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager, Log);
+        _playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager);
         _sessionState = new SessionState();
         var hostFormState = new HostFormState();
 
         var pluginDirectory =
             PluginInterface.AssemblyLocation.DirectoryName ?? PluginInterface.AssemblyLocation.FullName;
 
-        var customBanners = new CustomBannerStore(PluginInterface.ConfigDirectory.FullName, Log);
-        var profileImages = new ProfileImageStore(PluginInterface.ConfigDirectory.FullName, Log);
+        _discordWebhook = new WebhookService(Log, Configuration, _sessionState, pluginDirectory, _imageService);
 
-        _discordWebhook = new DiscordWebhookService(Log, Configuration, _sessionState, pluginDirectory, customBanners);
-
-        _sessionService = new SessionService(_client, playerInfo, _sessionState, Configuration, ClientState, Framework,
+        _sessionService = new SessionService(_client, _playerInfo, _sessionState, Configuration, ClientState, Framework,
             Log,
             _discordWebhook, ChatGui);
 
-        var eventTeleport = new EventLocationTeleportService(PluginInterface, DataManager, ObjectTable, ChatGui, Log);
+        var eventTeleport = new LifestreamService(PluginInterface, _playerInfo, ChatGui, Log);
         var pfInterop = new LookingForGroupInterop(Log);
         _partyFinderCreator = new PartyFinderCreator(AddonLifecycle, Framework, GameGui, Log, pfInterop, Condition, PartyList, ObjectTable);
         _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop, Condition);
-        _eventsTab = new GambaEventsTab(_client, _imageCache, eventTeleport, Configuration, playerInfo, _partyFinderLocator, Log);
+        _eventsTab = new GambaEventsTab(_client, _imageService, eventTeleport, Configuration, _playerInfo, _partyFinderLocator, Log);
 
-        var hostTab = new HostGambaTab(_sessionService, playerInfo, _client, _sessionState, Configuration, hostFormState, _imageCache, profileImages, _partyFinderCreator);
-        var gameListTab = new GameListTab(_imageCache, Configuration);
-        var profilesTab = new ProfilesTab(Configuration, _imageCache, profileImages, playerInfo);
-        _recruitmentTab = new RecruitmentTab(_client, _imageCache, Configuration, playerInfo, profileImages, ChatGui, Log);
+        var hostTab = new HostGambaTab(_sessionService, _playerInfo, _client, _sessionState, Configuration, hostFormState, _imageService, _partyFinderCreator);
+        var gameListTab = new GameListTab(_imageService, Configuration);
+        var profilesTab = new ProfilesTab(Configuration, _imageService, _playerInfo);
+        _findAVenueTab = new FindAVenueTab(_client, _imageService, Configuration, _playerInfo, ChatGui, Log);
+        _findAHostTab = new FindAHostTab(_client, _imageService, Configuration, _playerInfo, ChatGui, Log);
 
         _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
 
-        var settingsTab = new SettingsTab(Configuration, _imageCache, Log, _pillOverlay);
-        var supportTab = new SupportTab(_imageCache, Configuration);
-        var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageCache, Log, customBanners);
+        var settingsTab = new SettingsTab(Configuration, _imageService, Log, _pillOverlay);
+        var supportTab = new SupportTab(_imageService, Configuration);
+        var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageService, Log);
         var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =
-            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _recruitmentTab, settingsTab, supportTab, discordTab, alertsTab, Configuration);
+            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _findAVenueTab, _findAHostTab, settingsTab, supportTab, discordTab, alertsTab, Configuration);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_pillOverlay);
 
@@ -120,11 +122,11 @@ public sealed class GambaWhere : IDalamudPlugin
             Log,
             _mainWindow.OpenEventsTabExpanded);
 
-        _hostMarkerService = new HostMarkerService(ObjectTable, ClientState, Configuration);
-        _minimapHostOverlay = new MinimapHostOverlay(_hostMarkerService, GameGui, ClientState, ObjectTable, DataManager, Configuration);
+        _hostMarkerService = new HostMarkerService(ObjectTable, _playerInfo, Configuration);
+        _minimapHostOverlay = new MinimapHostOverlay(_hostMarkerService, GameGui, ClientState, _playerInfo, DataManager, Configuration);
         _windowSystem.AddWindow(_minimapHostOverlay);
 
-        _alertFeed = new EventAlertFeed(_client, Log, Condition, Configuration)
+        _alertFeed = new EventAlertFeedService(_client, Log, Condition, Configuration)
         {
             OnEventsRefreshed = events =>
             {
@@ -168,7 +170,8 @@ public sealed class GambaWhere : IDalamudPlugin
     {
         Framework.Update -= OnFrameworkUpdate;
         _eventsTab.Dispose();
-        _recruitmentTab.Dispose();
+        _findAVenueTab.Dispose();
+        _findAHostTab.Dispose();
         _alertFeed.Dispose();
         _alertingService.Dispose();
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
@@ -193,7 +196,9 @@ public sealed class GambaWhere : IDalamudPlugin
         _sessionService.Dispose();
         _discordWebhook.Dispose();
         _client.Dispose();
-        _imageCache.Dispose();
+        _imageService.Dispose();
+
+        ECommonsMain.Dispose();
     }
 
     private void OnFrameworkUpdate(IFramework framework)
@@ -204,7 +209,7 @@ public sealed class GambaWhere : IDalamudPlugin
         _hostMarkerService.Tick();
         _pillOverlay.IsOpen = (_sessionState.IsActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
         _minimapHostOverlay.IsOpen =
-            Configuration.MinimapHostIconsEnabled && ClientState.IsLoggedIn && _hostMarkerService.Markers.Count > 0;
+            Configuration.MinimapHostIconsEnabled && _playerInfo.IsLoggedIn && _hostMarkerService.Markers.Count > 0;
     }
 
     private List<HostRuleSource> BuildHostRuleSources(string category)

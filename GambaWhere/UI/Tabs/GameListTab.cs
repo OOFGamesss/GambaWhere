@@ -7,7 +7,7 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.Config;
 using GambaWhere.Games;
-using GambaWhere.Images;
+using GambaWhere.Services;
 using GambaWhere.Utility;
 using static GambaWhere.Utility.GameTypeColours;
 
@@ -16,15 +16,15 @@ namespace GambaWhere.UI.Tabs;
 /// <summary>Tab showing the supported games and their details.</summary>
 public class GameListTab
 {
-    private readonly ImageCache _imageCache;
+    private readonly ImageService _imageService;
     private readonly Configuration _config;
 
     private static readonly float ImageSize = 70f;
     private static readonly float ImageLeftPadding = 8f;
 
-    public GameListTab(ImageCache imageCache, Configuration config)
+    public GameListTab(ImageService imageService, Configuration config)
     {
-        _imageCache = imageCache;
+        _imageService = imageService;
         _config = config;
     }
 
@@ -56,7 +56,7 @@ public class GameListTab
         drawList.ChannelsSplit(2);
         drawList.ChannelsSetCurrent(1);
 
-        var tex = _imageCache.GetBundledPng(entry.IconFile);
+        var tex = _imageService.GetBundled(entry.IconFile);
 
         if (ImGui.BeginTable("##gameCard", 3, ImGuiTableFlags.None))
         {

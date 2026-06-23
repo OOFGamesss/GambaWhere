@@ -5,7 +5,7 @@ using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
 using GambaWhere.Config;
-using GambaWhere.Images;
+using GambaWhere.Services;
 using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
@@ -13,7 +13,7 @@ namespace GambaWhere.UI.Tabs;
 /// <summary>Tab with support and contact links.</summary>
 public class SupportTab
 {
-    private readonly ImageCache _imageCache;
+    private readonly ImageService _imageService;
     private readonly Configuration _config;
 
     private const string OofGamesDiscordUrl = "https://discord.gg/vM6ff4h5Ym";
@@ -24,9 +24,9 @@ public class SupportTab
 
     private const float LogoSide = 160f;
 
-    public SupportTab(ImageCache imageCache, Configuration config)
+    public SupportTab(ImageService imageService, Configuration config)
     {
-        _imageCache = imageCache;
+        _imageService = imageService;
         _config = config;
     }
 
@@ -46,7 +46,7 @@ public class SupportTab
         var logoDrawSize = new Vector2(side, side);
         CentreForWidth(logoDrawSize.X);
 
-        var tex = _imageCache.GetBundledPng("Icons/oofgames.png");
+        var tex = _imageService.GetBundled("Icons/oofgames.png");
         if (tex != null)
             ImGui.Image(tex.Handle, logoDrawSize);
         else

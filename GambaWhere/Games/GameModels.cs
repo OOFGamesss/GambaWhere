@@ -2,7 +2,10 @@ using System.Collections.Generic;
 
 namespace GambaWhere.Games;
 
-/// <summary>Models for a Game (display, companion IPC, per-game automatic rules) and the rule-field schema. Categories, and the manual rules a host edits, live in GameCategories.cs. A RuleField on a category is a manual field (Kind/Label/Default/Min/Max/Options drive the editor); a RuleField on a game is an automatic field (Source/Multiplier/SkipIfMissing/SkipIfZero/SpacesFromUnderscores/AutoType map a partner IPC JSON value onto a rule key). Name is the shared rule key.</summary>
+/// <summary>Models for a Game and the rule-field schema (categories live in GameCategories.cs). A RuleField is a manual
+/// field on a category (Kind/Label/Default/Min/Max/Options drive the editor) or an automatic field on a game
+/// (Source/Multiplier/SkipIf*/SpacesFromUnderscores/AutoType map a partner IPC JSON value onto a rule key). Name is the
+/// shared rule key.</summary>
 
 public enum RuleValueType
 {

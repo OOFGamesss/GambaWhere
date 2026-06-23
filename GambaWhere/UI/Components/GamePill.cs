@@ -7,9 +7,7 @@ using Dalamud.Interface.Utility;
 namespace GambaWhere.UI.Components;
 
 /// <summary>
-/// Pill-shaped game-type chip coloured by the game, using the same dull translucent fill and vivid
-/// accent text as the events cards. Reusable for static display and for a pick-as-many toggle
-/// selector (which adds a checkbox so the selected state is obvious).
+/// Pill overlay to display current session info.
 /// </summary>
 public static class GamePill
 {

@@ -6,7 +6,7 @@ using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.Config;
-using GambaWhere.Images;
+using GambaWhere.Services;
 using GambaWhere.UI.CardEffects;
 using GambaWhere.Utility;
 
@@ -26,7 +26,7 @@ internal static class ProfilePopup
         public string? CardEffectStyle;
     }
 
-    public static void Draw(string popupId, ref bool openRequested, ImageCache imageCache, Configuration config, Data? data)
+    public static void Draw(string popupId, ref bool openRequested, ImageService imageService, Configuration config, Data? data)
     {
         if (openRequested)
         {
@@ -54,11 +54,11 @@ internal static class ProfilePopup
             return;
         }
 
-        var avatarTex = !string.IsNullOrWhiteSpace(data.ProfileImageUrl) ? imageCache.GetProfile(data.ProfileImageUrl!) : null;
-        DrawCardBody(imageCache, config, data, avatarTex, drawCloseButton: true);
+        var avatarTex = !string.IsNullOrWhiteSpace(data.ProfileImageUrl) ? imageService.GetFromUrl(data.ProfileImageUrl!) : null;
+        DrawCardBody(imageService, config, data, avatarTex, drawCloseButton: true);
     }
 
-    public static void DrawInlinePreview(ImageCache imageCache, Configuration config, Data data, IDalamudTextureWrap? localTex)
+    public static void DrawInlinePreview(ImageService imageService, Configuration config, Data data, IDalamudTextureWrap? localTex)
     {
         var scale = ImGuiHelpers.GlobalScale;
         var rounding = 6f * scale;
@@ -79,10 +79,10 @@ internal static class ProfilePopup
             ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.AlwaysUseWindowPadding);
         if (!child.Success) return;
 
-        DrawCardBody(imageCache, config, data, localTex, drawCloseButton: false, clip, bioMaxLines: 2);
+        DrawCardBody(imageService, config, data, localTex, drawCloseButton: false, clip, bioMaxLines: 2);
     }
 
-    private static void DrawCardBody(ImageCache imageCache, Configuration config, Data data,
+    private static void DrawCardBody(ImageService imageService, Configuration config, Data data,
         IDalamudTextureWrap? avatarTex, bool drawCloseButton, (Vector2 Min, Vector2 Max)? clip = null,
         int? bioMaxLines = null)
     {
@@ -100,7 +100,7 @@ internal static class ProfilePopup
         ImGuiHelpers.ScaledDummy(6f);
         var diameter = 104f * scale;
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0f, (width - diameter) * 0.5f));
-        DrawCentredAvatar(imageCache, data, avatarTex, diameter);
+        DrawCentredAvatar(imageService, data, avatarTex, diameter);
 
         ImGuiHelpers.ScaledDummy(6f);
         var displayName = string.IsNullOrWhiteSpace(data.DisplayName) ? "(no name)" : data.DisplayName;
@@ -177,14 +177,14 @@ internal static class ProfilePopup
         dl.ChannelsMerge();
     }
 
-    private static void DrawCentredAvatar(ImageCache imageCache, Data data, IDalamudTextureWrap? tex, float diameter)
+    private static void DrawCentredAvatar(ImageService imageService, Data data, IDalamudTextureWrap? tex, float diameter)
     {
         var pos = ImGui.GetCursorScreenPos();
-        DrawAvatarAt(ImGui.GetWindowDrawList(), imageCache, pos, diameter, tex, data.BorderStyle, data.Booster);
+        DrawAvatarAt(ImGui.GetWindowDrawList(), imageService, pos, diameter, tex, data.BorderStyle, data.Booster);
         ImGui.Dummy(new Vector2(diameter, diameter));
     }
 
-    public static void DrawAvatarAt(ImDrawListPtr dl, ImageCache imageCache, Vector2 pos, float diameter,
+    public static void DrawAvatarAt(ImDrawListPtr dl, ImageService imageService, Vector2 pos, float diameter,
         IDalamudTextureWrap? tex, string? borderStyle, bool booster)
     {
         if (tex != null)
@@ -192,15 +192,15 @@ internal static class ProfilePopup
         else
             CircleImage.DrawPlaceholderAt(dl, pos, diameter);
 
-        DrawAvatarBorder(dl, imageCache, pos, diameter, borderStyle, booster);
+        DrawAvatarBorder(dl, imageService, pos, diameter, borderStyle, booster);
     }
 
-    public static void DrawAvatarBorder(ImDrawListPtr dl, ImageCache imageCache, Vector2 pos, float diameter, string? borderStyle, bool booster)
+    public static void DrawAvatarBorder(ImDrawListPtr dl, ImageService imageService, Vector2 pos, float diameter, string? borderStyle, bool booster)
     {
         var borderPath = AvatarBorder.ImagePath(borderStyle, booster);
         if (borderPath == null) return;
 
-        var ring = imageCache.GetBundledImage(borderPath);
+        var ring = imageService.GetBundled(borderPath);
         if (ring == null) return;
 
         var centre = pos + new Vector2(diameter * 0.5f, diameter * 0.5f);

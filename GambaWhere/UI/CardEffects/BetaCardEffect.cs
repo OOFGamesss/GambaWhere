@@ -41,8 +41,6 @@ public static class BetaCardEffect
         DrawBorderSparks(dl, pts, n, t, scale);
     }
 
-    // Builds a perimeter with arc points at corners and interpolated points along straight edges,
-    // so tendrils and spark distribution is uniform around the entire card rather than corner-heavy.
     private static List<Vector2> BuildDensePerimeter(Vector2 min, Vector2 max, float r, int cornerSegs, float spacing)
     {
         r = MathF.Max(0f, MathF.Min(r, MathF.Min((max.X - min.X) * 0.5f, (max.Y - min.Y) * 0.5f)));
@@ -212,7 +210,6 @@ public static class BetaCardEffect
         }
     }
 
-    // Three sparks travelling the perimeter at different speeds and starting positions.
     private static void DrawBorderSparks(ImDrawListPtr dl, List<Vector2> pts, int n, float t, float scale)
     {
         var tail = Math.Max(4, n / 8);

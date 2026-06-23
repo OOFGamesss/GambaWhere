@@ -7,9 +7,7 @@ using Dalamud.Interface.Utility;
 namespace GambaWhere.UI.Components;
 
 /// <summary>
-/// Reusable iOS-style sliding toggle switch drawn through the window draw list.
-/// A small per-id animation cache drives the knob slide; entries are bounded by the
-/// number of distinct toggles drawn, mirroring the static layout caches used elsewhere.
+/// Sliding toggle switch for boolean values.
 /// </summary>
 internal static class ToggleSwitch
 {

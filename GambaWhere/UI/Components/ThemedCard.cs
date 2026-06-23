@@ -9,9 +9,7 @@ using GambaWhere.Utility;
 namespace GambaWhere.UI.Components;
 
 /// <summary>
-/// Draws a themed card: a primary-tinted, rounded child inset with an outer margin, a primary
-/// accent border, and a centred accent heading. The body height is measured and cached per id so
-/// the card sizes to its content, settling over one frame on first draw.
+/// Draws a themed card with a primary-tinted background, rounded corners, outer margin, and accent border.
 /// </summary>
 public sealed class ThemedCard
 {

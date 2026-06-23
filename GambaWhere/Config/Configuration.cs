@@ -7,7 +7,7 @@ using System.Numerics;
 
 namespace GambaWhere.Config;
 
-/// <summary>Plugin configuration persisted between sessions, including active session state and user preferences.</summary>
+/// <summary>Saved settings and session state.</summary>
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -90,26 +90,4 @@ public class Configuration : IPluginConfiguration
             };
         }
     }
-}
-
-[Serializable]
-public class RecruitmentPostToken
-{
-    public string Id { get; set; } = string.Empty;
-
-    public string PostType { get; set; } = string.Empty;
-
-    public string PosterCharacter { get; set; } = string.Empty;
-
-    public string SessionToken { get; set; } = string.Empty;
-}
-
-[Serializable]
-public class GamePreset
-{
-    public string Name { get; set; } = string.Empty;
-
-    public Dictionary<string, object> RuleValues { get; set; } = new();
-
-    public string Description { get; set; } = string.Empty;
 }

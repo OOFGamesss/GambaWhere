@@ -11,7 +11,6 @@ using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using GambaWhere.Config;
-using GambaWhere.Images;
 using GambaWhere.Services;
 using GambaWhere.UI.CardEffects;
 using GambaWhere.UI.Components;
@@ -23,8 +22,7 @@ namespace GambaWhere.UI.Tabs;
 public class ProfilesTab
 {
     private readonly Configuration _config;
-    private readonly ImageCache _imageCache;
-    private readonly ProfileImageStore _profileImages;
+    private readonly ImageService _imageService;
     private readonly PlayerInfoService _playerInfo;
     private readonly FileDialogManager _fileDialog = new();
     private readonly ThemedCard _card = new();
@@ -46,11 +44,10 @@ public class ProfilesTab
 
     private static readonly Vector4 SoftRed = new(1f, 0.4f, 0.4f, 1f);
 
-    public ProfilesTab(Configuration config, ImageCache imageCache, ProfileImageStore profileImages, PlayerInfoService playerInfo)
+    public ProfilesTab(Configuration config, ImageService imageService, PlayerInfoService playerInfo)
     {
         _config = config;
-        _imageCache = imageCache;
-        _profileImages = profileImages;
+        _imageService = imageService;
         _playerInfo = playerInfo;
     }
 
@@ -156,9 +153,9 @@ public class ProfilesTab
         var width = ImGui.GetContentRegionAvail().X;
         var diameter = 80f * scale;
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0f, (width - diameter) * 0.5f));
-        var path = _profileImages.GetPath(profile.ImageFileName);
-        var tex = path != null ? _imageCache.GetFromPath(path) : null;
-        ProfilePopup.DrawAvatarAt(dl, _imageCache, ImGui.GetCursorScreenPos(), diameter, tex, profile.BorderStyle, profile.Booster);
+        var path = _imageService.GetProfileImagePath(profile.ImageFileName);
+        var tex = path != null ? _imageService.GetFromPath(path) : null;
+        ProfilePopup.DrawAvatarAt(dl, _imageService, ImGui.GetCursorScreenPos(), diameter, tex, profile.BorderStyle, profile.Booster);
         ImGui.Dummy(new Vector2(diameter, diameter));
 
         ImGuiHelpers.ScaledDummy(6f);
@@ -292,7 +289,7 @@ public class ProfilesTab
             BorderStyle = draft.BorderStyle,
             CardEffectStyle = draft.CardEffectStyle,
         };
-        ProfilePopup.DrawInlinePreview(_imageCache, _config, previewData, ResolveDraftTexture(draft));
+        ProfilePopup.DrawInlinePreview(_imageService, _config, previewData, ResolveDraftTexture(draft));
 
         if (!string.IsNullOrEmpty(_editError))
         {
@@ -409,10 +406,10 @@ public class ProfilesTab
     private IDalamudTextureWrap? ResolveDraftTexture(GambaProfile draft)
     {
         if (_pendingImageSource != null)
-            return _imageCache.GetFromPath(_pendingImageSource);
+            return _imageService.GetFromPath(_pendingImageSource);
 
-        var path = _profileImages.GetPath(draft.ImageFileName);
-        return path != null ? _imageCache.GetFromPath(path) : null;
+        var path = _imageService.GetProfileImagePath(draft.ImageFileName);
+        return path != null ? _imageService.GetFromPath(path) : null;
     }
 
     private void BeginCreate()
@@ -471,7 +468,7 @@ public class ProfilesTab
                 return;
             }
 
-            if (new FileInfo(sourcePath).Length > ProfileImageStore.MaxBytes)
+            if (new FileInfo(sourcePath).Length > ImageService.MaxProfileImageBytes)
             {
                 _pendingImageError = "Image is too large (max 5 MB).";
                 return;
@@ -528,23 +525,15 @@ public class ProfilesTab
 
     private bool CommitPicture(GambaProfile draft)
     {
-        var oldPath = _profileImages.GetPath(draft.ImageFileName);
-
-        var saved = _profileImages.TrySave(_pendingImageSource!, draft.Id, out var error);
+        var saved = _imageService.SaveProfileImage(_pendingImageSource!, draft.Id, out var error);
         if (saved == null)
         {
             _editError = error ?? "Could not save that picture.";
             return false;
         }
 
-        if (oldPath != null)
-            _imageCache.EvictFromPath(oldPath);
-
         draft.ImageFileName = saved;
-
-        var newPath = _profileImages.GetPath(saved);
-        if (newPath != null)
-            _imageCache.EvictFromPath(newPath);
+        _imageService.ReloadImages();
 
         draft.UploadedImageUrl = null;
         draft.UploadedImageHash = null;
@@ -571,10 +560,8 @@ public class ProfilesTab
 
     private void DeleteProfile(GambaProfile profile)
     {
-        var path = _profileImages.GetPath(profile.ImageFileName);
-        if (path != null)
-            _imageCache.EvictFromPath(path);
-        _profileImages.Delete(profile.ImageFileName);
+        _imageService.DeleteProfileImage(profile.ImageFileName);
+        _imageService.ReloadImages();
 
         _config.Profiles.RemoveAll(p => p.Id == profile.Id);
         if (_config.SelectedProfileId == profile.Id)

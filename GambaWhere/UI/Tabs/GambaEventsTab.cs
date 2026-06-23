@@ -10,10 +10,9 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin.Services;
 using GambaWhere.API;
-using GambaWhere.API.Models;
+using GambaWhere.Models;
 using GambaWhere.Config;
 using GambaWhere.Games;
-using GambaWhere.Images;
 using GambaWhere.Partyfinder;
 using GambaWhere.Services;
 using GambaWhere.UI.CardEffects;
@@ -28,8 +27,8 @@ public class GambaEventsTab : IDisposable
     private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(30);
 
     private readonly GambaWhereClient _client;
-    private readonly ImageCache _imageCache;
-    private readonly EventLocationTeleportService _teleport;
+    private readonly ImageService _imageService;
+    private readonly LifestreamService _teleport;
     private readonly Configuration _config;
     private readonly PlayerInfoService _playerInfo;
     private readonly PartyFinderLocator _pfLocator;
@@ -92,10 +91,10 @@ public class GambaEventsTab : IDisposable
     private const string InfoPopupId = "##GambaGameInfoPopup";
     private const string ProfilePopupId = "##GambaProfilePopup";
 
-    public GambaEventsTab(GambaWhereClient client, ImageCache imageCache, EventLocationTeleportService teleport, Configuration config, PlayerInfoService playerInfo, PartyFinderLocator pfLocator, IPluginLog log)
+    public GambaEventsTab(GambaWhereClient client, ImageService imageService, LifestreamService teleport, Configuration config, PlayerInfoService playerInfo, PartyFinderLocator pfLocator, IPluginLog log)
     {
         _client = client;
-        _imageCache = imageCache;
+        _imageService = imageService;
         _teleport = teleport;
         _config = config;
         _playerInfo = playerInfo;
@@ -598,7 +597,7 @@ public class GambaEventsTab : IDisposable
         var dl = ImGui.GetWindowDrawList();
         var rounding = size * 0.5f;
 
-        var profileTex = !string.IsNullOrWhiteSpace(ev.ProfileImageUrl) ? _imageCache.GetProfile(ev.ProfileImageUrl!) : null;
+        var profileTex = !string.IsNullOrWhiteSpace(ev.ProfileImageUrl) ? _imageService.GetFromUrl(ev.ProfileImageUrl!) : null;
         if (profileTex != null)
         {
             CircleImage.DrawAt(dl, pos, size, profileTex);
@@ -606,7 +605,7 @@ public class GambaEventsTab : IDisposable
             return;
         }
 
-        var placeholder = _imageCache.GetBundledImage("Icons/profileplaceholder.png");
+        var placeholder = _imageService.GetBundled("Icons/profileplaceholder.png");
         if (placeholder != null)
         {
             dl.AddImageRounded(placeholder.Handle, pos, pos + new Vector2(size, size),
@@ -627,7 +626,7 @@ public class GambaEventsTab : IDisposable
         if (imagePath == null)
             return;
 
-        var tex = _imageCache.GetBundledImage(imagePath);
+        var tex = _imageService.GetBundled(imagePath);
         if (tex == null)
             return;
 
@@ -644,7 +643,7 @@ public class GambaEventsTab : IDisposable
 
     private void DrawVenueLogo(ImDrawListPtr dl, EventResponse ev, Vector2 cardTopRight, float topOffset, float logoSize)
     {
-        var tex = !string.IsNullOrWhiteSpace(ev.ImageUrl) ? _imageCache.Get(ev.ImageUrl!) : null;
+        var tex = !string.IsNullOrWhiteSpace(ev.ImageUrl) ? _imageService.GetFromUrl(ev.ImageUrl!) : null;
         if (tex == null)
             return;
 
@@ -661,7 +660,7 @@ public class GambaEventsTab : IDisposable
 
     private void DrawDescriptionArea(EventResponse ev, float contentWidth)
     {
-        if (ev.Description == SessionConstants.BreakMessage)
+        if (ev.Description == SessionService.BreakMessage)
         {
             EventCardRenderer.DrawBreakBadge();
             return;
@@ -817,7 +816,7 @@ public class GambaEventsTab : IDisposable
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(2f);
 
-        if (ev.Description == SessionConstants.BreakMessage)
+        if (ev.Description == SessionService.BreakMessage)
         {
             EventCardRenderer.DrawBreakBadge();
         }
@@ -897,7 +896,7 @@ public class GambaEventsTab : IDisposable
                 CardEffectStyle = ev.CardEffectStyle,
             };
 
-        ProfilePopup.Draw(ProfilePopupId, ref _openProfileRequested, _imageCache, _config, data);
+        ProfilePopup.Draw(ProfilePopupId, ref _openProfileRequested, _imageService, _config, data);
     }
 
     private Vector4 SolidCardBg(Vector4 gameColour)

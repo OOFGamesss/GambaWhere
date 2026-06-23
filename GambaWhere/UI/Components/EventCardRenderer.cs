@@ -6,7 +6,7 @@ using System.Text.Json;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
-using GambaWhere.Images;
+using GambaWhere.Services;
 using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Components;
@@ -22,7 +22,7 @@ public static class EventCardRenderer
         string venueName,
         string description,
         Dictionary<string, object> rules,
-        ImageCache imageCache)
+        ImageService imageService)
     {
         var scaledImageSize = new Vector2(ImageSize, ImageSize) * ImGuiHelpers.GlobalScale;
         var (bgColor, gameTypeTextColor) = GetGameTypeColors(gameType);
@@ -42,7 +42,7 @@ public static class EventCardRenderer
                 ImGui.TableNextRow();
 
                 ImGui.TableSetColumnIndex(0);
-                var logo = imageCache.GetBundledImage("Icons/gambawhere.png");
+                var logo = imageService.GetBundled("Icons/gambawhere.png");
                 if (logo != null)
                     ImGui.Image(logo.Handle, scaledImageSize);
                 else

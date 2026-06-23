@@ -4,39 +4,25 @@ using System.Threading;
 
 namespace GambaWhere.State;
 
-/// <summary>Volatile runtime state for the active hosting session.</summary>
+/// <summary>Runtime state for the active hosting session.</summary>
 public class SessionState
 {
     public bool IsActive { get; set; }
-
     public string SessionToken { get; set; } = string.Empty;
-
     public string CharacterName { get; set; } = string.Empty;
-
     public string Location { get; set; } = string.Empty;
     public string GameType { get; set; } = string.Empty;
     public string? VenueName { get; set; }
-
     public Dictionary<string, object>? ActiveRules { get; set; }
-
     public string? DiscordUrl { get; set; }
-
     public string? ImageUrl { get; set; }
-
     public bool UsesAutomaticHostRules { get; set; }
-
     public DateTime? StartedAt { get; set; }
-
     public DateTime? AutoEndAt { get; set; }
-
     public CancellationTokenSource? LoopCts { get; set; }
-
     public bool IsPaused { get; set; }
-
     public string Description { get; set; } = string.Empty;
-
     public DateTime? PausedAt { get; set; }
-
     public TimeSpan TotalPausedDuration { get; set; }
 
     public void Clear()

@@ -3,8 +3,7 @@ using System;
 namespace GambaWhere.Utility;
 
 /// <summary>
-/// Rejects user-entered text that contains URLs or HTML, mirroring the API's
-/// server-side rule so the client can fail fast before sending.
+/// Rejects user-entered text that contains URLs or HTML.
 /// </summary>
 public static class UserTextGuard
 {

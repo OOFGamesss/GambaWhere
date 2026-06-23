@@ -3,21 +3,21 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
-using Dalamud.Game;
 using GambaWhere.API;
-using GambaWhere.API.Models;
+using GambaWhere.Models;
 using GambaWhere.Config;
 using GambaWhere.Discord;
 using GambaWhere.State;
-using GambaWhere.Utility;
-using Dalamud.Game.Text.SeStringHandling;
 
 namespace GambaWhere.Services;
 
 /// <summary>Manages the lifecycle of a hosting session, including start, pause, stop, heartbeat, and crash recovery.</summary>
 public class SessionService : IDisposable
 {
+    public const string BreakMessage = "Gamba Host is currently on a break!";
+
     private readonly GambaWhereClient _client;
     private readonly PlayerInfoService _playerInfo;
     private readonly SessionState _sessionState;
@@ -25,7 +25,7 @@ public class SessionService : IDisposable
     private readonly IClientState _clientState;
     private readonly IFramework _framework;
     private readonly IPluginLog _log;
-    private readonly DiscordWebhookService _discordWebhook;
+    private readonly WebhookService _discordWebhook;
     private readonly IChatGui _chatGui;
 
     public Func<string, Dictionary<string, object>?>? RefreshAutomaticRulesFromIpc { get; set; }
@@ -38,7 +38,7 @@ public class SessionService : IDisposable
         IClientState clientState,
         IFramework framework,
         IPluginLog log,
-        DiscordWebhookService discordWebhook,
+        WebhookService discordWebhook,
         IChatGui chatGui)
     {
         _client = client;
@@ -54,7 +54,7 @@ public class SessionService : IDisposable
         _clientState.TerritoryChanged += OnTerritoryChanged;
         _clientState.Login += OnLogin;
 
-        if (_clientState.IsLoggedIn && !string.IsNullOrEmpty(_config.ActiveSessionToken))
+        if (_playerInfo.IsLoggedIn && !string.IsNullOrEmpty(_config.ActiveSessionToken))
             _ = Task.Run(TryRecoverSessionAsync);
     }
 
@@ -87,10 +87,7 @@ public class SessionService : IDisposable
         if (autoEndAt.HasValue)
             _ = Task.Run(() => RunAutoEndAsync(autoEndAt.Value, cts.Token));
 
-        QueueDiscordWebhook(async () =>
-        {
-            await _discordWebhook.SyncActiveSessionEmbedsAsync();
-        });
+        QueueDiscordWebhook(() => _discordWebhook.SyncActiveSessionEmbedsAsync());
 
         return (null, response);
     }
@@ -115,7 +112,7 @@ public class SessionService : IDisposable
         {
             Location = _sessionState.Location,
             Rules = _sessionState.ActiveRules,
-            Description = SessionConstants.BreakMessage,
+            Description = BreakMessage,
             BoosterKey = BoosterKeyForRequest()
         };
         await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
@@ -158,164 +155,7 @@ public class SessionService : IDisposable
         _sessionState.Clear();
         ClearSessionSnapshot();
 
-        QueueDiscordWebhook(async () =>
-        {
-            await _discordWebhook.PublishIdleEmbedsAsync();
-        });
-    }
-
-    private void OnTerritoryChanged(uint territoryId)
-    {
-        if (!_sessionState.IsActive)
-            return;
-
-        _ = PushLocationAsync();
-    }
-
-    private async Task PushLocationAsync()
-    {
-        var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
-        if (location == null)
-            return;
-
-        var putRequest = new PutEventRequest { Location = location, BoosterKey = BoosterKeyForRequest() };
-        await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
-
-        _sessionState.Location = location;
-    }
-
-    private async Task RunAutoEndAsync(DateTime endAt, CancellationToken ct)
-    {
-        try
-        {
-            var warningAt = endAt - TimeSpan.FromMinutes(1);
-            var warningDelay = warningAt - DateTime.UtcNow;
-            if (warningDelay > TimeSpan.Zero)
-                await Task.Delay(warningDelay, ct);
-
-            if (!ct.IsCancellationRequested && DateTime.UtcNow < endAt)
-            {
-                var msg = new SeStringBuilder()
-                    .AddText("Your hosting session will automatically end in 1 minute.")
-                    .Build();
-                _chatGui.Print(msg, "GambaWhere");
-
-                var remaining = endAt - DateTime.UtcNow;
-                if (remaining > TimeSpan.Zero)
-                    await Task.Delay(remaining, ct);
-            }
-
-            if (!ct.IsCancellationRequested)
-                await StopSessionAsync();
-        }
-        catch (TaskCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            _log.Error(ex, "Unexpected error in auto-end task.");
-        }
-    }
-
-    private async Task RunSessionLoopAsync(CancellationToken ct)
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(TimeSpan.FromMinutes(1), ct);
-
-                if (ct.IsCancellationRequested)
-                    break;
-
-                await SendHeartbeatPutAsync();
-            }
-        }
-        catch (TaskCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            _log.Error(ex, "Unexpected error in session loop.");
-        }
-    }
-
-    private async Task SendHeartbeatPutAsync()
-    {
-        var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
-        if (location == null)
-        {
-            _log.Warning("Heartbeat location update skipped: could not resolve current territory.");
-            return;
-        }
-
-        if (ShouldRefreshRulesFromIpc())
-        {
-            var refreshed = await _framework.RunOnFrameworkThread(() =>
-                RefreshAutomaticRulesFromIpc!.Invoke(_sessionState.GameType));
-            if (refreshed != null)
-                _sessionState.ActiveRules = refreshed;
-        }
-
-        var putRequest = new PutEventRequest
-        {
-            Location = location,
-            Rules = _sessionState.ActiveRules,
-            Description = _sessionState.IsPaused ? SessionConstants.BreakMessage : _sessionState.Description,
-            BoosterKey = BoosterKeyForRequest()
-        };
-        var putResponse =
-            await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
-
-        _sessionState.Location = location;
-
-        if (putResponse != null)
-        {
-            if (!string.IsNullOrWhiteSpace(putResponse.DiscordUrl))
-                _sessionState.DiscordUrl = putResponse.DiscordUrl;
-
-            if (!string.IsNullOrWhiteSpace(putResponse.ImageUrl))
-                _sessionState.ImageUrl = putResponse.ImageUrl;
-        }
-
-        SaveSessionSnapshot();
-
-        QueueDiscordWebhook(async () =>
-        {
-            await _discordWebhook.SyncActiveSessionEmbedsAsync();
-        });
-    }
-
-    private void QueueDiscordWebhook(Func<Task> workload)
-    {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await workload.Invoke();
-            }
-            catch (Exception ex)
-            {
-                _log.Error(ex, "Discord webhook update task failed unexpectedly.");
-            }
-        });
-    }
-
-    private string? BoosterKeyForRequest() =>
-        string.IsNullOrWhiteSpace(_config.BoosterKey) ? null : _config.BoosterKey.Trim();
-
-    private bool ShouldRefreshRulesFromIpc()
-    {
-        return _sessionState.UsesAutomaticHostRules
-               && RefreshAutomaticRulesFromIpc != null;
-    }
-
-    public void Dispose()
-    {
-        _clientState.TerritoryChanged -= OnTerritoryChanged;
-        _clientState.Login -= OnLogin;
-        _sessionState.LoopCts?.Cancel();
-        _sessionState.LoopCts?.Dispose();
+        QueueDiscordWebhook(() => _discordWebhook.PublishIdleEmbedsAsync());
     }
 
     private void OnLogin()
@@ -324,7 +164,7 @@ public class SessionService : IDisposable
             _ = Task.Run(TryRecoverSessionAsync);
     }
 
-    public async Task TryRecoverSessionAsync()
+    private async Task TryRecoverSessionAsync()
     {
         if (_sessionState.IsActive)
             return;
@@ -343,7 +183,7 @@ public class SessionService : IDisposable
         }
 
         var rules = TryDeserializeRules(_config.ActiveRulesJson);
-        var description = _config.ActiveIsPaused ? SessionConstants.BreakMessage : (_config.ActiveDescription ?? string.Empty);
+        var description = _config.ActiveIsPaused ? BreakMessage : (_config.ActiveDescription ?? string.Empty);
 
         var putRequest = new PutEventRequest
         {
@@ -389,11 +229,145 @@ public class SessionService : IDisposable
             .Build();
         _chatGui.Print(msg, "GambaWhere");
 
-        QueueDiscordWebhook(async () =>
+        QueueDiscordWebhook(() => _discordWebhook.SyncActiveSessionEmbedsAsync());
+    }
+
+    private void OnTerritoryChanged(uint territoryId)
+    {
+        if (!_sessionState.IsActive)
+            return;
+
+        _ = PushLocationAsync();
+    }
+
+    private async Task PushLocationAsync()
+    {
+        var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
+        if (location == null)
+            return;
+
+        var putRequest = new PutEventRequest { Location = location, BoosterKey = BoosterKeyForRequest() };
+        await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
+
+        _sessionState.Location = location;
+    }
+
+    private async Task RunSessionLoopAsync(CancellationToken ct)
+    {
+        try
         {
-            await _discordWebhook.SyncActiveSessionEmbedsAsync();
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromMinutes(1), ct);
+
+                if (ct.IsCancellationRequested)
+                    break;
+
+                await SendHeartbeatPutAsync();
+            }
+        }
+        catch (TaskCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Unexpected error in session loop.");
+        }
+    }
+
+    private async Task SendHeartbeatPutAsync()
+    {
+        var location = await _framework.RunOnFrameworkThread(() => _playerInfo.GetCurrentLocation());
+        if (location == null)
+        {
+            _log.Warning("Heartbeat location update skipped: could not resolve current territory.");
+            return;
+        }
+
+        if (_sessionState.UsesAutomaticHostRules && RefreshAutomaticRulesFromIpc != null)
+        {
+            var refreshed = await _framework.RunOnFrameworkThread(() =>
+                RefreshAutomaticRulesFromIpc.Invoke(_sessionState.GameType));
+            if (refreshed != null)
+                _sessionState.ActiveRules = refreshed;
+        }
+
+        var putRequest = new PutEventRequest
+        {
+            Location = location,
+            Rules = _sessionState.ActiveRules,
+            Description = _sessionState.IsPaused ? BreakMessage : _sessionState.Description,
+            BoosterKey = BoosterKeyForRequest()
+        };
+        var putResponse =
+            await _client.PutEventAsync(_sessionState.CharacterName, _sessionState.SessionToken, putRequest);
+
+        _sessionState.Location = location;
+
+        if (putResponse != null)
+        {
+            if (!string.IsNullOrWhiteSpace(putResponse.DiscordUrl))
+                _sessionState.DiscordUrl = putResponse.DiscordUrl;
+
+            if (!string.IsNullOrWhiteSpace(putResponse.ImageUrl))
+                _sessionState.ImageUrl = putResponse.ImageUrl;
+        }
+
+        SaveSessionSnapshot();
+
+        QueueDiscordWebhook(() => _discordWebhook.SyncActiveSessionEmbedsAsync());
+    }
+
+    private async Task RunAutoEndAsync(DateTime endAt, CancellationToken ct)
+    {
+        try
+        {
+            var warningAt = endAt - TimeSpan.FromMinutes(1);
+            var warningDelay = warningAt - DateTime.UtcNow;
+            if (warningDelay > TimeSpan.Zero)
+                await Task.Delay(warningDelay, ct);
+
+            if (!ct.IsCancellationRequested && DateTime.UtcNow < endAt)
+            {
+                var msg = new SeStringBuilder()
+                    .AddText("Your hosting session will automatically end in 1 minute.")
+                    .Build();
+                _chatGui.Print(msg, "GambaWhere");
+
+                var remaining = endAt - DateTime.UtcNow;
+                if (remaining > TimeSpan.Zero)
+                    await Task.Delay(remaining, ct);
+            }
+
+            if (!ct.IsCancellationRequested)
+                await StopSessionAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Unexpected error in auto-end task.");
+        }
+    }
+
+    private void QueueDiscordWebhook(Func<Task> workload)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await workload.Invoke();
+            }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "Discord webhook update task failed unexpectedly.");
+            }
         });
     }
+
+    private string? BoosterKeyForRequest() =>
+        string.IsNullOrWhiteSpace(_config.BoosterKey) ? null : _config.BoosterKey.Trim();
 
     private void SaveSessionSnapshot()
     {
@@ -449,5 +423,13 @@ public class SessionService : IDisposable
         {
             return null;
         }
+    }
+
+    public void Dispose()
+    {
+        _clientState.TerritoryChanged -= OnTerritoryChanged;
+        _clientState.Login -= OnLogin;
+        _sessionState.LoopCts?.Cancel();
+        _sessionState.LoopCts?.Dispose();
     }
 }

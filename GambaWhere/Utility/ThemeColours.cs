@@ -1,9 +1,10 @@
 using System;
 using System.Numerics;
+using GambaWhere.Games;
 
 namespace GambaWhere.Utility;
 
-/// <summary>Resolves theme colours from the user's configured primary and secondary colours.</summary>
+/// <summary>Colour helpers: theme colours from the user's primary and secondary colours, and per-game-type colours from the central catalogue.</summary>
 public static class ThemeColours
 {
     public static Vector4 TintedWindowBg(Vector4 p) => BlendWithDark(p, 0.09f, 0.96f);
@@ -52,4 +53,15 @@ public static class ThemeColours
             Math.Min(1f, Dark + p.Z * strength),
             alpha);
     }
+}
+
+public static class GameTypeColours
+{
+    private static readonly Vector4 YellowAccent = new(1f, 0.85f, 0f, 1f);
+
+    public static (Vector4 Background, Vector4 Accent) ForGame(string gameType) =>
+        GameCategories.ColoursFor(gameType);
+
+    public static Vector4 PillBorderForGame(string? gameType) =>
+        GameCategories.Find(gameType) is { } category ? category.Accent : YellowAccent;
 }

@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse active gambling events across Eorzea or host your own session. Use /gambawhere to open the interface.",
-  "Changelog": "- Sorry for another update, there is now a new alerts setting inside settings -> chat -> alerts. This allows you to enable/disable alerts for when you are in a duty. Let me fight the clown in peace ;-;",
+  "Changelog": "- Code cleanup for maintainability and preparation for release.\n- Now using Ecommons Image caching. Images now load faster and a lot quicker :3 TY Nagi!\n- Refactored lifestreamIPC.",
   "Tags": [
     "gambling",
     "events",

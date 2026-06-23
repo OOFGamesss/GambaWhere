@@ -5,7 +5,7 @@ using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using GambaWhere.API.Models;
+using GambaWhere.Models;
 using GambaWhere.Config;
 using GambaWhere.UI.Tabs;
 
