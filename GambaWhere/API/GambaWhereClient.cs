@@ -21,8 +21,19 @@ public partial class GambaWhereClient : IDisposable
 
     public GambaWhereClient(IPluginLog log)
     {
-        _log  = log;
-        _http = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        _log = log;
+
+        var handler = new SocketsHttpHandler
+        {
+            PooledConnectionIdleTimeout = TimeSpan.FromSeconds(20),
+            PooledConnectionLifetime    = TimeSpan.FromMinutes(2),
+        };
+
+        _http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri(BaseUrl),
+            Timeout     = TimeSpan.FromSeconds(15),
+        };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
 

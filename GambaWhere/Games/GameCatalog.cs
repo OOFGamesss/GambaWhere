@@ -28,6 +28,11 @@ public static class GameCatalog
     // ==========================================================================================
     public static readonly IReadOnlyList<Game> Games = new Game[]
     {
+        new("Aviator", "SimpleAviator",
+            "A fast-paced aviation casino game where every second counts!",
+            "Asuna & Klia", SimpleGamba, "Games/simpleaviator.png",
+            IpcBaseName: "SimpleAviator"),
+
         new("Bingo", "SimpleBingo",
             "Interactive bingo with automated ball calling, multiple card support, and real-time winner detection.",
             "Asuna & Klia", SimpleGamba, "Games/simplebingo.png",

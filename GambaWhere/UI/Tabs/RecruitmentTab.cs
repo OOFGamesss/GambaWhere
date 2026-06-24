@@ -14,6 +14,7 @@ using Dalamud.Plugin.Services;
 using GambaWhere.API;
 using GambaWhere.Models;
 using GambaWhere.Config;
+using GambaWhere.Games;
 using GambaWhere.Services;
 using GambaWhere.UI.CardEffects;
 using GambaWhere.UI.Components;
@@ -41,11 +42,10 @@ internal sealed class RecruitmentTab : IDisposable
         { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
 
     private static readonly string[] CompanionPlugins =
-    {
-        "SimpleBingo", "SimpleBlackjack", "Chocobo Racing", "Mini Games Emporium",
-        "SimpleMiniGames", "SimplePoker", "SimpleRoulette", "SimpleScratch", "SimpleWheel",
-        "None", "Other Plugins",
-    };
+        new[] { "None" }
+            .Concat(GameCatalog.Games.Select(g => g.CompanionPlugin))
+            .Append("Other Plugins")
+            .ToArray();
 
     private static readonly string[] NsfwOptions = { "SFW", "NSFW", "Both" };
     private static readonly string[] BankFilterOptions = { "Bank: Any", "Bank: Yes", "Bank: No" };

@@ -34,7 +34,7 @@ public static class GameCategories
 
     public static readonly IReadOnlyList<GameCategory> All = new GameCategory[]
     {
-        new("Aviator", new(0.15f, 0.55f, 0.85f, 0.18f), new(0.35f, 0.75f, 1.00f, 1f), 0x2489D0, "✈️", "aviatorbanner.png",
+        new("Aviator", new(0.72f, 0.88f, 1.00f, 0.18f), new(0.78f, 0.91f, 1.00f, 1f), 0xB8E0FF, "✈️", "aviatorbanner.png",
             ManualFields: new RuleField[]
             {
                 new("minBet", RuleKind.Money, "Min Bet (gil)", 10000, Min: 0),
@@ -81,7 +81,7 @@ public static class GameCategories
                 new("entryCost", RuleKind.Money, "Entry Cost (gil)", 0, Min: 0),
             }),
 
-        new("Poker", new(0.00f, 0.80f, 0.80f, 0.18f), new(0.00f, 1.00f, 1.00f, 1f), 0x06B6D4, "♠️", "pokerbanner.png",
+        new("Poker", new(0.75f, 0.75f, 0.78f, 0.18f), new(0.88f, 0.88f, 0.92f, 1f), 0xC0C0C0, "♠️", "pokerbanner.png",
             ManualFields: new RuleField[]
             {
                 new("gameType", RuleKind.Text, "Game Type", "Sit N Go"),
