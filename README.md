@@ -115,7 +115,7 @@ Read common questions and follow the Discord link for support specific to Gamba 
 2. Go to the Experimental tab.
 3. Paste this link into the **Custom Plugin Repositories** at the bottom:
 
-   `https://raw.githubusercontent.com/OOFGamesss/OOFGamesPlugins/main/pluginmaster.json`
+   `https://puni.sh/api/repository/oof-games`
 
 4. Click the `+` button, ensure it is **Enabled**, and click **Save and Close**.
 5. Type `/xlplugins`, search for "Gamba Where", and click **Install**.
