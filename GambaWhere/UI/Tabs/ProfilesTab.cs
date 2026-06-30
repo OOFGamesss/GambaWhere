@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
@@ -26,6 +25,7 @@ public class ProfilesTab
     private readonly PlayerInfoService _playerInfo;
     private readonly FileDialogManager _fileDialog = new();
     private readonly ThemedCard _card = new();
+    private readonly ProfileImageCropper _cropper = new();
 
     private static readonly string[] PreferredGameOptions = GambaEventsTab.KnownGameTypes;
 
@@ -37,7 +37,11 @@ public class ProfilesTab
     private GambaProfile? _draft;
     private bool _isNew;
     private readonly HashSet<string> _draftGames = new();
-    private string? _pendingImageSource;
+    private string? _pendingOriginalSource;
+    private string? _pendingPreviewPath;
+    private float _pendingZoom = 1f;
+    private float _pendingCenterX = 0.5f;
+    private float _pendingCenterY = 0.5f;
     private string? _pendingImageError;
     private string? _editError;
     private string? _pendingBrowsePath;
@@ -60,6 +64,9 @@ public class ProfilesTab
             ApplyPickedImage(_pendingBrowsePath);
             _pendingBrowsePath = null;
         }
+
+        if (_cropper.Draw(_imageService, _config, out var crop))
+            ApplyCrop(crop);
 
         ImGuiHelpers.ScaledDummy(8f);
 
@@ -360,7 +367,14 @@ public class ProfilesTab
 
         if (UIHelper.IconTextButton(FontAwesomeIcon.FolderOpen, HasPicture(draft) ? "Change Picture" : "Choose Picture", "##ChoosePicture"))
             OpenPicturePicker();
-        ImGui.SameLine();
+
+        if (CanReCrop(draft))
+        {
+            ImGui.SameLine();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Crop, "Adjust Crop", "##AdjustCrop"))
+                OpenCropEditor(draft);
+        }
+
         ImGui.TextDisabled("PNG or JPG, max 5 MB.");
 
         if (_pendingImageError != null)
@@ -395,7 +409,7 @@ public class ProfilesTab
     }
 
     private bool HasPicture(GambaProfile draft) =>
-        _pendingImageSource != null || !string.IsNullOrWhiteSpace(draft.ImageFileName);
+        _pendingPreviewPath != null || !string.IsNullOrWhiteSpace(draft.ImageFileName);
 
     private bool CanSaveDraft() =>
         _draft != null
@@ -403,10 +417,21 @@ public class ProfilesTab
         && HasPicture(_draft)
         && _pendingImageError == null;
 
+    private bool CanReCrop(GambaProfile draft) => CropSourcePath(draft) != null;
+
+    private string? CropSourcePath(GambaProfile draft)
+    {
+        if (_pendingOriginalSource != null)
+            return _pendingOriginalSource;
+
+        return _imageService.GetProfileImagePath(draft.OriginalImageFileName)
+            ?? _imageService.GetProfileImagePath(draft.ImageFileName);
+    }
+
     private IDalamudTextureWrap? ResolveDraftTexture(GambaProfile draft)
     {
-        if (_pendingImageSource != null)
-            return _imageService.GetFromPath(_pendingImageSource);
+        if (_pendingPreviewPath != null)
+            return _imageService.GetFromPath(_pendingPreviewPath);
 
         var path = _imageService.GetProfileImagePath(draft.ImageFileName);
         return path != null ? _imageService.GetFromPath(path) : null;
@@ -417,8 +442,7 @@ public class ProfilesTab
         _draft = new GambaProfile();
         _isNew = true;
         _draftGames.Clear();
-        _pendingImageSource = null;
-        _pendingImageError = null;
+        ResetPendingPicture();
         _editError = null;
     }
 
@@ -429,17 +453,26 @@ public class ProfilesTab
         _draftGames.Clear();
         foreach (var g in profile.PreferredGames)
             _draftGames.Add(g);
-        _pendingImageSource = null;
-        _pendingImageError = null;
+        ResetPendingPicture();
         _editError = null;
     }
 
     private void CancelEdit()
     {
         _draft = null;
-        _pendingImageSource = null;
-        _pendingImageError = null;
+        ResetPendingPicture();
         _editError = null;
+    }
+
+    private void ResetPendingPicture()
+    {
+        _imageService.DeleteTemp(_pendingPreviewPath);
+        _pendingPreviewPath = null;
+        _pendingOriginalSource = null;
+        _pendingZoom = 1f;
+        _pendingCenterX = 0.5f;
+        _pendingCenterY = 0.5f;
+        _pendingImageError = null;
     }
 
     private void OpenPicturePicker()
@@ -459,28 +492,44 @@ public class ProfilesTab
     {
         _editError = null;
 
-        try
+        if (!_imageService.ValidateProfileSource(sourcePath, out var error))
         {
-            var ext = Path.GetExtension(sourcePath).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg")
-            {
-                _pendingImageError = "Picture must be a PNG or JPG.";
-                return;
-            }
-
-            if (new FileInfo(sourcePath).Length > ImageService.MaxProfileImageBytes)
-            {
-                _pendingImageError = "Image is too large (max 5 MB).";
-                return;
-            }
-        }
-        catch
-        {
-            _pendingImageError = "That file could not be read.";
+            _pendingImageError = error;
             return;
         }
 
-        _pendingImageSource = sourcePath;
+        _pendingImageError = null;
+        _cropper.Open(sourcePath, 1f, 0.5f, 0.5f);
+    }
+
+    private void OpenCropEditor(GambaProfile draft)
+    {
+        var source = CropSourcePath(draft);
+        if (source == null)
+            return;
+
+        var fromPending = _pendingOriginalSource != null;
+        var zoom = fromPending ? _pendingZoom : draft.ImageCropZoom;
+        var centerX = fromPending ? _pendingCenterX : draft.ImageCropCenterX;
+        var centerY = fromPending ? _pendingCenterY : draft.ImageCropCenterY;
+        _cropper.Open(source, zoom, centerX, centerY);
+    }
+
+    private void ApplyCrop(ProfileImageCropper.CropSelection crop)
+    {
+        var preview = _imageService.CreateCropPreview(crop.SourcePath, crop.Zoom, crop.CenterX, crop.CenterY, out var error);
+        if (preview == null)
+        {
+            _pendingImageError = error ?? "Could not process that picture.";
+            return;
+        }
+
+        _imageService.DeleteTemp(_pendingPreviewPath);
+        _pendingPreviewPath = preview;
+        _pendingOriginalSource = crop.SourcePath;
+        _pendingZoom = crop.Zoom;
+        _pendingCenterX = crop.CenterX;
+        _pendingCenterY = crop.CenterY;
         _pendingImageError = null;
     }
 
@@ -507,13 +556,13 @@ public class ProfilesTab
             return;
         }
 
-        if (_pendingImageSource == null && string.IsNullOrWhiteSpace(draft.ImageFileName))
+        if (_pendingPreviewPath == null && string.IsNullOrWhiteSpace(draft.ImageFileName))
         {
             _editError = "A picture is required.";
             return;
         }
 
-        if (_pendingImageSource != null && !CommitPicture(draft))
+        if (_pendingPreviewPath != null && !CommitPicture(draft))
             return;
 
         draft.PreferredGames = PreferredGameOptions.Where(_draftGames.Contains).ToList();
@@ -525,14 +574,20 @@ public class ProfilesTab
 
     private bool CommitPicture(GambaProfile draft)
     {
-        var saved = _imageService.SaveProfileImage(_pendingImageSource!, draft.Id, out var error);
-        if (saved == null)
+        var ok = _imageService.SaveProfileImageSet(
+            _pendingOriginalSource!, draft.Id, _pendingZoom, _pendingCenterX, _pendingCenterY,
+            out var originalName, out var squareName, out var error);
+        if (!ok)
         {
             _editError = error ?? "Could not save that picture.";
             return false;
         }
 
-        draft.ImageFileName = saved;
+        draft.ImageFileName = squareName;
+        draft.OriginalImageFileName = originalName;
+        draft.ImageCropZoom = _pendingZoom;
+        draft.ImageCropCenterX = _pendingCenterX;
+        draft.ImageCropCenterY = _pendingCenterY;
         _imageService.ReloadImages();
 
         draft.UploadedImageUrl = null;
@@ -561,6 +616,7 @@ public class ProfilesTab
     private void DeleteProfile(GambaProfile profile)
     {
         _imageService.DeleteProfileImage(profile.ImageFileName);
+        _imageService.DeleteProfileImage(profile.OriginalImageFileName);
         _imageService.ReloadImages();
 
         _config.Profiles.RemoveAll(p => p.Id == profile.Id);
@@ -582,6 +638,10 @@ public class ProfilesTab
         Id = source.Id,
         Name = source.Name,
         ImageFileName = source.ImageFileName,
+        OriginalImageFileName = source.OriginalImageFileName,
+        ImageCropZoom = source.ImageCropZoom,
+        ImageCropCenterX = source.ImageCropCenterX,
+        ImageCropCenterY = source.ImageCropCenterY,
         Bio = source.Bio,
         PreferredGames = new List<string>(source.PreferredGames),
         Booster = source.Booster,

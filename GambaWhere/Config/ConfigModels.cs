@@ -21,6 +21,10 @@ public class GambaProfile
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = string.Empty;
     public string? ImageFileName { get; set; }
+    public string? OriginalImageFileName { get; set; }
+    public float ImageCropZoom { get; set; } = 1f;
+    public float ImageCropCenterX { get; set; } = 0.5f;
+    public float ImageCropCenterY { get; set; } = 0.5f;
     public string Bio { get; set; } = string.Empty;
     public List<string> PreferredGames { get; set; } = new();
     public bool Booster { get; set; }

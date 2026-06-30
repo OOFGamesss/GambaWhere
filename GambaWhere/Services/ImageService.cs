@@ -10,13 +10,19 @@ using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using ECommons.ImGuiMethods;
+using GambaWhere.Utility;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Processing;
 
 namespace GambaWhere.Services;
 
-/// <summary>The plugin's one image service: loads textures through ECommons, caches remote downloads on disk, and stores user-supplied profile pictures and custom banners.</summary>
+/// <summary>loads textures through ECommons, caches remote downloads on disk, and stores user-supplied profile pictures and custom banners.</summary>
 public sealed class ImageService : IDisposable
 {
     public const long MaxProfileImageBytes = 5 * 1024 * 1024;
+
+    private const int ProfileImageSize = 512;
 
     private static readonly string[] ProfileExtensions = [".png", ".jpg", ".jpeg"];
     private static readonly string[] BannerExtensions = [".png", ".jpg", ".jpeg", ".webp"];
@@ -28,6 +34,7 @@ public sealed class ImageService : IDisposable
     private readonly string _profileDir;
     private readonly string _bannerDir;
     private readonly string _bundledDir;
+    private readonly string _tempDir;
 
     private readonly HashSet<string> _downloading = new();
     private readonly Dictionary<string, long> _failedAtTick = new();
@@ -45,6 +52,8 @@ public sealed class ImageService : IDisposable
         _cacheDir = EnsureDirectory(Path.Combine(configDir, "ImageCache"));
         _profileDir = EnsureDirectory(Path.Combine(configDir, "Profiles"));
         _bannerDir = EnsureDirectory(Path.Combine(configDir, "CustomBanners"));
+        _tempDir = EnsureDirectory(Path.Combine(configDir, "Temp"));
+        ClearTemp();
 
         _bundledDir = Path.Combine(
             pluginInterface.AssemblyLocation.DirectoryName ?? pluginInterface.AssemblyLocation.FullName, "Images");
@@ -143,58 +152,171 @@ public sealed class ImageService : IDisposable
         ThreadLoadImageHandler.ClearAll();
     }
 
-    public string? SaveProfileImage(string sourcePath, string profileId, out string? error)
+    public bool ValidateProfileSource(string sourcePath, out string? error)
     {
         error = null;
 
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
         {
             error = "That file could not be found.";
-            return null;
+            return false;
         }
 
         var ext = Path.GetExtension(sourcePath).ToLowerInvariant();
         if (Array.IndexOf(ProfileExtensions, ext) < 0)
         {
             error = "Picture must be a PNG or JPG.";
-            return null;
+            return false;
         }
 
         if (new FileInfo(sourcePath).Length > MaxProfileImageBytes)
         {
             error = "Picture must be 5 MB or smaller.";
-            return null;
+            return false;
         }
 
         if (!FileIsImage(sourcePath))
         {
             error = "That file does not look like a valid picture.";
-            return null;
+            return false;
         }
+
+        return true;
+    }
+
+    public string? CreateCropPreview(string sourcePath, float zoom, float centerX, float centerY, out string? error)
+    {
+        if (!ValidateProfileSource(sourcePath, out error))
+            return null;
+
+        var destPath = Path.Combine(_tempDir, $"{Guid.NewGuid():N}.png");
+        return WriteCroppedSquare(sourcePath, zoom, centerX, centerY, destPath, out error) ? destPath : null;
+    }
+
+    public bool SaveProfileImageSet(string sourcePath, string profileId, float zoom, float centerX, float centerY,
+        out string? originalFileName, out string? squareFileName, out string? error)
+    {
+        originalFileName = null;
+        squareFileName = null;
+
+        if (!ValidateProfileSource(sourcePath, out error))
+            return false;
+
+        var ext = Path.GetExtension(sourcePath).ToLowerInvariant();
+        var originalName = $"{profileId}.orig{ext}";
+        var squareName = $"{profileId}.png";
+        var destOriginal = Path.Combine(_profileDir, originalName);
+
+        if (!PathsEqual(sourcePath, destOriginal))
+        {
+            try
+            {
+                ClearStaleProfileFiles(profileId, keepOriginalExt: ext);
+                File.Copy(sourcePath, destOriginal, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "Failed to copy original profile picture from {Source}", sourcePath);
+                error = "Could not save that picture.";
+                return false;
+            }
+        }
+
+        if (!WriteCroppedSquare(destOriginal, zoom, centerX, centerY, Path.Combine(_profileDir, squareName), out error))
+            return false;
+
+        originalFileName = originalName;
+        squareFileName = squareName;
+        return true;
+    }
+
+    public void DeleteTemp(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        var full = Path.GetFullPath(path);
+        if (!full.StartsWith(_tempDir, StringComparison.OrdinalIgnoreCase) || !File.Exists(full))
+            return;
+
+        try { File.Delete(full); } catch { }
+    }
+
+    private bool WriteCroppedSquare(string sourcePath, float zoom, float centerX, float centerY, string destPath, out string? error)
+    {
+        error = null;
 
         try
         {
-            foreach (var other in ProfileExtensions)
-            {
-                if (other == ext)
-                    continue;
+            using var image = SixLabors.ImageSharp.Image.Load(sourcePath);
+            var (uv0, uv1) = ProfileCropGeometry.SquareUv(image.Width, image.Height, zoom, centerX, centerY);
 
-                var stale = Path.Combine(_profileDir, $"{profileId}{other}");
-                if (File.Exists(stale))
+            var x = Math.Clamp((int)MathF.Round(uv0.X * image.Width), 0, image.Width - 1);
+            var y = Math.Clamp((int)MathF.Round(uv0.Y * image.Height), 0, image.Height - 1);
+            var side = Math.Max(1, (int)MathF.Round((uv1.X - uv0.X) * image.Width));
+            side = Math.Min(side, Math.Min(image.Width - x, image.Height - y));
+
+            image.Mutate(ctx => ctx
+                .Crop(new Rectangle(x, y, side, side))
+                .Resize(new ResizeOptions
                 {
-                    try { File.Delete(stale); } catch { }
-                }
-            }
-
-            var fileName = $"{profileId}{ext}";
-            File.Copy(sourcePath, Path.Combine(_profileDir, fileName), overwrite: true);
-            return fileName;
+                    Size = new Size(ProfileImageSize, ProfileImageSize),
+                    Sampler = KnownResamplers.Lanczos3,
+                    Mode = ResizeMode.Stretch,
+                }));
+            image.Save(destPath, new PngEncoder());
+            return true;
         }
         catch (Exception ex)
         {
-            _log.Warning(ex, "Failed to copy profile picture from {Source}", sourcePath);
-            error = "Could not save that picture.";
-            return null;
+            _log.Warning(ex, "Failed to bake cropped profile picture from {Source}", sourcePath);
+            error = "Could not process that picture.";
+            return false;
+        }
+    }
+
+    private void ClearStaleProfileFiles(string profileId, string keepOriginalExt)
+    {
+        foreach (var ext in ProfileExtensions)
+        {
+            var legacySquare = Path.Combine(_profileDir, $"{profileId}{ext}");
+            if (ext != ".png" && File.Exists(legacySquare))
+            {
+                try { File.Delete(legacySquare); } catch { }
+            }
+
+            if (ext == keepOriginalExt)
+                continue;
+
+            var staleOriginal = Path.Combine(_profileDir, $"{profileId}.orig{ext}");
+            if (File.Exists(staleOriginal))
+            {
+                try { File.Delete(staleOriginal); } catch { }
+            }
+        }
+    }
+
+    private static bool PathsEqual(string a, string b)
+    {
+        try
+        {
+            return string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void ClearTemp()
+    {
+        try
+        {
+            foreach (var file in Directory.GetFiles(_tempDir))
+                File.Delete(file);
+        }
+        catch
+        {
         }
     }
 
@@ -325,6 +447,7 @@ public sealed class ImageService : IDisposable
     public void Dispose()
     {
         _cts.Cancel();
+        ClearTemp();
         ThreadLoadImageHandler.ClearAll();
         _http.Dispose();
         _cts.Dispose();

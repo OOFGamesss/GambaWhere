@@ -12,12 +12,17 @@ public static class UserTextGuard
         "http", "https://", "www.", ".com", ".gg", ".net", ".org", ".io", ".tv", "<", ">"
     };
 
+    private static readonly string[] AllowedHosts =
+    {
+        "gamba.pro", "oofgames.fyi"
+    };
+
     public static bool ContainsDisallowedContent(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return false;
 
-        if (IsAllowedGambaProUrl(text))
+        if (IsAllowedUrl(text))
             return false;
 
         foreach (var pattern in DisallowedPatterns)
@@ -29,19 +34,23 @@ public static class UserTextGuard
         return false;
     }
 
-    private static bool IsAllowedGambaProUrl(string text)
+    private static bool IsAllowedUrl(string text)
     {
         var s = text.Trim();
-        string hostAndPath;
-        if (s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            hostAndPath = s[8..];
-        else
+        if (!s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return false;
 
+        var hostAndPath = s[8..];
         var slashIdx = hostAndPath.IndexOf('/');
         var host = slashIdx >= 0 ? hostAndPath[..slashIdx] : hostAndPath;
 
-        return host.Equals("gamba.pro", StringComparison.OrdinalIgnoreCase) ||
-               host.EndsWith(".gamba.pro", StringComparison.OrdinalIgnoreCase);
+        foreach (var allowed in AllowedHosts)
+        {
+            if (host.Equals(allowed, StringComparison.OrdinalIgnoreCase) ||
+                host.EndsWith($".{allowed}", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 }

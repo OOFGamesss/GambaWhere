@@ -1,0 +1,59 @@
+name: Plugin Update Alert
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  send_alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Send Discord Webhook
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          MANIFEST=GambaWhere/GambaWhere.json
+
+          NAME=$(jq -r '.Name' "$MANIFEST")
+          CHANGELOG=$(jq -r '.Changelog' "$MANIFEST")
+          ICON_URL=$(jq -r '.IconUrl // empty' "$MANIFEST")
+
+          NEW_VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' GambaWhere/GambaWhere.csproj || echo "0.0.0.1")
+
+          EMBED_COLOR=15158332
+
+          if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" == "null" ] || [ "$CHANGELOG" == "" ]; then
+            CHANGELOG="*No changelog provided.*"
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg name "$NAME" \
+            --arg ver "$NEW_VERSION" \
+            --arg cl "$CHANGELOG" \
+            --arg icon "$ICON_URL" \
+            --arg footer_icon "https://raw.githubusercontent.com/OOFGamesss/OOFGamesPlugins/main/images/oofgameslogo2.png" \
+            --argjson color "$EMBED_COLOR" \
+            '{
+              username: "OOFGames Plugin Updates",
+              embeds: [({
+                title: "🚀 Update: \($name)",
+                color: $color,
+                fields: [
+                  { name: "New Version", value: $ver, inline: true },
+                  { name: "Changelog", value: $cl, inline: false },
+                  { name: "Download here:", value: "[Punish Store](https://puni.sh/directory/oof-games/gambawhere)", inline: false }
+                ],
+                footer: {
+                  text: "Play Hard, Win Big",
+                  icon_url: $footer_icon
+                },
+                timestamp: (now | todate)
+              } + (if $icon != "" and $icon != "null" then {thumbnail: {url: $icon}} else {} end))]
+            }')
+
+          curl -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK"
