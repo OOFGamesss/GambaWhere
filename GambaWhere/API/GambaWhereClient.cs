@@ -32,7 +32,7 @@ public partial class GambaWhereClient : IDisposable
         _http = new HttpClient(handler)
         {
             BaseAddress = new Uri(BaseUrl),
-            Timeout     = TimeSpan.FromSeconds(15),
+            Timeout     = TimeSpan.FromSeconds(30),
         };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }

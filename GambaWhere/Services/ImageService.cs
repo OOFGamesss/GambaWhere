@@ -12,6 +12,7 @@ using Dalamud.Plugin.Services;
 using ECommons.ImGuiMethods;
 using GambaWhere.Utility;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 
@@ -23,6 +24,8 @@ public sealed class ImageService : IDisposable
     public const long MaxProfileImageBytes = 5 * 1024 * 1024;
 
     private const int ProfileImageSize = 512;
+
+    private const int ProfileJpegQuality = 85;
 
     private static readonly string[] ProfileExtensions = [".png", ".jpg", ".jpeg"];
     private static readonly string[] BannerExtensions = [".png", ".jpg", ".jpeg", ".webp"];
@@ -335,13 +338,18 @@ public sealed class ImageService : IDisposable
             if (!info.Exists || info.Length > MaxProfileImageBytes)
                 return false;
 
-            var bytes = File.ReadAllBytes(path);
+            using var image = SixLabors.ImageSharp.Image.Load(path);
+            using var buffer = new MemoryStream();
+            image.SaveAsJpeg(buffer, new JpegEncoder { Quality = ProfileJpegQuality });
+            var bytes = buffer.ToArray();
+
             base64 = Convert.ToBase64String(bytes);
             hash = Convert.ToHexString(SHA256.HashData(bytes));
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            _log.Warning(ex, "Failed to encode profile picture from {Path}", path);
             return false;
         }
     }

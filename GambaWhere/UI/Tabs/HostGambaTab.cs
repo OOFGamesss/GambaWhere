@@ -38,6 +38,11 @@ public class HostGambaTab
 
     private static readonly Vector4 Yellow = new(1f, 1f, 0f, 1f);
     private static readonly Vector4 SoftRed = new(1f, 0.4f, 0.4f, 1f);
+    private static readonly Vector4 SoftAmber = new(1f, 0.78f, 0.42f, 1f);
+
+    private const string PendingUploadHint =
+        "Your profile picture uploads when you start, so this session may take a few seconds longer to begin.";
+    private const float PendingUploadHintWrap = 380f;
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
 
     private readonly IRuleConfig[] _ruleConfigs;
@@ -126,6 +131,14 @@ public class HostGambaTab
 
         var scale = ImGuiHelpers.GlobalScale;
         var footerHeight = 76f * scale;
+
+        if (!_sessionState.IsActive && HasPendingImageUpload())
+        {
+            var wrapW = Math.Min(ImGui.GetContentRegionAvail().X, PendingUploadHintWrap * scale);
+            footerHeight += ImGui.CalcTextSize(PendingUploadHint, false, wrapW).Y
+                + ImGui.GetStyle().ItemSpacing.Y + 4f * scale;
+        }
+
         var scrollHeight = Math.Max(80f * scale, ImGui.GetContentRegionAvail().Y - footerHeight);
 
         using (var scroll = ImRaii.Child("##gw_host_scroll", new Vector2(0f, scrollHeight), false))
@@ -185,6 +198,15 @@ public class HostGambaTab
 
     private GambaProfile? GetSelectedProfile() =>
         _config.Profiles.FirstOrDefault(p => p.Id == _config.SelectedProfileId);
+
+    private bool HasPendingImageUpload()
+    {
+        var profile = GetSelectedProfile();
+        if (profile == null || !string.IsNullOrEmpty(profile.UploadedImageUrl))
+            return false;
+
+        return _imageService.GetProfileImagePath(profile.ImageFileName) != null;
+    }
 
     private void DrawProfileRow()
     {
@@ -545,6 +567,17 @@ public class HostGambaTab
             var msgW = ImGui.CalcTextSize(_form.StatusMessage).X;
             ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - msgW) * 0.5f));
             ImGui.TextColored(SoftRed, _form.StatusMessage);
+        }
+
+        if (HasPendingImageUpload())
+        {
+            var wrapW = Math.Min(avail, PendingUploadHintWrap * scale);
+            var startX = baseX + Math.Max(0f, (avail - wrapW) * 0.5f);
+            ImGui.SetCursorPosX(startX);
+            ImGui.PushTextWrapPos(startX + wrapW);
+            ImGui.TextColored(SoftAmber, PendingUploadHint);
+            ImGui.PopTextWrapPos();
+            ImGuiHelpers.ScaledDummy(4f);
         }
 
         var startLabel = _form.IsStarting ? "Starting..." : "Start Session";
