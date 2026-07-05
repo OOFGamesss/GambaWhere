@@ -17,6 +17,12 @@ public static class CardEffectDrawer
             case CardEffectType.Beta:
                 BetaCardEffect.DrawLightningFill(dl, min, max, time, seed);
                 break;
+            case CardEffectType.Hearts:
+                HeartsCardEffect.DrawHeartsFill(dl, min, max, time, seed);
+                break;
+            case CardEffectType.HighRoller:
+                HighRollerCardEffect.DrawHighRollerFill(dl, min, max, time, seed);
+                break;
         }
     }
 
@@ -29,6 +35,12 @@ public static class CardEffectDrawer
                 break;
             case CardEffectType.Beta:
                 BetaCardEffect.DrawLightningFoil(dl, min, max, time);
+                break;
+            case CardEffectType.Hearts:
+                HeartsCardEffect.DrawHeartsFoil(dl, min, max, time);
+                break;
+            case CardEffectType.HighRoller:
+                HighRollerCardEffect.DrawHighRollerFoil(dl, min, max, time);
                 break;
         }
     }
@@ -43,12 +55,21 @@ public static class CardEffectDrawer
             case CardEffectType.Beta:
                 BetaCardEffect.DrawLightningBorder(dl, min, max, rounding, time);
                 break;
+            case CardEffectType.Hearts:
+                HeartsCardEffect.DrawHeartsBorder(dl, min, max, rounding, time);
+                break;
         }
     }
 
+    public static bool HasCustomBorder(CardEffectType effect) => effect switch
+    {
+        CardEffectType.Booster or CardEffectType.Beta or CardEffectType.Hearts => true,
+        _ => false,
+    };
+
     public static void DrawBorderAfterChildWindow(CardEffectType effect, Vector2 min, Vector2 max, float rounding, double time)
     {
-        if (effect == CardEffectType.None) return;
+        if (!HasCustomBorder(effect)) return;
         var dl = ImGui.GetWindowDrawList();
         var bleed = 10f * ImGuiHelpers.GlobalScale;
         var wMin = ImGui.GetWindowPos();

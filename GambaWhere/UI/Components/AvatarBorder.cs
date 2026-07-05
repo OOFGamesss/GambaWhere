@@ -10,6 +10,8 @@ internal static class AvatarBorder
         {
             "booster" => "Profile Borders/boosterborder.png",
             "gwbeta"  => "Profile Borders/gwbetaborder.png",
+            "hearts"  => "Profile Borders/heartsborder.png",
+            "highroller" => "Profile Borders/highrollerborder.png",
             _         => null,
         };
     }

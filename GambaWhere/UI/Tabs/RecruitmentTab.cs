@@ -498,7 +498,7 @@ internal sealed class RecruitmentTab : IDisposable
 
                 DrawCornerBadges(post, p0, sz, pad, isMine);
 
-                if (cardEffect == CardEffectType.None)
+                if (!CardEffectDrawer.HasCustomBorder(cardEffect))
                     dl.AddRect(p0, p0 + sz, ImGui.GetColorU32(new Vector4(accent.X, accent.Y, accent.Z, 0.55f)),
                         rounding, ImDrawFlags.None, 1.5f * scale);
             }
@@ -895,15 +895,13 @@ internal sealed class RecruitmentTab : IDisposable
         dl.PushClipRect(new Vector2(-10000f, -10000f), new Vector2(100000f, 100000f), false);
         var t = ImGui.GetTime();
         if (detailsCardEffect != CardEffectType.None)
-        {
             CardEffectDrawer.DrawFoil(dl, detailsCardEffect, p0, p0 + sz, t);
+
+        if (CardEffectDrawer.HasCustomBorder(detailsCardEffect))
             CardEffectDrawer.DrawBorder(dl, detailsCardEffect, p0, p0 + sz, rounding, t);
-        }
         else
-        {
             dl.AddRect(p0, p0 + sz, ImGui.GetColorU32(new Vector4(accent.X, accent.Y, accent.Z, 0.55f)),
                 rounding, ImDrawFlags.None, 1.5f * scale);
-        }
         dl.PopClipRect();
         dl.ChannelsMerge();
     }

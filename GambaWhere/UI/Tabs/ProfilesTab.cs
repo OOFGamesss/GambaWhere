@@ -29,8 +29,9 @@ public class ProfilesTab
 
     private static readonly string[] PreferredGameOptions = GambaEventsTab.KnownGameTypes;
 
-    private static readonly string[] DecorationLabels = ["None", "Booster", "Gamba Where Beta"];
-    private static readonly string[] DecorationValues = ["none", "booster", "gwbeta"];
+    private static readonly string[] DecorationLabels = ["None", "[Beta] Gamba Where", "[Booster] Hearts", "[Booster] Holographic", "High Roller"];
+    private static readonly string[] DecorationValues = ["none", "gwbeta", "hearts", "booster", "highroller"];
+    private static readonly string[] BoosterLockedValues = ["booster", "hearts"];
 
     private const int MaxBioLines = 5;
 
@@ -325,7 +326,7 @@ public class ProfilesTab
         {
             for (var i = 0; i < DecorationValues.Length; i++)
             {
-                using var itemDisabled = ImRaii.Disabled(DecorationValues[i] == "booster" && !hasKey);
+                using var itemDisabled = ImRaii.Disabled(BoosterLockedValues.Contains(DecorationValues[i]) && !hasKey);
                 if (ImGui.Selectable(DecorationLabels[i], i == borderIdx))
                     draft.BorderStyle = DecorationValues[i];
             }
@@ -341,7 +342,7 @@ public class ProfilesTab
         {
             for (var i = 0; i < DecorationValues.Length; i++)
             {
-                using var itemDisabled = ImRaii.Disabled(DecorationValues[i] == "booster" && !hasKey);
+                using var itemDisabled = ImRaii.Disabled(BoosterLockedValues.Contains(DecorationValues[i]) && !hasKey);
                 if (ImGui.Selectable(DecorationLabels[i], i == effectIdx))
                     draft.CardEffectStyle = DecorationValues[i];
             }

@@ -460,7 +460,7 @@ public class GambaEventsTab : IDisposable
                 DrawVenueLogo(dl, ev, cardTopRight, logoTop, logoSize);
                 DrawGameTypeBadge(dl, ev, accent, cardTopRight, pad, pad + offset - GameBadgeTopNudge * scale);
 
-                if (cardEffect == CardEffectType.None)
+                if (!CardEffectDrawer.HasCustomBorder(cardEffect))
                     DrawCardBorder(dl, p0, p0 + sz, accent, rounding);
 
                 var contentWidth = sz.X - pad * 2f;
@@ -868,14 +868,12 @@ public class GambaEventsTab : IDisposable
         dl.PushClipRect(new Vector2(-10000f, -10000f), new Vector2(100000f, 100000f), false);
         var t = ImGui.GetTime();
         if (cardEffect != CardEffectType.None)
-        {
             CardEffectDrawer.DrawFoil(dl, cardEffect, p0, p0 + sz, t);
+
+        if (CardEffectDrawer.HasCustomBorder(cardEffect))
             CardEffectDrawer.DrawBorder(dl, cardEffect, p0, p0 + sz, rounding, t);
-        }
         else
-        {
             DrawCardBorder(dl, p0, p0 + sz, accent, rounding);
-        }
         dl.PopClipRect();
         dl.ChannelsMerge();
     }

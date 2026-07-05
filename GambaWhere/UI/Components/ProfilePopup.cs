@@ -163,15 +163,13 @@ internal static class ProfilePopup
 
         var t = ImGui.GetTime();
         if (cardEffect != CardEffectType.None)
-        {
             CardEffectDrawer.DrawFill(dl, cardEffect, p0, p0 + sz, t, CardEffectHelpers.Seed(seedText));
+
+        if (CardEffectDrawer.HasCustomBorder(cardEffect))
             CardEffectDrawer.DrawBorder(dl, cardEffect, p0, p0 + sz, rounding, t);
-        }
         else
-        {
             dl.AddRect(p0, p0 + sz, ImGui.GetColorU32(new Vector4(accent.X, accent.Y, accent.Z, 0.55f)),
                 rounding, ImDrawFlags.None, 1.5f * scale);
-        }
 
         dl.PopClipRect();
         dl.ChannelsMerge();
