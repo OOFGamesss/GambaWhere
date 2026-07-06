@@ -165,7 +165,9 @@ public static class EventCardRenderer
 
     public static void DrawBreakBadge()
     {
+        var startX = ImGui.GetCursorPosX();
         ImGuiHelpers.ScaledDummy(4f);
+        ImGui.SetCursorPosX(startX);
 
         const string badgeText = "On Break";
         var textSize = ImGui.CalcTextSize(badgeText);
