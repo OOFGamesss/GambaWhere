@@ -15,11 +15,12 @@ public sealed class FindAVenueTab : IDisposable
         GambaWhereClient client,
         ImageService imageService,
         Configuration config,
+        GameStoreService gameStoreService,
         PlayerInfoService playerInfo,
         IChatGui chatGui,
         IPluginLog log)
     {
-        _board = new RecruitmentTab("venue", client, imageService, config, playerInfo, chatGui, log);
+        _board = new RecruitmentTab("venue", client, imageService, config, gameStoreService, playerInfo, chatGui, log);
     }
 
     public void Draw() => _board.Draw();

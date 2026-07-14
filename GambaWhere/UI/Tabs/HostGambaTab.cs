@@ -33,8 +33,9 @@ public class HostGambaTab
     private readonly HostFormState _form;
     private readonly ImageService _imageService;
     private readonly PartyFinderCreator _partyFinderCreator;
+    private readonly CategoryService _categoryService;
 
-    private static readonly string[] GameTypes = GameCategories.Keys;
+    private string[] GameTypes => GameCategories.Keys;
 
     private static readonly Vector4 Yellow = new(1f, 1f, 0f, 1f);
     private static readonly Vector4 SoftRed = new(1f, 0.4f, 0.4f, 1f);
@@ -45,9 +46,9 @@ public class HostGambaTab
     private const float PendingUploadHintWrap = 380f;
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
 
-    private readonly IRuleConfig[] _ruleConfigs;
+    private IRuleConfig[] _ruleConfigs;
+    private string _selectedGameKey = string.Empty;
 
-    private int _lastDrawFrame = -10;
     private volatile bool _isFetchingVenues;
 
     private string _newPresetNameBuffer = string.Empty;
@@ -77,7 +78,8 @@ public class HostGambaTab
         Configuration config,
         HostFormState form,
         ImageService imageService,
-        PartyFinderCreator partyFinderCreator)
+        PartyFinderCreator partyFinderCreator,
+        CategoryService categoryService)
     {
         _sessionService = sessionService;
         _playerInfo = playerInfo;
@@ -87,11 +89,16 @@ public class HostGambaTab
         _form = form;
         _imageService = imageService;
         _partyFinderCreator = partyFinderCreator;
+        _categoryService = categoryService;
 
         _ruleConfigs = GameCatalog.CreateRuleConfigs();
-
+        ClampSelectedGameIndex();
         _form.RuleConfig = _ruleConfigs[_form.SelectedGameIndex];
+        _selectedGameKey = GetSelectedGameType();
         LoadSelectedPreset();
+        FetchVenues();
+
+        GameCategories.Changed += OnCategoriesChanged;
     }
 
     public string GetSelectedGameType() => GameTypes[_form.SelectedGameIndex];
@@ -119,13 +126,50 @@ public class HostGambaTab
         }
     }
 
+    public void OnSelected()
+    {
+        _categoryService.RequestRefresh();
+        FetchVenues();
+    }
+
+    private void OnCategoriesChanged()
+    {
+        var previous = _selectedGameKey;
+        _ruleConfigs = GameCatalog.CreateRuleConfigs();
+        ClampSelectedGameIndex();
+
+        if (!string.IsNullOrEmpty(previous))
+        {
+            var index = Array.IndexOf(GameTypes, previous);
+            if (index >= 0)
+                _form.SelectedGameIndex = index;
+        }
+
+        _form.RuleConfig = _ruleConfigs[_form.SelectedGameIndex];
+        _selectedGameKey = GetSelectedGameType();
+        LoadSelectedPreset();
+        _config.EnsureDefaultPresets();
+    }
+
+    private void ClampSelectedGameIndex()
+    {
+        if (GameTypes.Length == 0)
+        {
+            _form.SelectedGameIndex = 0;
+            return;
+        }
+
+        if (_form.SelectedGameIndex < 0 || _form.SelectedGameIndex >= GameTypes.Length)
+            _form.SelectedGameIndex = 0;
+    }
+
+    public void Dispose()
+    {
+        GameCategories.Changed -= OnCategoriesChanged;
+    }
+
     public void Draw()
     {
-        var frame = ImGui.GetFrameCount();
-        if (frame - _lastDrawFrame > 1)
-            FetchVenues();
-        _lastDrawFrame = frame;
-
         HostFieldTheme.Primary = _config.PrimaryColour;
         HostFieldTheme.Secondary = _config.SecondaryColour;
 
@@ -422,9 +466,6 @@ public class HostGambaTab
         var venueName = _form.SelectedVenueName;
         if (VenueSearchCombo.Draw("##VenuePicker", ref venueName, _config.FavouriteVenues, () => _config.Save()))
             _form.SelectedVenueName = venueName;
-
-        if (_isFetchingVenues)
-            ImGui.TextDisabled("Fetching latest venues...");
     }
 
     private void DrawGameField()
@@ -518,6 +559,7 @@ public class HostGambaTab
     private void OnGameTypeChanged()
     {
         _form.RuleConfig = _ruleConfigs[_form.SelectedGameIndex];
+        _selectedGameKey = GetSelectedGameType();
         _form.SelectedPresetIndex = 0;
         _form.SelectedRuleSourceIndex = 0;
         LoadSelectedPreset();

@@ -30,6 +30,7 @@ public class MainWindow : Window, IDisposable
     {
         Ui,
         Chat,
+        DiscordBot,
         Discord,
         Booster,
         Other,
@@ -47,6 +48,7 @@ public class MainWindow : Window, IDisposable
     private readonly GameListTab _gameListTab;
     private readonly FindAVenueTab _findAVenueTab;
     private readonly FindAHostTab _findAHostTab;
+    private readonly DiscordBotTab _discordBotTab;
     private readonly DiscordWebhookTab _discordWebhookTab;
     private readonly SettingsTab _settingsTab;
     private readonly SupportTab _supportTab;
@@ -69,6 +71,7 @@ public class MainWindow : Window, IDisposable
         FindAHostTab findAHostTab,
         SettingsTab settingsTab,
         SupportTab supportTab,
+        DiscordBotTab discordBotTab,
         DiscordWebhookTab discordWebhookTab,
         AlertsTab alertsTab,
         Configuration config)
@@ -88,6 +91,7 @@ public class MainWindow : Window, IDisposable
         _findAHostTab = findAHostTab;
         _settingsTab = settingsTab;
         _supportTab = supportTab;
+        _discordBotTab = discordBotTab;
         _discordWebhookTab = discordWebhookTab;
         _alertsTab = alertsTab;
         _config = config;
@@ -105,6 +109,7 @@ public class MainWindow : Window, IDisposable
     {
         IsOpen = true;
         _selected = Tab.Host;
+        _hostTab.OnSelected();
     }
 
     public bool IsEventsTabSelected => IsOpen && _selected == Tab.Events;
@@ -183,7 +188,7 @@ public class MainWindow : Window, IDisposable
         ImGuiHelpers.ScaledDummy(4f);
         DrawNavItem(Tab.Events,    FontAwesomeIcon.Dice,           "Gamba Events");
         DrawNavItem(Tab.Host,      FontAwesomeIcon.HandHoldingUsd, "Host Gamba");
-        DrawNavItem(Tab.GameList,  FontAwesomeIcon.ListUl,         "Game List");
+        DrawNavItem(Tab.GameList,  FontAwesomeIcon.Store,          "Game Store");
         DrawRecruitmentNav();
 
         ImGuiHelpers.ScaledDummy(4f);
@@ -210,6 +215,10 @@ public class MainWindow : Window, IDisposable
             _recruitmentExpanded = false;
             if (tab == Tab.Events)
                 _eventsTab.RequestRefresh();
+            else if (tab == Tab.Host)
+                _hostTab.OnSelected();
+            else if (tab == Tab.GameList)
+                _gameListTab.OnSelected();
         }
     }
 
@@ -270,11 +279,12 @@ public class MainWindow : Window, IDisposable
             return;
 
         var indent = 18f * ImGuiHelpers.GlobalScale;
-        DrawSettingsSubItem(SettingsSection.Ui,      FontAwesomeIcon.Palette,     "UI",              indent);
-        DrawSettingsSubItem(SettingsSection.Chat,    FontAwesomeIcon.CommentDots, "Chat",            indent);
-        DrawSettingsSubItem(SettingsSection.Discord, FontAwesomeIcon.Comments,    "Discord Webhook", indent);
-        DrawSettingsSubItem(SettingsSection.Booster, FontAwesomeIcon.Gem,         "Booster Key",     indent);
-        DrawSettingsSubItem(SettingsSection.Other,   FontAwesomeIcon.EllipsisH,   "Other",           indent);
+        DrawSettingsSubItem(SettingsSection.Ui,         FontAwesomeIcon.Palette,     "UI",               indent);
+        DrawSettingsSubItem(SettingsSection.Chat,       FontAwesomeIcon.CommentDots, "Chat",             indent);
+        DrawSettingsSubItem(SettingsSection.DiscordBot, FontAwesomeIcon.Robot,       "Gamba Where Bot",  indent);
+        DrawSettingsSubItem(SettingsSection.Discord,    FontAwesomeIcon.Comments,    "Discord Webhook",  indent);
+        DrawSettingsSubItem(SettingsSection.Booster,    FontAwesomeIcon.Gem,         "Booster Key",      indent);
+        DrawSettingsSubItem(SettingsSection.Other,      FontAwesomeIcon.EllipsisH,   "Other",            indent);
     }
 
     private void DrawSettingsSubItem(SettingsSection section, FontAwesomeIcon icon, string label, float indent)
@@ -370,13 +380,14 @@ public class MainWindow : Window, IDisposable
     {
         switch (_settingsSection)
         {
-            case SettingsSection.Ui:      _settingsTab.DrawUiSection(); break;
-            case SettingsSection.Chat:    _settingsTab.DrawChatSection(); break;
-            case SettingsSection.Discord: _discordWebhookTab.Draw(); break;
-            case SettingsSection.Booster: _settingsTab.DrawBoosterSection(); break;
-            case SettingsSection.Other:   _settingsTab.DrawOtherSection(); break;
+            case SettingsSection.Ui:         _settingsTab.DrawUiSection(); break;
+            case SettingsSection.Chat:       _settingsTab.DrawChatSection(); break;
+            case SettingsSection.DiscordBot: _discordBotTab.Draw(); break;
+            case SettingsSection.Discord:    _discordWebhookTab.Draw(); break;
+            case SettingsSection.Booster:    _settingsTab.DrawBoosterSection(); break;
+            case SettingsSection.Other:      _settingsTab.DrawOtherSection(); break;
         }
     }
 
-    public void Dispose() { }
+    public void Dispose() => _hostTab.Dispose();
 }

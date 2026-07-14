@@ -27,7 +27,7 @@ public class ProfilesTab
     private readonly ThemedCard _card = new();
     private readonly ProfileImageCropper _cropper = new();
 
-    private static readonly string[] PreferredGameOptions = GambaEventsTab.KnownGameTypes;
+    private static string[] PreferredGameOptions => GambaEventsTab.KnownGameTypes;
 
     private static readonly string[] DecorationLabels = ["None", "[Beta] Gamba Where", "[Booster] Hearts", "[Booster] Holographic", "High Roller"];
     private static readonly string[] DecorationValues = ["none", "gwbeta", "hearts", "booster", "highroller"];

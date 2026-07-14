@@ -73,9 +73,6 @@ public sealed class DiscordWebhookTab
         DrawDiscordHeader();
         DrawSetupGuide();
 
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(6f);
-
         if (WebhookService.TabShouldWarn(_config))
         {
             using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.42f, 1f)))

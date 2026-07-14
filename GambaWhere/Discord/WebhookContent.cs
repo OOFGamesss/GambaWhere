@@ -22,14 +22,14 @@ internal static class WebhookProfile
 
 internal static class WebhookTheme
 {
-    public const string IdleBannerFile = "nogambabanner.png";
+    public const string IdleBannerFile = "nogamba.png";
     public const int IdleColour = 0x95A5A6;
 
-    public static (int Colour, string Emoji, string BannerFile) ResolveForGame(string gameType)
+    public static (int Colour, string Emoji, string BannerUrl) ResolveForGame(string gameType)
     {
         return GameCategories.Find(gameType) is { } category
-            ? (category.DiscordColour, category.Emoji, category.BannerFile)
-            : (0x8040C0, "🎲", "minigamesbanner.png");
+            ? (category.DiscordColour, category.Emoji, category.BannerUrl)
+            : (0x8040C0, "🎲", string.Empty);
     }
 
     public static string BuildTitle(string gameName, string? venueName, string emoji)
@@ -121,8 +121,12 @@ internal static partial class EmbedTextFormatter
 
 internal static class WebhookPayload
 {
-    public static DiscordOutboundPayloadDto ForIdle(string bannerFileName, bool applyWebhookProfile)
+    public static DiscordOutboundPayloadDto ForIdle(string? bannerFileName, string? bannerUrl, bool applyWebhookProfile)
     {
+        var imageUrl = !string.IsNullOrWhiteSpace(bannerFileName)
+            ? $"attachment://{bannerFileName}"
+            : bannerUrl;
+
         return new DiscordOutboundPayloadDto
         {
             Username = applyWebhookProfile ? WebhookProfile.DisplayName : null,
@@ -133,21 +137,23 @@ internal static class WebhookPayload
                 {
                     Description = null,
                     Color = WebhookTheme.IdleColour,
-                    Image = new DiscordMediaDto($"attachment://{bannerFileName}"),
+                    Image = string.IsNullOrWhiteSpace(imageUrl) ? null : new DiscordMediaDto(imageUrl!),
                     Footer = null,
                     Thumbnail = null,
                     Title = null,
                     Fields = null
                 }
             ],
-            Attachments = [new DiscordAttachmentDto { Id = 0, Filename = bannerFileName }]
+            Attachments = string.IsNullOrWhiteSpace(bannerFileName)
+                ? []
+                : [new DiscordAttachmentDto { Id = 0, Filename = bannerFileName! }]
         };
     }
 
     public static DiscordOutboundPayloadDto ForActive(
         DiscordSessionSnapshot snapshot,
-        (int Colour, string Emoji, string BannerFile) theme,
-        string bannerFileName,
+        (int Colour, string Emoji, string BannerUrl) theme,
+        string? bannerFileName,
         bool applyWebhookProfile)
     {
         var rules = snapshot.Rules != null
@@ -164,6 +170,10 @@ internal static class WebhookPayload
         if (!string.IsNullOrWhiteSpace(snapshot.DiscordUrl))
             fields.Add(new DiscordEmbedFieldDto { Name = "Discord", Value = $"<{snapshot.DiscordUrl}>", Inline = false });
 
+        var imageUrl = !string.IsNullOrWhiteSpace(bannerFileName)
+            ? $"attachment://{bannerFileName}"
+            : (!string.IsNullOrWhiteSpace(theme.BannerUrl) ? theme.BannerUrl : null);
+
         return new DiscordOutboundPayloadDto
         {
             Username = applyWebhookProfile ? WebhookProfile.DisplayName : null,
@@ -175,7 +185,7 @@ internal static class WebhookPayload
                     Title = WebhookTheme.BuildTitle(snapshot.GameType, snapshot.VenueName, theme.Emoji),
                     Color = theme.Colour,
                     Fields = fields,
-                    Image = new DiscordMediaDto($"attachment://{bannerFileName}"),
+                    Image = string.IsNullOrWhiteSpace(imageUrl) ? null : new DiscordMediaDto(imageUrl!),
                     Footer = new DiscordFooterDto
                     {
                         Text = WebhookProfile.ActiveEmbedFooterText,
@@ -187,7 +197,9 @@ internal static class WebhookPayload
                     Description = null
                 }
             ],
-            Attachments = [new DiscordAttachmentDto { Id = 0, Filename = bannerFileName }]
+            Attachments = string.IsNullOrWhiteSpace(bannerFileName)
+                ? []
+                : [new DiscordAttachmentDto { Id = 0, Filename = bannerFileName! }]
         };
     }
 }

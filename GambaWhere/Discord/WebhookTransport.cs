@@ -20,8 +20,8 @@ internal static class WebhookTransport
         IPluginLog log,
         DiscordWebhookEntry entry,
         byte[] payloadJson,
-        byte[] bannerBytes,
-        string bannerFileName,
+        byte[]? bannerBytes,
+        string? bannerFileName,
         int maxRetries,
         CancellationToken cancellationToken)
     {
@@ -45,9 +45,12 @@ internal static class WebhookTransport
             jsonContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             multipart.Add(jsonContent, "payload_json");
 
-            var fileContent = new ByteArrayContent(bannerBytes);
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-            multipart.Add(fileContent, "files[0]", bannerFileName);
+            if (bannerBytes is { Length: > 0 } && !string.IsNullOrWhiteSpace(bannerFileName))
+            {
+                var fileContent = new ByteArrayContent(bannerBytes);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                multipart.Add(fileContent, "files[0]", bannerFileName);
+            }
 
             using var request = new HttpRequestMessage(
                 createsNewMessage ? HttpMethod.Post : HttpMethod.Patch, uri) { Content = multipart };

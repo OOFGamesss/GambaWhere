@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse live gambling events across Eorzea, filter by game or data centre, and teleport straight there with Lifestream. Host your own session with game-specific rules, presets, and host profiles with automatic location updates, Discord webhooks, minimap host icons, and Party Finder shortcuts. Find or advertise for venues and hosts on the Recruitment board, and set custom alerts to be notified when a new event matches your preferences.",
-  "Changelog": "- Fixed break pill being misaligned on event cards.",
+  "Changelog": "- Game list is now a store for hosts to find new plugins and more information about them.\n- Please contact me if you are a developer and want to add your plugin to the store!\n- Locations now include co-ords (X/Y)in wards and houses when available.\n- New discord bot tab under settings showing a setup guide and invite link to add the Gamba Where bot to your server.",
   "Tags": [
     "gambling",
     "events",

@@ -14,7 +14,6 @@ using Dalamud.Plugin.Services;
 using GambaWhere.API;
 using GambaWhere.Models;
 using GambaWhere.Config;
-using GambaWhere.Games;
 using GambaWhere.Services;
 using GambaWhere.UI.CardEffects;
 using GambaWhere.UI.Components;
@@ -41,12 +40,6 @@ internal sealed class RecruitmentTab : IDisposable
     internal static readonly string[] DaysOfWeek =
         { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
 
-    private static readonly string[] CompanionPlugins =
-        new[] { "None" }
-            .Concat(GameCatalog.Games.Select(g => g.CompanionPlugin))
-            .Append("Other Plugins")
-            .ToArray();
-
     private static readonly string[] NsfwOptions = { "SFW", "NSFW", "Both" };
     private static readonly string[] BankFilterOptions = { "Bank: Any", "Bank: Yes", "Bank: No" };
 
@@ -55,6 +48,7 @@ internal sealed class RecruitmentTab : IDisposable
     private readonly GambaWhereClient _client;
     private readonly ImageService _imageService;
     private readonly Configuration _config;
+    private readonly GameStoreService _gameStoreService;
     private readonly PlayerInfoService _playerInfo;
     private readonly IChatGui _chatGui;
     private readonly IPluginLog _log;
@@ -105,6 +99,7 @@ internal sealed class RecruitmentTab : IDisposable
         GambaWhereClient client,
         ImageService imageService,
         Configuration config,
+        GameStoreService gameStoreService,
         PlayerInfoService playerInfo,
         IChatGui chatGui,
         IPluginLog log)
@@ -114,6 +109,7 @@ internal sealed class RecruitmentTab : IDisposable
         _client = client;
         _imageService = imageService;
         _config = config;
+        _gameStoreService = gameStoreService;
         _playerInfo = playerInfo;
         _chatGui = chatGui;
         _log = log;
@@ -1124,13 +1120,22 @@ internal sealed class RecruitmentTab : IDisposable
         if (!combo)
             return;
 
-        foreach (var plugin in CompanionPlugins)
+        foreach (var plugin in CompanionPluginOptions())
         {
             var isSelected = _formCompanionPlugins.Contains(plugin);
             if (ImGui.Selectable(plugin, isSelected, ImGuiSelectableFlags.DontClosePopups))
                 ToggleCompanionPlugin(plugin, isSelected);
         }
     }
+
+    private IEnumerable<string> CompanionPluginOptions() =>
+        new[] { "None" }
+            .Concat(_gameStoreService.Games
+                .Select(g => g.Name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+            .Append("Other Plugins");
 
     private void ToggleCompanionPlugin(string plugin, bool wasSelected)
     {

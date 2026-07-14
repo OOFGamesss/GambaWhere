@@ -1,13 +1,16 @@
 using System;
+using System.Globalization;
 using System.Numerics;
 using Dalamud.Game;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
 
+/// <summary>
+/// Reads the local player's identity and location, and resolves map coordinates and the nearest aetheryte.
+/// </summary>
 namespace GambaWhere.Services;
 
-/// <summary>Reads the local player's character and location details from the game, and finds the nearest aetheryte to a point.</summary>
 public class PlayerInfoService
 {
     private readonly IClientState _clientState;
@@ -69,11 +72,7 @@ public class PlayerInfoService
                 return district;
         }
 
-        var english = _dataManager.GetExcelSheet<PlaceName>(ClientLanguage.English);
-        if (english != null && english.TryGetRow(territory.PlaceName.RowId, out var englishPlace))
-            return FormatPlaceAreaName(englishPlace.Name.ToString());
-
-        return FormatPlaceAreaName(territory.PlaceName.Value.Name.ToString());
+        return ResolvePlaceAreaName(territory);
     }
 
     public unsafe int GetCurrentWard()
@@ -97,24 +96,14 @@ public class PlayerInfoService
     }
 
     public float GetCurrentX()
-    {
-        var player = _objectTable.LocalPlayer;
-        if (player == null)
-            return 0f;
-
-        var map = CurrentMap();
-        return RawToMapCoord(player.Position.X, map.SizeFactor, map.OffsetX);
-    }
+        => TryGetPlayerMap(out var position, out var map)
+            ? RawToMapCoord(position.X, map.SizeFactor, map.OffsetX)
+            : 0f;
 
     public float GetCurrentY()
-    {
-        var player = _objectTable.LocalPlayer;
-        if (player == null)
-            return 0f;
-
-        var map = CurrentMap();
-        return RawToMapCoord(player.Position.Z, map.SizeFactor, map.OffsetY);
-    }
+        => TryGetPlayerMap(out var position, out var map)
+            ? RawToMapCoord(position.Z, map.SizeFactor, map.OffsetY)
+            : 0f;
 
     public string? GetCharacterName()
     {
@@ -131,16 +120,20 @@ public class PlayerInfoService
         if (dataCentre == null || world == null || area == null)
             return null;
 
+        var location = $"{dataCentre} • {world} • {area}";
+
         var ward = GetCurrentWard();
         if (ward > 0)
         {
+            location += $" • Ward {ward}";
             var plot = GetCurrentPlot();
-            return plot > 0
-                ? $"{dataCentre} • {world} • {area} • Ward {ward} • Plot {plot}"
-                : $"{dataCentre} • {world} • {area} • Ward {ward}";
+            if (plot > 0)
+                location += $" • Plot {plot}";
         }
 
-        return $"{dataCentre} • {world} • {area} • X: {GetCurrentX():F1}, Y: {GetCurrentY():F1}";
+        location += $" • X: {FormatMapCoord(GetCurrentX())}, Y: {FormatMapCoord(GetCurrentY())}";
+
+        return location;
     }
 
     public Vector3? GetWorldPosition() => _objectTable.LocalPlayer?.Position;
@@ -149,28 +142,7 @@ public class PlayerInfoService
 
     public string? GetClosestAetheryte(string area, float mapX, float mapY)
     {
-        area = area.Trim();
-        if (area.Length == 0)
-            return null;
-
-        Map zoneMap = default;
-
-        foreach (var territory in _dataManager.GetExcelSheet<TerritoryType>())
-        {
-            if (territory.RowId == 0 || !territory.PlaceName.IsValid)
-                continue;
-
-            if (!FormatPlaceAreaName(territory.PlaceName.Value.Name.ToString())
-                    .Equals(area, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (territory.Map.IsValid)
-                zoneMap = territory.Map.Value;
-
-            break;
-        }
-
-        if (zoneMap.RowId == 0)
+        if (!TryResolveZoneMap(area, out var zoneMap))
             return null;
 
         if (!_dataManager.GetSubrowExcelSheet<MapMarker>().TryGetRow(zoneMap.MapMarkerRange, out var markers))
@@ -204,13 +176,34 @@ public class PlayerInfoService
         return string.IsNullOrEmpty(closest) ? null : closest;
     }
 
-    private static float MarkerToMapCoord(int markerRaw, ushort sizeFactor)
-        => (markerRaw / 2048f) * (4100f / sizeFactor) + 1f;
+    private bool TryGetPlayerMap(out Vector3 position, out Map map)
+    {
+        var player = _objectTable.LocalPlayer;
+        if (player == null)
+        {
+            position = default;
+            map = default;
+            return false;
+        }
+
+        position = player.Position;
+        map = CurrentMap();
+        return true;
+    }
+
+    private string? ResolvePlaceAreaName(TerritoryType territory)
+    {
+        var english = _dataManager.GetExcelSheet<PlaceName>(ClientLanguage.English);
+        var raw = english != null && english.TryGetRow(territory.PlaceName.RowId, out var englishPlace)
+            ? englishPlace.Name.ToString()
+            : territory.PlaceName.Value.Name.ToString();
+
+        return string.IsNullOrWhiteSpace(raw) ? null : FormatPlaceAreaName(raw);
+    }
 
     private unsafe string? ResolveHousingDistrictAreaName()
     {
         var territoryTypeId = HousingManager.GetOriginalHouseTerritoryTypeId();
-
         if (territoryTypeId == 0)
         {
             var housing = HousingManager.Instance();
@@ -221,18 +214,35 @@ public class PlayerInfoService
         if (territoryTypeId == 0)
             return null;
 
-        if (!_dataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryTypeId, out var wardTerritory))
-            return null;
+        return _dataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryTypeId, out var wardTerritory)
+            ? ResolvePlaceAreaName(wardTerritory)
+            : null;
+    }
 
-        var english = _dataManager.GetExcelSheet<PlaceName>(ClientLanguage.English);
-        if (english != null && english.TryGetRow(wardTerritory.PlaceName.RowId, out var englishPlace))
+    private bool TryResolveZoneMap(string area, out Map zoneMap)
+    {
+        zoneMap = default;
+
+        area = area.Trim();
+        if (area.Length == 0)
+            return false;
+
+        foreach (var territory in _dataManager.GetExcelSheet<TerritoryType>())
         {
-            var raw = englishPlace.Name.ToString();
-            return string.IsNullOrWhiteSpace(raw) ? null : FormatPlaceAreaName(raw);
+            if (territory.RowId == 0 || !territory.PlaceName.IsValid)
+                continue;
+
+            if (!FormatPlaceAreaName(territory.PlaceName.Value.Name.ToString())
+                    .Equals(area, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (territory.Map.IsValid)
+                zoneMap = territory.Map.Value;
+
+            break;
         }
 
-        var name = wardTerritory.PlaceName.Value.Name.ToString();
-        return string.IsNullOrWhiteSpace(name) ? null : FormatPlaceAreaName(name);
+        return zoneMap.RowId != 0;
     }
 
     private Map CurrentMap()
@@ -252,8 +262,12 @@ public class PlayerInfoService
         return dashIndex >= 0 ? rawArea[(dashIndex + 3)..] : rawArea;
     }
 
+    private static string FormatMapCoord(float value)
+        => value.ToString("F1", CultureInfo.InvariantCulture);
+
+    private static float MarkerToMapCoord(int markerRaw, ushort sizeFactor)
+        => (markerRaw / 2048f) * (4100f / sizeFactor) + 1f;
+
     private static float RawToMapCoord(float rawPos, ushort sizeFactor, short offset)
-    {
-        return MathF.Round((0.02f * offset) + (2048f / sizeFactor) + (0.02f * rawPos) + 1.0f, 1);
-    }
+        => MathF.Round((0.02f * offset) + (2048f / sizeFactor) + (0.02f * rawPos) + 1.0f, 1);
 }

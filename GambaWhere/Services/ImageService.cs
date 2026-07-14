@@ -14,6 +14,7 @@ using GambaWhere.Utility;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace GambaWhere.Services;
@@ -62,13 +63,17 @@ public sealed class ImageService : IDisposable
             pluginInterface.AssemblyLocation.DirectoryName ?? pluginInterface.AssemblyLocation.FullName, "Images");
     }
 
-    public IDalamudTextureWrap? GetFromUrl(string url)
+    public IDalamudTextureWrap? GetFromUrl(string url) => GetFromUrlCore(url, ".img", trim: false);
+
+    public IDalamudTextureWrap? GetFromUrlTrimmed(string url) => GetFromUrlCore(url, ".trim.img", trim: true);
+
+    private IDalamudTextureWrap? GetFromUrlCore(string url, string suffix, bool trim)
     {
         if (string.IsNullOrWhiteSpace(url))
             return null;
 
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(url)));
-        var filePath = Path.Combine(_cacheDir, hash + ".img");
+        var filePath = Path.Combine(_cacheDir, hash + suffix);
         if (File.Exists(filePath))
             return Load(filePath);
 
@@ -90,6 +95,8 @@ public sealed class ImageService : IDisposable
                 var bytes = await _http.GetByteArrayAsync(url, ct);
                 if (IsImage(bytes))
                 {
+                    if (trim)
+                        bytes = TrimTransparentBorder(bytes);
                     await File.WriteAllBytesAsync(filePath, bytes, ct);
                     saved = true;
                 }
@@ -115,6 +122,52 @@ public sealed class ImageService : IDisposable
         }, ct);
 
         return null;
+    }
+
+    private byte[] TrimTransparentBorder(byte[] bytes)
+    {
+        try
+        {
+            using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
+
+            var minX = image.Width;
+            var minY = image.Height;
+            var maxX = -1;
+            var maxY = -1;
+
+            image.ProcessPixelRows(accessor =>
+            {
+                for (var y = 0; y < accessor.Height; y++)
+                {
+                    var row = accessor.GetRowSpan(y);
+                    for (var x = 0; x < row.Length; x++)
+                    {
+                        if (row[x].A <= 8)
+                            continue;
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            });
+
+            var untrimmable = maxX < 0
+                || (minX == 0 && minY == 0 && maxX == image.Width - 1 && maxY == image.Height - 1);
+            if (untrimmable)
+                return bytes;
+
+            image.Mutate(ctx => ctx.Crop(new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1)));
+
+            using var ms = new MemoryStream();
+            image.Save(ms, new PngEncoder());
+            return ms.ToArray();
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Failed to trim transparent border, using original image.");
+            return bytes;
+        }
     }
 
     public IDalamudTextureWrap? GetBundled(string fileName)

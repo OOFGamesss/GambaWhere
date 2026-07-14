@@ -1,6 +1,7 @@
 using Dalamud.Configuration;
 using GambaWhere.Alerting;
 using GambaWhere.Games;
+using GambaWhere.Models;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -60,6 +61,12 @@ public class Configuration : IPluginConfiguration
     public string? SelectedProfileId { get; set; }
 
     public List<RecruitmentPostToken> RecruitmentPosts { get; set; } = new();
+
+    public List<GameStoreGame> CachedStoreGames { get; set; } = new();
+    public DateTime? StoreGamesUpdatedAt { get; set; }
+
+    public List<GameTypeDto> CachedGameTypes { get; set; } = new();
+    public DateTime? CategoriesUpdatedAt { get; set; }
 
     public bool ShowNsfwRecruitment { get; set; }
 

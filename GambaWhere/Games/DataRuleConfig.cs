@@ -191,12 +191,55 @@ public sealed class DataRuleConfig : IRuleConfig
 
     private static object InitialValue(RuleField field) => field.Kind switch
     {
-        RuleKind.Money or RuleKind.Int => Convert.ToInt32(field.Default ?? 0),
-        RuleKind.Float => Convert.ToSingle(field.Default ?? 0f),
-        RuleKind.Toggle => Convert.ToBoolean(field.Default ?? false),
-        RuleKind.Text or RuleKind.Combo => field.Default as string ?? string.Empty,
-        RuleKind.ItemSearch => Convert.ToUInt32(field.Default ?? 0u),
+        RuleKind.Money or RuleKind.Int => ToInt32(field.Default),
+        RuleKind.Float => ToSingle(field.Default),
+        RuleKind.Toggle => ToBoolean(field.Default),
+        RuleKind.Text or RuleKind.Combo => field.Default as string
+            ?? field.Default?.ToString()
+            ?? string.Empty,
+        RuleKind.ItemSearch => (uint)ToInt32(field.Default),
         _ => field.Default ?? 0
+    };
+
+    private static int ToInt32(object? value) => value switch
+    {
+        null => 0,
+        int i => i,
+        long l => (int)l,
+        uint u => (int)u,
+        float f => (int)f,
+        double d => (int)d,
+        decimal m => (int)m,
+        string s when int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) => n,
+        JsonElement el when el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var n) => n,
+        JsonElement el when el.ValueKind == JsonValueKind.String
+            && int.TryParse(el.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) => n,
+        _ => 0
+    };
+
+    private static float ToSingle(object? value) => value switch
+    {
+        null => 0f,
+        float f => f,
+        double d => (float)d,
+        decimal m => (float)m,
+        int i => i,
+        long l => l,
+        string s when float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var f) => f,
+        JsonElement el when el.ValueKind == JsonValueKind.Number && el.TryGetSingle(out var f) => f,
+        _ => 0f
+    };
+
+    private static bool ToBoolean(object? value) => value switch
+    {
+        null => false,
+        bool b => b,
+        int i => i != 0,
+        long l => l != 0,
+        string s => bool.TryParse(s, out var b) && b,
+        JsonElement el when el.ValueKind == JsonValueKind.True => true,
+        JsonElement el when el.ValueKind == JsonValueKind.False => false,
+        _ => false
     };
 
     private static int ClampInt(RuleField field, int value)

@@ -70,7 +70,7 @@ public class SupportTab
         DrawFaqSection(
             "##faq_discord_bot",
             "Is there a Discord bot for this?",
-            "Yes. An accompanying Discord bot is available. You can use your venue image, set a nickname of your choice, and filter which events appear in your server using a configurable list of host names.\nJoin the Discord linked below and get in touch for further details.");
+            "Yes. Open Settings → Gamba Where Bot for the invite link, setup guide, and command reference. You can brand the tracker with your venue image and nickname, and filter events by dealer or venue name.");
 
         DrawFaqSection(
             "##faq_bug",

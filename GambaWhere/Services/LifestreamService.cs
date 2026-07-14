@@ -8,15 +8,20 @@ using Dalamud.Plugin.Ipc;
 using Dalamud.Plugin.Services;
 using GambaWhere.Models;
 
+/// <summary>
+/// Teleports to an event's venue via Lifestream's /li command, using the residential address when available
+/// and otherwise the nearest aetheryte to the listing's open-world coordinates.
+/// </summary>
+
 namespace GambaWhere.Services;
 
-/// <summary>Teleports the player to an event's venue by handing its location string to Lifestream's /li command, swapping open-world coordinates for the nearest aetheryte.</summary>
 public sealed partial class LifestreamService
 {
     public const uint LinkId = 1;
 
     private const string LifestreamPlugin = "Lifestream";
     private const string ErrorPrefix = "[GambaWhere Teleport]";
+    private const string LocationSeparator = " • ";
 
     private const string LifestreamMissing =
         "Install NightmareXIV Lifestream, enable it on this character, reload plugins, then try again.";
@@ -90,7 +95,7 @@ public sealed partial class LifestreamService
         return false;
     }
 
-    private static bool TryBuildResidentialCode(EventResponse listing, out string code)
+    private bool TryBuildResidentialCode(EventResponse listing, out string code)
     {
         code = string.Empty;
 
@@ -98,18 +103,55 @@ public sealed partial class LifestreamService
             || ward <= 0)
             return false;
 
-        var parts = new List<string> { world };
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(world) && !IsSameWorld(world))
+            parts.Add(world);
         if (!string.IsNullOrWhiteSpace(district))
             parts.Add(district);
 
         parts.Add($"W{ward}");
-        if (plot > 0)
-            parts.Add(isApartment ? $"A{plot}" : $"P{plot}");
-        else
-            parts.Add("P0");
+        parts.Add(plot > 0 ? (isApartment ? $"A{plot}" : $"P{plot}") : "P0");
 
         code = string.Join(" ", parts);
         return true;
+    }
+
+    private bool TryBuildAetheryte(EventResponse listing, out string destination, out string error)
+    {
+        destination = string.Empty;
+        error = string.Empty;
+
+        if (!TrySplitLocation(listing.Location, out var segments)
+            || !TryFindMapCoords(segments, out var index, out var mapX, out var mapY))
+            return false;
+
+        var area = index > 0 ? segments[index - 1] : string.Empty;
+        var aetheryte = _playerInfo.GetClosestAetheryte(area, mapX, mapY);
+        if (string.IsNullOrEmpty(aetheryte))
+        {
+            error = NoAetheryte;
+            return false;
+        }
+
+        var world = !string.IsNullOrWhiteSpace(listing.World) ? listing.World!
+            : index > 1 ? segments[index - 2] : string.Empty;
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(world) && !IsSameWorld(world))
+            parts.Add(world);
+        if (!string.IsNullOrWhiteSpace(area) && !area.Equals(aetheryte, StringComparison.OrdinalIgnoreCase))
+            parts.Add(area);
+        parts.Add(aetheryte);
+
+        destination = string.Join(", ", parts);
+        return true;
+    }
+
+    private bool IsSameWorld(string world)
+    {
+        var current = _playerInfo.GetCurrentWorld();
+        return !string.IsNullOrWhiteSpace(current)
+            && current.Equals(world, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryResolveAddress(
@@ -129,10 +171,8 @@ public sealed partial class LifestreamService
 
     private static bool TryParseLocation(string location, ref string world, ref string district, ref int ward, ref int plot)
     {
-        if (string.IsNullOrWhiteSpace(location))
+        if (!TrySplitLocation(location, out var segments))
             return false;
-
-        var segments = location.Split(" • ", StringSplitOptions.TrimEntries);
 
         foreach (var segment in segments)
         {
@@ -155,53 +195,33 @@ public sealed partial class LifestreamService
 
         return ward > 0 && !string.IsNullOrWhiteSpace(world);
     }
-    
-    private bool TryBuildAetheryte(EventResponse listing, out string destination, out string error)
+
+    private static bool TrySplitLocation(string? location, out string[] segments)
     {
-        destination = string.Empty;
-        error = string.Empty;
-
-        var location = listing.Location;
         if (string.IsNullOrWhiteSpace(location))
-            return false;
-
-        var segments = location.Split(" • ", StringSplitOptions.TrimEntries);
-
-        for (var i = 0; i < segments.Length; i++)
         {
-            var match = RxMapCoords().Match(segments[i]);
-            if (!match.Success)
-                continue;
-
-            if (!float.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var x)
-                || !float.TryParse(match.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
-            {
-                error = NoLocation;
-                return false;
-            }
-
-            var area = i > 0 ? segments[i - 1] : string.Empty;
-            var aetheryte = _playerInfo.GetClosestAetheryte(area, x, y);
-            if (string.IsNullOrEmpty(aetheryte))
-            {
-                error = NoAetheryte;
-                return false;
-            }
-
-            var world = !string.IsNullOrWhiteSpace(listing.World) ? listing.World!
-                : i > 1 ? segments[i - 2] : string.Empty;
-
-            var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(world))
-                parts.Add(world);
-            if (!string.IsNullOrWhiteSpace(area) && !area.Equals(aetheryte, StringComparison.OrdinalIgnoreCase))
-                parts.Add(area);
-            parts.Add(aetheryte);
-
-            destination = string.Join(", ", parts);
-            return true;
+            segments = Array.Empty<string>();
+            return false;
         }
 
+        segments = location.Split(LocationSeparator, StringSplitOptions.TrimEntries);
+        return true;
+    }
+
+    private static bool TryFindMapCoords(string[] segments, out int index, out float mapX, out float mapY)
+    {
+        for (index = 0; index < segments.Length; index++)
+        {
+            var match = RxMapCoords().Match(segments[index]);
+            if (match.Success
+                && float.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out mapX)
+                && float.TryParse(match.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out mapY))
+                return true;
+        }
+
+        index = -1;
+        mapX = 0f;
+        mapY = 0f;
         return false;
     }
 

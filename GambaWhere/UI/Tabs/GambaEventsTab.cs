@@ -57,7 +57,7 @@ public class GambaEventsTab : IDisposable
     private readonly HashSet<string> _selectedDataCentres = new();
     private readonly CancellationTokenSource _cts = new();
 
-    public static readonly string[] KnownGameTypes = GameCategories.Keys;
+    public static string[] KnownGameTypes => GameCategories.Keys;
 
     public static readonly string[] KnownDataCentres =
     {

@@ -54,6 +54,8 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly SessionState _sessionState;
 
     private readonly GambaWhereClient _client;
+    private readonly GameStoreService _gameStoreService;
+    private readonly CategoryService _categoryService;
     private readonly PlayerInfoService _playerInfo;
     private readonly SessionService _sessionService;
     private readonly WebhookService _discordWebhook;
@@ -76,6 +78,8 @@ public sealed class GambaWhere : IDalamudPlugin
 
         _client = new GambaWhereClient(Log);
         _imageService = new ImageService(PluginInterface, Log);
+        _categoryService = new CategoryService(_client, Configuration, Framework, Log);
+        _gameStoreService = new GameStoreService(_client, Configuration, Framework, Log);
 
         _playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager);
         _sessionState = new SessionState();
@@ -96,21 +100,22 @@ public sealed class GambaWhere : IDalamudPlugin
         _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop, Condition);
         _eventsTab = new GambaEventsTab(_client, _imageService, eventTeleport, Configuration, _playerInfo, _partyFinderLocator, Log);
 
-        var hostTab = new HostGambaTab(_sessionService, _playerInfo, _client, _sessionState, Configuration, hostFormState, _imageService, _partyFinderCreator);
-        var gameListTab = new GameListTab(_imageService, Configuration);
+        var hostTab = new HostGambaTab(_sessionService, _playerInfo, _client, _sessionState, Configuration, hostFormState, _imageService, _partyFinderCreator, _categoryService);
+        var gameListTab = new GameListTab(_imageService, Configuration, _gameStoreService);
         var profilesTab = new ProfilesTab(Configuration, _imageService, _playerInfo);
-        _findAVenueTab = new FindAVenueTab(_client, _imageService, Configuration, _playerInfo, ChatGui, Log);
-        _findAHostTab = new FindAHostTab(_client, _imageService, Configuration, _playerInfo, ChatGui, Log);
+        _findAVenueTab = new FindAVenueTab(_client, _imageService, Configuration, _gameStoreService, _playerInfo, ChatGui, Log);
+        _findAHostTab = new FindAHostTab(_client, _imageService, Configuration, _gameStoreService, _playerInfo, ChatGui, Log);
 
         _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
 
         var settingsTab = new SettingsTab(Configuration, _imageService, Log, _pillOverlay);
         var supportTab = new SupportTab(_imageService, Configuration);
+        var discordBotTab = new DiscordBotTab(Configuration, _imageService);
         var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageService, Log);
         var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =
-            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _findAVenueTab, _findAHostTab, settingsTab, supportTab, discordTab, alertsTab, Configuration);
+            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _findAVenueTab, _findAHostTab, settingsTab, supportTab, discordBotTab, discordTab, alertsTab, Configuration);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_pillOverlay);
 
@@ -195,6 +200,8 @@ public sealed class GambaWhere : IDalamudPlugin
 
         _sessionService.Dispose();
         _discordWebhook.Dispose();
+        _gameStoreService.Dispose();
+        _categoryService.Dispose();
         _client.Dispose();
         _imageService.Dispose();
 

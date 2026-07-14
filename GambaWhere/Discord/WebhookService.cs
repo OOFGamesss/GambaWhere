@@ -196,19 +196,33 @@ public sealed class WebhookService : IDisposable
                 var theme = WebhookTheme.ResolveForGame(snapshot.GameType);
 
                 var customPath = _imageService.GetBannerPath(_config.CustomActiveBannerFileName);
-                var loaded = customPath != null
-                    ? LoadBannerFromPath(customPath) ?? LoadBanner(theme.BannerFile)
-                    : LoadBanner(theme.BannerFile);
+                var loaded = customPath != null ? LoadBannerFromPath(customPath) : null;
 
-                if (!loaded.HasValue)
+                if (loaded.HasValue)
                 {
-                    entry.PostFailed = true;
-                    return;
+                    bannerBytes = loaded.Value.bytes;
+                    bannerFileName = loaded.Value.fileName;
+                    payloadJson = Serialize(WebhookPayload.ForActive(snapshot, theme, bannerFileName, isFirstPost));
                 }
+                else if (!string.IsNullOrWhiteSpace(theme.BannerUrl))
+                {
+                    bannerBytes = Array.Empty<byte>();
+                    bannerFileName = string.Empty;
+                    payloadJson = Serialize(WebhookPayload.ForActive(snapshot, theme, null, isFirstPost));
+                }
+                else
+                {
+                    loaded = LoadBanner("minigamesbanner.png");
+                    if (!loaded.HasValue)
+                    {
+                        entry.PostFailed = true;
+                        return;
+                    }
 
-                bannerBytes = loaded.Value.bytes;
-                bannerFileName = loaded.Value.fileName;
-                payloadJson = Serialize(WebhookPayload.ForActive(snapshot, theme, bannerFileName, isFirstPost));
+                    bannerBytes = loaded.Value.bytes;
+                    bannerFileName = loaded.Value.fileName;
+                    payloadJson = Serialize(WebhookPayload.ForActive(snapshot, theme, bannerFileName, isFirstPost));
+                }
             }
             else
             {
@@ -225,14 +239,17 @@ public sealed class WebhookService : IDisposable
 
                 bannerBytes = loaded.Value.bytes;
                 bannerFileName = loaded.Value.fileName;
-                payloadJson = Serialize(WebhookPayload.ForIdle(bannerFileName, isFirstPost));
+                payloadJson = Serialize(WebhookPayload.ForIdle(bannerFileName, null, isFirstPost));
             }
 
             HttpResponseMessage? response = null;
             try
             {
                 response = await WebhookTransport.SendAsync(
-                    _http, _log, entry, payloadJson, bannerBytes, bannerFileName, MaxRetries, cancellationToken);
+                    _http, _log, entry, payloadJson,
+                    bannerBytes.Length > 0 ? bannerBytes : null,
+                    string.IsNullOrWhiteSpace(bannerFileName) ? null : bannerFileName,
+                    MaxRetries, cancellationToken);
 
                 if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NoContent)
                 {
