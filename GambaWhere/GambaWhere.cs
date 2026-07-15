@@ -111,11 +111,12 @@ public sealed class GambaWhere : IDalamudPlugin
         var settingsTab = new SettingsTab(Configuration, _imageService, Log, _pillOverlay);
         var supportTab = new SupportTab(_imageService, Configuration);
         var discordBotTab = new DiscordBotTab(Configuration, _imageService);
+        var addVenueTab = new AddVenueTab(Configuration, _imageService);
         var discordTab = new DiscordWebhookTab(Configuration, _discordWebhook, _imageService, Log);
         var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =
-            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _findAVenueTab, _findAHostTab, settingsTab, supportTab, discordBotTab, discordTab, alertsTab, Configuration);
+            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _findAVenueTab, _findAHostTab, settingsTab, supportTab, discordBotTab, addVenueTab, discordTab, alertsTab, Configuration);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_pillOverlay);
 

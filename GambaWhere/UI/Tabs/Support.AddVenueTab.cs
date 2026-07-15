@@ -5,34 +5,35 @@ using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using GambaWhere.Config;
+using GambaWhere.Services;
 using GambaWhere.UI.Components;
 using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
-/// <summary>Booster Key settings sub-tab: Discord join link, claim guide, and key entry.</summary>
-public partial class SettingsTab
+/// <summary>Support tab with the OOF Games Discord join link and a guide for adding venues via #add_venue.</summary>
+public sealed class AddVenueTab
 {
     private const float DiscordLogoMaxWidth = 98f;
-    private const int BoosterKeyBufferLength = 256;
+
     private const string OofGamesDiscordUrl = "https://discord.gg/vM6ff4h5Ym";
 
-    private string _boosterKeyDraft = string.Empty;
-    private bool _boosterDraftLoaded;
+    private readonly Configuration _config;
+    private readonly ImageService _imageService;
 
-    public void DrawBoosterSection()
+    public AddVenueTab(Configuration config, ImageService imageService)
     {
-        if (!_boosterDraftLoaded)
-        {
-            _boosterKeyDraft = _config.BoosterKey ?? string.Empty;
-            _boosterDraftLoaded = true;
-        }
+        _config = config;
+        _imageService = imageService;
+    }
 
+    public void Draw()
+    {
         DrawDiscordHeader();
         DrawJoinSection();
         DrawSetupGuide();
-        DrawBoosterCommands();
-        DrawBoosterKeyEntry();
+        DrawVenueCommands();
     }
 
     private void DrawDiscordHeader()
@@ -79,7 +80,7 @@ public partial class SettingsTab
         {
             using (UIHelper.PushGreenButtonColours())
             {
-                if (UIHelper.IconTextButton(FontAwesomeIcon.Comments, "Join Discord", new Vector2(joinW, btnH), "##BoosterJoinDiscord"))
+                if (UIHelper.IconTextButton(FontAwesomeIcon.Comments, "Join Discord", new Vector2(joinW, btnH), "##JoinDiscord"))
                     OpenBrowser.TryOpen(OofGamesDiscordUrl);
             }
 
@@ -92,7 +93,7 @@ public partial class SettingsTab
 
             ImGui.SameLine(0f, spacing);
 
-            if (ImGuiComponents.IconButton("##BoosterCopyDiscordInvite", FontAwesomeIcon.Copy))
+            if (ImGuiComponents.IconButton("##CopyDiscordInvite", FontAwesomeIcon.Copy))
                 ImGui.SetClipboardText(OofGamesDiscordUrl.Trim());
 
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -104,7 +105,7 @@ public partial class SettingsTab
         }
     }
 
-    private void DrawBoosterSectionHeader(string label)
+    private void DrawSectionHeader(string label)
     {
         using (ImRaii.PushColor(ImGuiCol.Text, _config.SecondaryColour))
             ImGui.TextUnformatted(label);
@@ -117,14 +118,13 @@ public partial class SettingsTab
 
     private void DrawJoinSection()
     {
-        DrawBoosterSectionHeader("Join Discord");
+        DrawSectionHeader("Join Discord");
 
         using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 1f)))
         {
             ImGui.TextWrapped(
-                "Boost the OOF Games Discord server to unlock booster borders and card effects for your events "
-                    + "(including holographic foil and Hearts). Join the server, boost it, then claim your personal "
-                    + "key in the booster channel.");
+                "Venue submissions are handled in the OOF Games Discord. Join the server, then open #add_venue "
+                    + "under the Support category to add, edit, or delete venues on Gamba Where.");
         }
 
         ImGuiHelpers.ScaledDummy(8f);
@@ -132,87 +132,44 @@ public partial class SettingsTab
 
     private void DrawSetupGuide()
     {
-        DrawBoosterSectionHeader("Booster Key Guide");
+        DrawSectionHeader("Adding Venue Guide");
 
-        GuideBullet("Join the OOF Games Discord and boost the server.");
+        GuideBullet("In Discord, open #add_venue under the Support category.");
 
-        GuideBullet("Open the booster channel and run /booster.");
+        GuideBullet("Use /myvenues to see venues you have submitted.");
 
-        GuideBullet("The bot replies with your personal booster key (only you can see it).");
+        GuideBullet("Choose Add venue to submit a new venue, or Edit venue to change one you already submitted.");
 
-        GuideBullet("Paste that key into the box below. It is sent with your events automatically.");
+        GuideBullet("For both Add and Edit you then pick how to enter the details:");
 
-        GuideBullet("In Profiles, choose from the booster borders and card effects once your key is saved.");
+        GuideSubBullet("Partake URL - use this if you have a Partake link for the venue.");
+
+        GuideSubBullet(
+            "Manual - use this if you have the venue name, Discord URL (optional), and image at hand.");
+
+        GuideBullet(
+            "Choose Delete venue to remove any venues you have submitted that you no longer want on Gamba Where.");
 
         ImGuiHelpers.ScaledDummy(8f);
     }
 
-    private void DrawBoosterCommands()
+    private void DrawVenueCommands()
     {
-        DrawBoosterSectionHeader("Discord commands");
+        DrawSectionHeader("Discord commands");
 
         using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 1f)))
         {
             ImGui.TextWrapped(
-                "Slash commands are used inside Discord in the booster channel.");
+                "Slash commands are used inside Discord in #add_venue.");
         }
 
         ImGuiHelpers.ScaledDummy(6f);
 
         CommandBlock(
-            "/booster",
-            "Claims your personal booster key. Only you can see the reply. You must be boosting the server.");
+            "/myvenues",
+            "Lists venues you have submitted so you can review, edit, or delete them.");
 
         ImGuiHelpers.ScaledDummy(8f);
-    }
-
-    private void DrawBoosterKeyEntry()
-    {
-        DrawBoosterSectionHeader("Booster Key");
-
-        var scale = ImGuiHelpers.GlobalScale;
-        var spacing = ImGui.GetStyle().ItemInnerSpacing.X;
-        var clearW = 88f * scale;
-        var inputW = Math.Min(360f * scale, Math.Max(80f * scale, ImGui.GetContentRegionAvail().X - clearW - spacing));
-
-        ImGui.SetNextItemWidth(inputW);
-        ImGui.InputTextWithHint("##BoosterKey", "GWB-xxxxxxxxxxxxxxxx", ref _boosterKeyDraft, BoosterKeyBufferLength);
-
-        if (ImGui.IsItemDeactivatedAfterEdit())
-            CommitBoosterKey();
-
-        ImGui.SameLine(0f, spacing);
-        if (UIHelper.IconTextButton(FontAwesomeIcon.Trash, "Clear", new Vector2(clearW, ImGui.GetFrameHeight()), "##ClearBoosterKey"))
-        {
-            _boosterKeyDraft = string.Empty;
-            CommitBoosterKey();
-        }
-
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Clear the saved booster key from this plugin.");
-
-        if (!string.IsNullOrWhiteSpace(_config.BoosterKey))
-        {
-            ImGuiHelpers.ScaledDummy(4f);
-            ImGui.TextColored(new Vector4(0.35f, 0.85f, 0.45f, 1f),
-                "Key saved. Please head to the Profiles tab and choose a booster border and card effect.");
-        }
-
-        ImGuiHelpers.ScaledDummy(8f);
-        using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.65f, 0.1f, 1f)))
-        {
-            ImGui.TextWrapped(
-                "Do not share your booster key with anyone. Shared keys are automatically disabled by the bot. "
-                    + "There is zero tolerance for key sharing. It is up to a moderator to re-enable the key.");
-        }
-    }
-
-    private void CommitBoosterKey()
-    {
-        var trimmed = _boosterKeyDraft.Trim();
-        _boosterKeyDraft = trimmed;
-        _config.BoosterKey = string.IsNullOrEmpty(trimmed) ? null : trimmed;
-        _config.Save();
     }
 
     private void CommandBlock(string name, string description)
@@ -237,6 +194,13 @@ public partial class SettingsTab
             ImGui.TextWrapped(text);
         }
         ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private void GuideSubBullet(string text)
+    {
+        ImGui.Indent(18f * ImGuiHelpers.GlobalScale);
+        GuideBullet(text);
+        ImGui.Unindent(18f * ImGuiHelpers.GlobalScale);
     }
 
     private static void CentreForWidth(float width)

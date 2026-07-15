@@ -30,7 +30,6 @@ public class MainWindow : Window, IDisposable
     {
         Ui,
         Chat,
-        DiscordBot,
         Discord,
         Booster,
         Other,
@@ -42,6 +41,13 @@ public class MainWindow : Window, IDisposable
         FindHost,
     }
 
+    private enum SupportSection
+    {
+        Help,
+        AddVenue,
+        DiscordBot,
+    }
+
     private readonly GambaEventsTab _eventsTab;
     private readonly HostGambaTab _hostTab;
     private readonly ProfilesTab _profilesTab;
@@ -49,6 +55,7 @@ public class MainWindow : Window, IDisposable
     private readonly FindAVenueTab _findAVenueTab;
     private readonly FindAHostTab _findAHostTab;
     private readonly DiscordBotTab _discordBotTab;
+    private readonly AddVenueTab _addVenueTab;
     private readonly DiscordWebhookTab _discordWebhookTab;
     private readonly SettingsTab _settingsTab;
     private readonly SupportTab _supportTab;
@@ -60,6 +67,8 @@ public class MainWindow : Window, IDisposable
     private bool _settingsExpanded;
     private RecruitmentSection _recruitmentSection = RecruitmentSection.FindVenue;
     private bool _recruitmentExpanded;
+    private SupportSection _supportSection = SupportSection.Help;
+    private bool _supportExpanded;
     private int _pushedColours;
 
     public MainWindow(
@@ -72,6 +81,7 @@ public class MainWindow : Window, IDisposable
         SettingsTab settingsTab,
         SupportTab supportTab,
         DiscordBotTab discordBotTab,
+        AddVenueTab addVenueTab,
         DiscordWebhookTab discordWebhookTab,
         AlertsTab alertsTab,
         Configuration config)
@@ -92,6 +102,7 @@ public class MainWindow : Window, IDisposable
         _settingsTab = settingsTab;
         _supportTab = supportTab;
         _discordBotTab = discordBotTab;
+        _addVenueTab = addVenueTab;
         _discordWebhookTab = discordWebhookTab;
         _alertsTab = alertsTab;
         _config = config;
@@ -102,6 +113,8 @@ public class MainWindow : Window, IDisposable
         IsOpen = true;
         _selected = Tab.Settings;
         _settingsExpanded = true;
+        _supportExpanded = false;
+        _recruitmentExpanded = false;
         _settingsSection = SettingsSection.Ui;
     }
 
@@ -203,7 +216,7 @@ public class MainWindow : Window, IDisposable
         ImGuiHelpers.ScaledDummy(4f);
 
         DrawSettingsNav();
-        DrawNavItem(Tab.Support,   FontAwesomeIcon.QuestionCircle, "Support");
+        DrawSupportNav();
     }
 
     private void DrawNavItem(Tab tab, FontAwesomeIcon icon, string label)
@@ -213,6 +226,7 @@ public class MainWindow : Window, IDisposable
             _selected = tab;
             _settingsExpanded = false;
             _recruitmentExpanded = false;
+            _supportExpanded = false;
             if (tab == Tab.Events)
                 _eventsTab.RequestRefresh();
             else if (tab == Tab.Host)
@@ -234,6 +248,7 @@ public class MainWindow : Window, IDisposable
                 _selected = Tab.Recruitment;
                 _recruitmentSection = RecruitmentSection.FindVenue;
                 _settingsExpanded = false;
+                _supportExpanded = false;
                 _findAVenueTab.OnSelected();
             }
         }
@@ -272,6 +287,7 @@ public class MainWindow : Window, IDisposable
                 _selected = Tab.Settings;
                 _settingsSection = SettingsSection.Ui;
                 _recruitmentExpanded = false;
+                _supportExpanded = false;
             }
         }
 
@@ -279,12 +295,11 @@ public class MainWindow : Window, IDisposable
             return;
 
         var indent = 18f * ImGuiHelpers.GlobalScale;
-        DrawSettingsSubItem(SettingsSection.Ui,         FontAwesomeIcon.Palette,     "UI",               indent);
-        DrawSettingsSubItem(SettingsSection.Chat,       FontAwesomeIcon.CommentDots, "Chat",             indent);
-        DrawSettingsSubItem(SettingsSection.DiscordBot, FontAwesomeIcon.Robot,       "Gamba Where Bot",  indent);
-        DrawSettingsSubItem(SettingsSection.Discord,    FontAwesomeIcon.Comments,    "Discord Webhook",  indent);
-        DrawSettingsSubItem(SettingsSection.Booster,    FontAwesomeIcon.Gem,         "Booster Key",      indent);
-        DrawSettingsSubItem(SettingsSection.Other,      FontAwesomeIcon.EllipsisH,   "Other",            indent);
+        DrawSettingsSubItem(SettingsSection.Ui,      FontAwesomeIcon.Palette,     "UI",              indent);
+        DrawSettingsSubItem(SettingsSection.Chat,    FontAwesomeIcon.CommentDots, "Chat",            indent);
+        DrawSettingsSubItem(SettingsSection.Discord, FontAwesomeIcon.Comments,    "Discord Webhook", indent);
+        DrawSettingsSubItem(SettingsSection.Booster, FontAwesomeIcon.Gem,         "Booster Key",     indent);
+        DrawSettingsSubItem(SettingsSection.Other,   FontAwesomeIcon.EllipsisH,   "Other",           indent);
     }
 
     private void DrawSettingsSubItem(SettingsSection section, FontAwesomeIcon icon, string label, float indent)
@@ -294,6 +309,41 @@ public class MainWindow : Window, IDisposable
         {
             _selected = Tab.Settings;
             _settingsSection = section;
+        }
+    }
+
+    private void DrawSupportNav()
+    {
+        var chevron = _supportExpanded ? FontAwesomeIcon.ChevronDown : FontAwesomeIcon.ChevronRight;
+
+        if (DrawSidebarRow("tab_Support", FontAwesomeIcon.QuestionCircle, "Support", _selected == Tab.Support, 0f, chevron))
+        {
+            _supportExpanded = !_supportExpanded;
+            if (_supportExpanded)
+            {
+                _selected = Tab.Support;
+                _supportSection = SupportSection.Help;
+                _settingsExpanded = false;
+                _recruitmentExpanded = false;
+            }
+        }
+
+        if (!_supportExpanded)
+            return;
+
+        var indent = 18f * ImGuiHelpers.GlobalScale;
+        DrawSupportSubItem(SupportSection.Help,       FontAwesomeIcon.InfoCircle,   "Help",             indent);
+        DrawSupportSubItem(SupportSection.AddVenue,   FontAwesomeIcon.MapMarkerAlt, "Add Venue",        indent);
+        DrawSupportSubItem(SupportSection.DiscordBot, FontAwesomeIcon.Robot,        "Gamba Where Bot",  indent);
+    }
+
+    private void DrawSupportSubItem(SupportSection section, FontAwesomeIcon icon, string label, float indent)
+    {
+        var selected = _selected == Tab.Support && _supportSection == section;
+        if (DrawSidebarRow($"support_{section}", icon, label, selected, indent))
+        {
+            _selected = Tab.Support;
+            _supportSection = section;
         }
     }
 
@@ -363,7 +413,7 @@ public class MainWindow : Window, IDisposable
             case Tab.Recruitment: DrawRecruitmentContent(); break;
             case Tab.Alerts:   _alertsTab.Draw(); break;
             case Tab.Settings: DrawSettingsContent(); break;
-            case Tab.Support:  _supportTab.Draw(); break;
+            case Tab.Support:  DrawSupportContent(); break;
         }
     }
 
@@ -380,12 +430,21 @@ public class MainWindow : Window, IDisposable
     {
         switch (_settingsSection)
         {
-            case SettingsSection.Ui:         _settingsTab.DrawUiSection(); break;
-            case SettingsSection.Chat:       _settingsTab.DrawChatSection(); break;
-            case SettingsSection.DiscordBot: _discordBotTab.Draw(); break;
-            case SettingsSection.Discord:    _discordWebhookTab.Draw(); break;
-            case SettingsSection.Booster:    _settingsTab.DrawBoosterSection(); break;
-            case SettingsSection.Other:      _settingsTab.DrawOtherSection(); break;
+            case SettingsSection.Ui:      _settingsTab.DrawUiSection(); break;
+            case SettingsSection.Chat:    _settingsTab.DrawChatSection(); break;
+            case SettingsSection.Discord: _discordWebhookTab.Draw(); break;
+            case SettingsSection.Booster: _settingsTab.DrawBoosterSection(); break;
+            case SettingsSection.Other:   _settingsTab.DrawOtherSection(); break;
+        }
+    }
+
+    private void DrawSupportContent()
+    {
+        switch (_supportSection)
+        {
+            case SupportSection.Help:       _supportTab.Draw(); break;
+            case SupportSection.AddVenue:   _addVenueTab.Draw(); break;
+            case SupportSection.DiscordBot: _discordBotTab.Draw(); break;
         }
     }
 

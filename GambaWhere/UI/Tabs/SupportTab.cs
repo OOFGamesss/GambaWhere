@@ -65,12 +65,12 @@ public class SupportTab
         DrawFaqSection(
             "##faq_venue",
             "How do I add a venue?",
-            "Create a post in #add_venue with your venue name, Discord invite link and venue logo. We aim to list suitable venues as soon as possible.");
+            "Open Support → Add Venue for the Join Discord button and the full guide. Submissions are handled in #add_venue under the Support category.");
 
         DrawFaqSection(
             "##faq_discord_bot",
             "Is there a Discord bot for this?",
-            "Yes. Open Settings → Gamba Where Bot for the invite link, setup guide, and command reference. You can brand the tracker with your venue image and nickname, and filter events by dealer or venue name.");
+            "Yes. Open Support → Gamba Where Bot for the invite link, setup guide, and command reference. You can brand the tracker with your venue image and nickname, and filter events by dealer or venue name.");
 
         DrawFaqSection(
             "##faq_bug",

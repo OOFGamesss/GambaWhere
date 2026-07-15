@@ -12,7 +12,7 @@ using GambaWhere.Utility;
 
 namespace GambaWhere.UI.Tabs;
 
-/// <summary>Settings tab with the Gamba Where Discord bot invite link, install guide, and command reference.</summary>
+/// <summary>Support tab with the Gamba Where Discord bot invite link, install guide, and command reference.</summary>
 public sealed class DiscordBotTab
 {
     private const float DiscordLogoMaxWidth = 98f;
@@ -228,7 +228,7 @@ public sealed class DiscordBotTab
         DrawSectionHeader("Discord preview example");
 
         var scale = ImGuiHelpers.GlobalScale;
-        var tex = _imageService.GetBundled("Screenshots/discordwebhookexample.png");
+        var tex = _imageService.GetBundled("Screenshots/discordwebhookexamplev2.png");
         var innerW = ImGui.GetContentRegionAvail().X;
 
         if (tex != null && tex.Width > 0 && tex.Height > 0 && innerW > 1f)
