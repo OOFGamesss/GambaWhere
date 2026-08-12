@@ -7,6 +7,9 @@ namespace GambaWhere.Models;
 /// <summary>Event API models: the event read model, its create and page response wrappers, and the create and update request bodies.</summary>
 public class EventResponse
 {
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
     [JsonPropertyName("character_name")]
     public string CharacterName { get; set; } = string.Empty;
 
@@ -166,4 +169,63 @@ public class PutEventRequest
     [JsonPropertyName("booster_key")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? BoosterKey { get; set; }
+}
+
+public class PutEventsBatchItem
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("session_token")]
+    public string SessionToken { get; set; } = string.Empty;
+
+    [JsonPropertyName("rules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, object>? Rules { get; set; }
+
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("game")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Game { get; set; }
+}
+
+public class PutEventsBatchRequest
+{
+    [JsonPropertyName("location")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Location { get; set; }
+
+    [JsonPropertyName("booster_key")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BoosterKey { get; set; }
+
+    [JsonPropertyName("sessions")]
+    public List<PutEventsBatchItem> Sessions { get; set; } = new();
+}
+
+public class EventBatchResult
+{
+    public const string StatusOk = "ok";
+    public const string StatusNotFound = "not_found";
+    public const string StatusUnauthorised = "unauthorised";
+
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("event")]
+    public EventResponse? Event { get; set; }
+
+    public bool IsGone => Status is StatusNotFound or StatusUnauthorised;
+}
+
+public class EventBatchResponse
+{
+    [JsonPropertyName("results")]
+    public List<EventBatchResult> Results { get; set; } = new();
 }

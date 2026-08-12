@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse live gambling events across Eorzea, filter by game or data centre, and teleport straight there with Lifestream. Host your own session with game-specific rules, presets, and host profiles with automatic location updates, Discord webhooks, minimap host icons, and Party Finder shortcuts. Find or advertise for venues and hosts on the Recruitment board, and set custom alerts to be notified when a new event matches your preferences.",
-  "Changelog": "- New Add Venue tab guide on how to add venues to Gamba Where.\n- Altered other discord tabs to match the same style.",
+  "Changelog": "- You can now host up to 5 sessions at once. After starting a session, click new session to start another.",
   "Tags": [
     "gambling",
     "events",

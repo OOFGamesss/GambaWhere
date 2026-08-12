@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
@@ -18,7 +19,7 @@ namespace GambaWhere.UI;
 /// <summary>Floating overlay pill showing the active session at a glance.</summary>
 public class SessionPillOverlay : Window, IDisposable
 {
-    private readonly SessionState _sessionState;
+    private readonly HostSessions _sessions;
     private readonly Configuration _config;
     private readonly SessionService _sessionService;
 
@@ -28,16 +29,17 @@ public class SessionPillOverlay : Window, IDisposable
     private Vector2 _pendingResetPos;
     private int _pushedStyleVars;
     private int _pushedStyleColours;
+    private bool _expanded;
 
     public bool IsMoving { get; private set; }
 
-    public SessionPillOverlay(SessionState sessionState, Configuration config, SessionService sessionService)
+    public SessionPillOverlay(HostSessions sessions, Configuration config, SessionService sessionService)
         : base("##GambaWherePill",
                ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize |
                ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar |
                ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoSavedSettings)
     {
-        _sessionState = sessionState;
+        _sessions = sessions;
         _config = config;
         _sessionService = sessionService;
 
@@ -79,9 +81,8 @@ public class SessionPillOverlay : Window, IDisposable
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 2f);
         _pushedStyleVars = 3;
 
-        var borderColour = _sessionState.IsActive
-            ? GameTypeColours.PillBorderForGame(_sessionState.GameType)
-            : GameTypeColours.PillBorderForGame(null);
+        var primary = _sessions.Primary();
+        var borderColour = GameTypeColours.PillBorderForGame(primary?.GameType);
 
         ImGui.PushStyleColor(ImGuiCol.WindowBg, TintedWindowBg(_config.PrimaryColour));
         ImGui.PushStyleColor(ImGuiCol.Border, borderColour);
@@ -122,72 +123,137 @@ public class SessionPillOverlay : Window, IDisposable
         _trackedPos = ImGui.GetWindowPos();
         _currentWindowSize = ImGui.GetWindowSize();
 
+        var sessions = _sessions.Snapshot();
+        var primary = _sessions.Primary();
+
         using (ImRaii.Disabled(IsMoving))
         {
-            DrawTimer();
+            DrawTimer(primary);
             ImGui.SameLine();
             ImGui.TextDisabled("|");
             ImGui.SameLine();
-            DrawGameLabel();
+            DrawSummaryLabel(sessions, primary);
             ImGui.SameLine();
             ImGui.TextDisabled("|");
             ImGui.SameLine();
-            DrawPauseButton();
+
+            if (sessions.Count > 1)
+                DrawExpandButton();
+            else
+                DrawPauseButton(primary);
+
             ImGui.SameLine();
             DrawStopButton();
+
+            if (_expanded && sessions.Count > 1)
+                DrawSessionRows(sessions);
         }
 
         DrawStopConfirmPopup();
     }
 
-    private void DrawTimer()
+    private static void DrawTimer(SessionState? primary)
     {
-        if (_sessionState.IsActive && _sessionState.AutoEndAt.HasValue)
+        if (primary == null)
         {
-            var remaining = _sessionState.AutoEndAt.Value - DateTime.UtcNow;
+            ImGui.TextUnformatted(TimeSpan.Zero.ToString(@"hh\:mm\:ss"));
+            return;
+        }
+
+        if (primary.AutoEndAt.HasValue)
+        {
+            var remaining = primary.AutoEndAt.Value - DateTime.UtcNow;
             if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
             ImGui.TextUnformatted(remaining.ToString(@"hh\:mm\:ss"));
             return;
         }
 
-        TimeSpan elapsed;
-        if (!_sessionState.IsActive || !_sessionState.StartedAt.HasValue)
-        {
-            elapsed = TimeSpan.Zero;
-        }
-        else if (_sessionState.IsPaused && _sessionState.PausedAt.HasValue)
-        {
-            elapsed = _sessionState.PausedAt.Value - _sessionState.StartedAt.Value - _sessionState.TotalPausedDuration;
-        }
-        else
-        {
-            elapsed = DateTime.UtcNow - _sessionState.StartedAt.Value - _sessionState.TotalPausedDuration;
-        }
-
-        ImGui.TextUnformatted(elapsed.ToString(@"hh\:mm\:ss"));
+        ImGui.TextUnformatted(primary.Elapsed().ToString(@"hh\:mm\:ss"));
     }
 
-    private void DrawGameLabel()
+    private static void DrawSummaryLabel(IReadOnlyList<SessionState> sessions, SessionState? primary)
     {
-        var label = _sessionState.IsActive
-            ? $"Hosting {_sessionState.GameType}"
-            : "Hosting Example Game";
+        var label = sessions.Count switch
+        {
+            0 => "Hosting Example Game",
+            1 => $"Hosting {primary!.GameType}",
+            _ => $"Hosting {sessions.Count} Games"
+        };
 
         ImGui.TextUnformatted(label);
     }
 
-    private void DrawPauseButton()
+    private void DrawExpandButton()
     {
-        var icon = _sessionState.IsPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
+        var icon = _expanded ? FontAwesomeIcon.ChevronUp : FontAwesomeIcon.ChevronDown;
+        using var small = PushSmallButtonScale();
+        if (ImGuiComponents.IconButton("##PillExpand", icon))
+            _expanded = !_expanded;
+        ImGui.SetWindowFontScale(1.0f);
+    }
+
+    private void DrawPauseButton(SessionState? session)
+    {
+        var icon = session is { IsPaused: true } ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
+        using var small = PushSmallButtonScale();
+        if (ImGuiComponents.IconButton("##PillPause", icon) && session != null)
+        {
+            var eventId = session.EventId;
+            _ = Task.Run(() => _sessionService.TogglePauseAsync(eventId));
+        }
+        ImGui.SetWindowFontScale(1.0f);
+    }
+
+    private static IDisposable PushSmallButtonScale()
+    {
         const float scale = 0.65f;
         const float vPad = 3f;
         var pad = ImGui.GetTextLineHeight() * (1f - scale) / 2f;
         ImGui.SetCursorPosY(ImGui.GetCursorPosY() + Math.Max(0f, pad - vPad) + 2f);
-        using var framePad = ImRaii.PushStyle(ImGuiStyleVar.FramePadding, new Vector2(vPad + 0.2f, vPad));
+        var framePad = ImRaii.PushStyle(ImGuiStyleVar.FramePadding, new Vector2(vPad + 0.2f, vPad));
         ImGui.SetWindowFontScale(scale);
-        if (ImGuiComponents.IconButton("##PillPause", icon))
-            _ = Task.Run(() => _sessionService.TogglePauseAsync());
-        ImGui.SetWindowFontScale(1.0f);
+        return framePad;
+    }
+
+    private void DrawSessionRows(IReadOnlyList<SessionState> sessions)
+    {
+        ImGui.Separator();
+
+        foreach (var session in sessions)
+        {
+            using var id = ImRaii.PushId(session.EventId);
+
+            ImGui.TextUnformatted(session.Elapsed().ToString(@"hh\:mm\:ss"));
+            ImGui.SameLine();
+            ImGui.TextDisabled("|");
+            ImGui.SameLine();
+
+            if (session.IsPaused)
+                ImGui.TextDisabled(session.GameType);
+            else
+                ImGui.TextUnformatted(session.GameType);
+
+            ImGui.SameLine();
+
+            var pauseIcon = session.IsPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
+            using (PushSmallButtonScale())
+            {
+                if (ImGuiComponents.IconButton("##RowPause", pauseIcon))
+                {
+                    var eventId = session.EventId;
+                    _ = Task.Run(() => _sessionService.TogglePauseAsync(eventId));
+                }
+
+                ImGui.SameLine();
+
+                if (ImGuiComponents.IconButton("##RowStop", FontAwesomeIcon.Stop))
+                {
+                    var eventId = session.EventId;
+                    _ = Task.Run(() => _sessionService.StopSessionAsync(eventId));
+                }
+            }
+            ImGui.SetWindowFontScale(1.0f);
+        }
     }
 
     private void DrawStopButton()
@@ -203,12 +269,14 @@ public class SessionPillOverlay : Window, IDisposable
         if (!popup.Success)
             return;
 
-        ImGui.TextUnformatted("End the current session?");
+        var count = _sessions.Count;
+        ImGui.TextUnformatted(count > 1 ? $"End all {count} sessions?" : "End the current session?");
         ImGui.Spacing();
 
-        if (UIHelper.IconTextButton(FontAwesomeIcon.Check, "Yes, stop session", "##YesStop"))
+        var label = count > 1 ? "Yes, stop them all" : "Yes, stop session";
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Check, label, "##YesStop"))
         {
-            _ = Task.Run(() => _sessionService.StopSessionAsync());
+            _ = Task.Run(() => _sessionService.StopAllSessionsAsync());
             ImGui.CloseCurrentPopup();
         }
 

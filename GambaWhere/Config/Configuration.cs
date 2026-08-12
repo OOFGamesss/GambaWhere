@@ -14,6 +14,8 @@ public class Configuration : IPluginConfiguration
 {
     public int Version { get; set; } = 1;
 
+    public List<ActiveSessionSnapshot> ActiveSessions { get; set; } = new();
+
     public string? ActiveSessionToken { get; set; }
     public string? ActiveCharacterName { get; set; }
     public string? ActiveGameType { get; set; }
@@ -80,6 +82,52 @@ public class Configuration : IPluginConfiguration
     public static Vector4 DefaultSecondaryColour => new(0.0f, 0.88f, 0.85f, 1f);
 
     public void Save() => global::GambaWhere.GambaWhere.PluginInterface.SavePluginConfig(this);
+
+    public void MigrateLegacyActiveSession()
+    {
+        if (string.IsNullOrEmpty(ActiveSessionToken)
+            || string.IsNullOrEmpty(ActiveCharacterName)
+            || ActiveSessions.Count > 0)
+            return;
+
+        ActiveSessions.Add(new ActiveSessionSnapshot
+        {
+            EventId = string.Empty,
+            SessionToken = ActiveSessionToken,
+            CharacterName = ActiveCharacterName,
+            GameType = ActiveGameType,
+            VenueName = ActiveVenueName,
+            RulesJson = ActiveRulesJson,
+            Description = ActiveDescription,
+            Location = ActiveLocation,
+            StartedAt = ActiveStartedAt,
+            AutoEndAt = ActiveAutoEndAt,
+            IsPaused = ActiveIsPaused,
+            PausedAt = ActivePausedAt,
+            TotalPausedDurationTicks = ActiveTotalPausedDurationTicks,
+            UsesAutomaticHostRules = ActiveUsesAutomaticHostRules,
+            DiscordUrl = ActiveDiscordUrl,
+            ImageUrl = ActiveImageUrl,
+        });
+
+        ActiveSessionToken = null;
+        ActiveCharacterName = null;
+        ActiveGameType = null;
+        ActiveVenueName = null;
+        ActiveRulesJson = null;
+        ActiveDescription = null;
+        ActiveLocation = null;
+        ActiveStartedAt = null;
+        ActiveAutoEndAt = null;
+        ActiveIsPaused = false;
+        ActivePausedAt = null;
+        ActiveTotalPausedDurationTicks = 0;
+        ActiveUsesAutomaticHostRules = false;
+        ActiveDiscordUrl = null;
+        ActiveImageUrl = null;
+
+        Save();
+    }
 
     public void EnsureDefaultPresets()
     {

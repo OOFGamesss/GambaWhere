@@ -130,14 +130,19 @@ public sealed class MinimapHostOverlay : Window, IDisposable
         var lines = new List<(string Text, uint Colour)>
         {
             (marker.DisplayName, ImGui.GetColorU32(ThemeColours.AccentText(_config.SecondaryColour))),
-            ($"Hosting {marker.Game}", ImGui.GetColorU32(accent)),
         };
 
-        foreach (var rule in marker.Rules)
+        foreach (var entry in marker.Entries)
         {
-            var key = RuleKeyFormatting.FormatDisplayKey(rule.Key);
-            var value = EventCardRenderer.FormatRuleValue(rule.Value, rule.Key);
-            lines.Add(($"{key}:  {value}", 0xFFCFCFCF));
+            var (_, entryAccent) = GameTypeColours.ForGame(entry.Game);
+            lines.Add(($"Hosting {entry.Game}", ImGui.GetColorU32(entryAccent)));
+
+            foreach (var rule in entry.Rules)
+            {
+                var key = RuleKeyFormatting.FormatDisplayKey(rule.Key);
+                var value = EventCardRenderer.FormatRuleValue(rule.Value, rule.Key);
+                lines.Add(($"{key}:  {value}", 0xFFCFCFCF));
+            }
         }
 
         var pad = new Vector2(8f, 6f) * ImGuiHelpers.GlobalScale;

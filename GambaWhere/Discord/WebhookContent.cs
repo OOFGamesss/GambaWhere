@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using GambaWhere.Games;
@@ -151,24 +152,44 @@ internal static class WebhookPayload
     }
 
     public static DiscordOutboundPayloadDto ForActive(
-        DiscordSessionSnapshot snapshot,
+        IReadOnlyList<DiscordSessionSnapshot> snapshots,
         (int Colour, string Emoji, string BannerUrl) theme,
         string? bannerFileName,
         bool applyWebhookProfile)
     {
-        var rules = snapshot.Rules != null
-            ? snapshot.Rules as Dictionary<string, object> ?? new Dictionary<string, object>(snapshot.Rules!)
-            : null;
+        var lead = snapshots[0];
 
         var fields = new List<DiscordEmbedFieldDto>
         {
-            new() { Name = "Gamba Host", Value = EmbedTextFormatter.FormatHostCharacter(snapshot.CharacterName), Inline = true },
-            new() { Name = "Current Location", Value = EmbedTextFormatter.CompactLocationDisplay(snapshot.Location), Inline = false },
-            new() { Name = "Game Info", Value = EmbedTextFormatter.FormatRules(rules), Inline = false }
+            new() { Name = "Gamba Host", Value = EmbedTextFormatter.FormatHostCharacter(lead.CharacterName), Inline = true },
+            new() { Name = "Current Location", Value = EmbedTextFormatter.CompactLocationDisplay(lead.Location), Inline = false }
         };
 
-        if (!string.IsNullOrWhiteSpace(snapshot.DiscordUrl))
-            fields.Add(new DiscordEmbedFieldDto { Name = "Discord", Value = $"<{snapshot.DiscordUrl}>", Inline = false });
+        foreach (var snapshot in snapshots)
+        {
+            var rules = snapshot.Rules != null
+                ? snapshot.Rules as Dictionary<string, object> ?? new Dictionary<string, object>(snapshot.Rules!)
+                : null;
+
+            var heading = snapshots.Count == 1
+                ? "Game Info"
+                : WebhookTheme.BuildTitle(snapshot.GameType, snapshot.VenueName, WebhookTheme.ResolveForGame(snapshot.GameType).Emoji);
+
+            fields.Add(new DiscordEmbedFieldDto
+            {
+                Name = heading,
+                Value = EmbedTextFormatter.FormatRules(rules),
+                Inline = false
+            });
+        }
+
+        foreach (var discordUrl in snapshots
+                     .Select(s => s.DiscordUrl)
+                     .Where(url => !string.IsNullOrWhiteSpace(url))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            fields.Add(new DiscordEmbedFieldDto { Name = "Discord", Value = $"<{discordUrl}>", Inline = false });
+        }
 
         var imageUrl = !string.IsNullOrWhiteSpace(bannerFileName)
             ? $"attachment://{bannerFileName}"
@@ -182,7 +203,7 @@ internal static class WebhookPayload
             [
                 new DiscordEmbedDto
                 {
-                    Title = WebhookTheme.BuildTitle(snapshot.GameType, snapshot.VenueName, theme.Emoji),
+                    Title = BuildActiveTitle(snapshots, theme.Emoji),
                     Color = theme.Colour,
                     Fields = fields,
                     Image = string.IsNullOrWhiteSpace(imageUrl) ? null : new DiscordMediaDto(imageUrl!),
@@ -191,9 +212,9 @@ internal static class WebhookPayload
                         Text = WebhookProfile.ActiveEmbedFooterText,
                         IconUrl = WebhookProfile.AvatarImageHttpsUrl
                     },
-                    Thumbnail = string.IsNullOrWhiteSpace(snapshot.ImageUrl)
+                    Thumbnail = string.IsNullOrWhiteSpace(lead.ImageUrl)
                         ? null
-                        : new DiscordMediaDto(snapshot.ImageUrl!),
+                        : new DiscordMediaDto(lead.ImageUrl!),
                     Description = null
                 }
             ],
@@ -201,5 +222,14 @@ internal static class WebhookPayload
                 ? []
                 : [new DiscordAttachmentDto { Id = 0, Filename = bannerFileName! }]
         };
+    }
+
+    private static string BuildActiveTitle(IReadOnlyList<DiscordSessionSnapshot> snapshots, string emoji)
+    {
+        var lead = snapshots[0];
+        if (snapshots.Count == 1)
+            return WebhookTheme.BuildTitle(lead.GameType, lead.VenueName, emoji);
+
+        return $"{emoji} Hosting {snapshots.Count} Games {emoji}";
     }
 }

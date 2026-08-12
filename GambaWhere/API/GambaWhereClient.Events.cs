@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using GambaWhere.Models;
@@ -77,7 +78,7 @@ public partial class GambaWhereClient
         }
     }
 
-    public async Task<EventCreateResponse?> PostEventAsync(PostEventRequest request)
+    public async Task<(EventCreateResponse? Created, string? Error)> PostEventAsync(PostEventRequest request)
     {
         try
         {
@@ -90,19 +91,99 @@ public partial class GambaWhereClient
             if (!response.IsSuccessStatusCode)
             {
                 _log.Warning("POST /events failed: {Status}", response.StatusCode);
-                return null;
+
+                var body = await response.Content.ReadAsStringAsync();
+                return (null, ReadProblemDetail(body));
             }
 
-            return await response.Content.ReadFromJsonAsync<EventCreateResponse>(JsonOptions);
+            var created = await response.Content.ReadFromJsonAsync<EventCreateResponse>(JsonOptions);
+            return (created, created == null ? "The server returned an empty response." : null);
         }
         catch (Exception ex)
         {
             _log.Warning(ex, "POST /events failed.");
+            return (null, null);
+        }
+    }
+
+    private static string? ReadProblemDetail(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (!document.RootElement.TryGetProperty("detail", out var detail))
+                return null;
+
+            if (detail.ValueKind == JsonValueKind.String)
+                return detail.GetString();
+
+            if (detail.ValueKind == JsonValueKind.Array && detail.GetArrayLength() > 0)
+                return detail[0].GetString();
+
+            return null;
+        }
+        catch (JsonException)
+        {
             return null;
         }
     }
 
-    public async Task<EventResponse?> PutEventAsync(string characterName, string sessionToken, PutEventRequest request)
+    public async Task<EventResponse?> PutEventAsync(string eventId, string sessionToken, PutEventRequest request)
+    {
+        try
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Put, $"events/id/{Uri.EscapeDataString(eventId)}")
+            {
+                Content = JsonContent.Create(request, options: JsonOptions)
+            };
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", sessionToken);
+
+            var response = await _http.SendAsync(message);
+            if (!response.IsSuccessStatusCode)
+            {
+                _log.Warning("PUT /events/id/{Id} failed: {Status}", eventId, response.StatusCode);
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<EventResponse>(JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "PUT /events/id/{Id} failed.", eventId);
+            return null;
+        }
+    }
+
+    public async Task<EventBatchResponse?> PutEventsBatchAsync(PutEventsBatchRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Put, "events/batch")
+            {
+                Content = JsonContent.Create(request, options: JsonOptions)
+            };
+
+            var response = await _http.SendAsync(message, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _log.Warning("PUT /events/batch failed: {Status}", response.StatusCode);
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<EventBatchResponse>(JsonOptions, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            if (ex is not OperationCanceledException)
+                _log.Warning(ex, "PUT /events/batch failed.");
+            return null;
+        }
+    }
+
+    public async Task<EventResponse?> PutEventByCharacterAsync(string characterName, string sessionToken, PutEventRequest request)
     {
         try
         {
@@ -128,22 +209,22 @@ public partial class GambaWhereClient
         }
     }
 
-    public async Task DeleteEventAsync(string characterName, string sessionToken)
+    public async Task DeleteEventAsync(string eventId, string sessionToken)
     {
         try
         {
-            using var message = new HttpRequestMessage(HttpMethod.Delete, $"events/{Uri.EscapeDataString(characterName)}");
+            using var message = new HttpRequestMessage(HttpMethod.Delete, $"events/id/{Uri.EscapeDataString(eventId)}");
             message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", sessionToken);
 
             var response = await _http.SendAsync(message);
             if (!response.IsSuccessStatusCode)
             {
-                _log.Warning("DELETE /events/{Name} failed: {Status}", characterName, response.StatusCode);
+                _log.Warning("DELETE /events/id/{Id} failed: {Status}", eventId, response.StatusCode);
             }
         }
         catch (Exception ex)
         {
-            _log.Warning(ex, "DELETE /events/{Name} failed.", characterName);
+            _log.Warning(ex, "DELETE /events/id/{Id} failed.", eventId);
         }
     }
 }

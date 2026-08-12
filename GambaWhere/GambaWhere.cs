@@ -51,7 +51,7 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly GambaEventsTab _eventsTab;
     private readonly FindAVenueTab _findAVenueTab;
     private readonly FindAHostTab _findAHostTab;
-    private readonly SessionState _sessionState;
+    private readonly HostSessions _sessions;
 
     private readonly GambaWhereClient _client;
     private readonly GameStoreService _gameStoreService;
@@ -75,6 +75,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.EnsureDefaultPresets();
+        Configuration.MigrateLegacyActiveSession();
 
         _client = new GambaWhereClient(Log);
         _imageService = new ImageService(PluginInterface, Log);
@@ -82,15 +83,15 @@ public sealed class GambaWhere : IDalamudPlugin
         _gameStoreService = new GameStoreService(_client, Configuration, Framework, Log);
 
         _playerInfo = new PlayerInfoService(ClientState, ObjectTable, DataManager);
-        _sessionState = new SessionState();
+        _sessions = new HostSessions();
         var hostFormState = new HostFormState();
 
         var pluginDirectory =
             PluginInterface.AssemblyLocation.DirectoryName ?? PluginInterface.AssemblyLocation.FullName;
 
-        _discordWebhook = new WebhookService(Log, Configuration, _sessionState, pluginDirectory, _imageService);
+        _discordWebhook = new WebhookService(Log, Configuration, _sessions, pluginDirectory, _imageService);
 
-        _sessionService = new SessionService(_client, _playerInfo, _sessionState, Configuration, ClientState, Framework,
+        _sessionService = new SessionService(_client, _playerInfo, _sessions, Configuration, ClientState, Framework,
             Log,
             _discordWebhook, ChatGui);
 
@@ -100,13 +101,13 @@ public sealed class GambaWhere : IDalamudPlugin
         _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop, Condition);
         _eventsTab = new GambaEventsTab(_client, _imageService, eventTeleport, Configuration, _playerInfo, _partyFinderLocator, Log);
 
-        var hostTab = new HostGambaTab(_sessionService, _playerInfo, _client, _sessionState, Configuration, hostFormState, _imageService, _partyFinderCreator, _categoryService);
+        var hostTab = new HostGambaTab(_sessionService, _playerInfo, _client, _sessions, Configuration, hostFormState, _imageService, _partyFinderCreator, _categoryService);
         var gameListTab = new GameListTab(_imageService, Configuration, _gameStoreService);
         var profilesTab = new ProfilesTab(Configuration, _imageService, _playerInfo);
         _findAVenueTab = new FindAVenueTab(_client, _imageService, Configuration, _gameStoreService, _playerInfo, ChatGui, Log);
         _findAHostTab = new FindAHostTab(_client, _imageService, Configuration, _gameStoreService, _playerInfo, ChatGui, Log);
 
-        _pillOverlay = new SessionPillOverlay(_sessionState, Configuration, _sessionService);
+        _pillOverlay = new SessionPillOverlay(_sessions, Configuration, _sessionService);
 
         var settingsTab = new SettingsTab(Configuration, _imageService, Log, _pillOverlay);
         var supportTab = new SupportTab(_imageService, Configuration);
@@ -122,6 +123,7 @@ public sealed class GambaWhere : IDalamudPlugin
 
         _alertingService = new AlertingService(
             Configuration,
+            _sessions,
             ChatGui,
             Toasts,
             Framework,
@@ -215,7 +217,7 @@ public sealed class GambaWhere : IDalamudPlugin
             _eventsTab.Tick();
         _alertFeed.Tick();
         _hostMarkerService.Tick();
-        _pillOverlay.IsOpen = (_sessionState.IsActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
+        _pillOverlay.IsOpen = (_sessions.AnyActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
         _minimapHostOverlay.IsOpen =
             Configuration.MinimapHostIconsEnabled && _playerInfo.IsLoggedIn && _hostMarkerService.Markers.Count > 0;
     }

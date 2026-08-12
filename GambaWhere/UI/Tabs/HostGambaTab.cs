@@ -28,7 +28,7 @@ public class HostGambaTab
     private readonly SessionService _sessionService;
     private readonly PlayerInfoService _playerInfo;
     private readonly GambaWhereClient _client;
-    private readonly SessionState _sessionState;
+    private readonly HostSessions _sessions;
     private readonly Configuration _config;
     private readonly HostFormState _form;
     private readonly ImageService _imageService;
@@ -66,6 +66,9 @@ public class HostGambaTab
     private string _importKeyBuffer = string.Empty;
     private string _importError = string.Empty;
 
+    private bool _showNewSessionForm;
+    private string? _stoppingEventId;
+
     private readonly ThemedCard _card = new();
 
     public Func<IReadOnlyList<HostRuleSource>>? GetHostAutomaticRuleSources { get; set; }
@@ -74,7 +77,7 @@ public class HostGambaTab
         SessionService sessionService,
         PlayerInfoService playerInfo,
         GambaWhereClient client,
-        SessionState sessionState,
+        HostSessions sessions,
         Configuration config,
         HostFormState form,
         ImageService imageService,
@@ -84,7 +87,7 @@ public class HostGambaTab
         _sessionService = sessionService;
         _playerInfo = playerInfo;
         _client = client;
-        _sessionState = sessionState;
+        _sessions = sessions;
         _config = config;
         _form = form;
         _imageService = imageService;
@@ -173,10 +176,13 @@ public class HostGambaTab
         HostFieldTheme.Primary = _config.PrimaryColour;
         HostFieldTheme.Secondary = _config.SecondaryColour;
 
+        var sessions = _sessions.Snapshot();
+        var showingForm = sessions.Count == 0 || _showNewSessionForm;
+
         var scale = ImGuiHelpers.GlobalScale;
         var footerHeight = 76f * scale;
 
-        if (!_sessionState.IsActive && HasPendingImageUpload())
+        if (showingForm && HasPendingImageUpload())
         {
             var wrapW = Math.Min(ImGui.GetContentRegionAvail().X, PendingUploadHintWrap * scale);
             footerHeight += ImGui.CalcTextSize(PendingUploadHint, false, wrapW).Y
@@ -189,17 +195,10 @@ public class HostGambaTab
         {
             if (scroll.Success)
             {
-                if (_sessionState.IsActive)
-                {
-                    ImGuiHelpers.ScaledDummy(8f);
-                    DrawCard("##gw_active_session", "Active Session", DrawActiveSessionBody);
-                    ImGuiHelpers.ScaledDummy(8f);
-                    DrawPartyFinderButtons();
-                }
-                else
-                {
+                if (showingForm)
                     DrawConfigForm();
-                }
+                else
+                    DrawActiveSessionList(sessions);
             }
         }
 
@@ -207,10 +206,44 @@ public class HostGambaTab
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
-        if (_sessionState.IsActive)
-            DrawStopBar();
+        if (showingForm)
+            DrawBottomBar(sessions.Count);
         else
-            DrawBottomBar();
+            DrawSessionListBar(sessions.Count);
+    }
+
+    private void DrawActiveSessionList(IReadOnlyList<SessionState> sessions)
+    {
+        ImGuiHelpers.ScaledDummy(8f);
+
+        for (var i = 0; i < sessions.Count; i++)
+        {
+            var session = sessions[i];
+            using var id = ImRaii.PushId(session.EventId);
+
+            var title = string.IsNullOrEmpty(session.VenueName) || session.VenueName == "No Venue"
+                ? session.GameType
+                : $"{session.GameType} at {session.VenueName}";
+
+            DrawCard($"##gw_active_session_{session.EventId}", title, () => DrawActiveSessionBody(session));
+            ImGuiHelpers.ScaledDummy(6f);
+            DrawPartyFinderButtons(session);
+
+            if (i < sessions.Count - 1)
+            {
+                ImGuiHelpers.ScaledDummy(10f);
+                ImGui.Separator();
+                ImGuiHelpers.ScaledDummy(4f);
+            }
+        }
+
+        ImGuiHelpers.ScaledDummy(8f);
+
+        if (!string.IsNullOrEmpty(_form.StatusMessage))
+        {
+            ImGuiHelpers.ScaledDummy(4f);
+            ImGui.TextColored(SoftRed, _form.StatusMessage);
+        }
     }
 
     private void DrawConfigForm()
@@ -598,7 +631,7 @@ public class HostGambaTab
         DrawAutoEndControl();
     }
 
-    private void DrawBottomBar()
+    private void DrawBottomBar(int sessionCount)
     {
         var scale = ImGuiHelpers.GlobalScale;
         var baseX = ImGui.GetCursorPosX();
@@ -624,7 +657,26 @@ public class HostGambaTab
 
         var startLabel = _form.IsStarting ? "Starting..." : "Start Session";
         var btnSize = new Vector2(240f * scale, 46f * scale);
-        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - btnSize.X) * 0.5f));
+        var backWidth = sessionCount > 0
+            ? MeasureIconTextButtonWidth(FontAwesomeIcon.ArrowLeft, "Back") + ImGui.GetStyle().ItemSpacing.X
+            : 0f;
+
+        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - btnSize.X - backWidth) * 0.5f));
+
+        if (sessionCount > 0)
+        {
+            using (UIHelper.PushBlueButtonColours())
+            {
+                if (UIHelper.IconTextButton(FontAwesomeIcon.ArrowLeft, "Back", "##gw_back_to_sessions"))
+                {
+                    _form.StatusMessage = null;
+                    _showNewSessionForm = false;
+                }
+            }
+
+            ImGui.SameLine();
+        }
+
         using (UIHelper.PushGreenButtonColours())
         using (ImRaii.Disabled(_form.IsStarting))
         {
@@ -689,19 +741,20 @@ public class HostGambaTab
             ImGui.CloseCurrentPopup();
     }
 
-    private void DrawActiveSessionBody()
+    private void DrawActiveSessionBody(SessionState session)
     {
         var labelX = 120 * ImGuiHelpers.GlobalScale;
 
-        DrawActiveField("Character:", _sessionState.CharacterName, labelX);
-        DrawActiveField("Game:", _sessionState.GameType, labelX);
-        DrawActiveField("Venue:", _sessionState.VenueName ?? "No Venue", labelX);
+        DrawActiveField("Character:", session.CharacterName, labelX);
+        DrawActiveField("Game:", session.GameType, labelX);
+        DrawActiveField("Venue:", session.VenueName ?? "No Venue", labelX);
+        DrawActiveField("Running:", session.Elapsed().ToString(@"hh\:mm\:ss"), labelX);
 
-        if (_sessionState.AutoEndAt.HasValue)
+        if (session.AutoEndAt.HasValue)
         {
             ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Auto End:");
             ImGui.SameLine(labelX);
-            var remaining = _sessionState.AutoEndAt.Value - DateTime.UtcNow;
+            var remaining = session.AutoEndAt.Value - DateTime.UtcNow;
             if (remaining <= TimeSpan.Zero)
             {
                 ImGui.TextColored(SoftRed, "Ending...");
@@ -717,35 +770,112 @@ public class HostGambaTab
 
         ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Location:");
         ImGui.SameLine(labelX);
-        ImGui.TextWrapped(_sessionState.Location);
+        ImGui.TextWrapped(session.Location);
 
-        DrawActiveRules();
+        if (session.IsPaused)
+        {
+            ImGuiHelpers.ScaledDummy(2f);
+            ImGui.TextColored(SoftAmber, SessionService.BreakMessage);
+        }
+
+        DrawActiveRules(session);
 
         ImGuiHelpers.ScaledDummy(8f);
-        ImGui.TextColored(Yellow, "Session data syncs to the server every 1 minute.");
+        DrawSessionControls(session);
+    }
 
-        if (!string.IsNullOrEmpty(_form.StatusMessage))
+    private void DrawSessionControls(SessionState session)
+    {
+        var stopping = _stoppingEventId == session.EventId;
+
+        var pauseIcon = session.IsPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
+        var pauseLabel = session.IsPaused ? "Resume" : "Take a Break";
+
+        using (ImRaii.Disabled(stopping))
         {
-            ImGuiHelpers.ScaledDummy(4f);
-            ImGui.TextColored(SoftRed, _form.StatusMessage);
+            using (UIHelper.PushAmberButtonColours())
+            {
+                if (UIHelper.IconTextButton(pauseIcon, pauseLabel, "##gw_session_pause"))
+                {
+                    var eventId = session.EventId;
+                    _ = Task.Run(() => _sessionService.TogglePauseAsync(eventId));
+                }
+            }
+
+            ImGui.SameLine();
+
+            using (UIHelper.PushRedButtonColours())
+            {
+                if (UIHelper.IconTextButton(FontAwesomeIcon.Stop, stopping ? "Stopping..." : "Stop Session", "##gw_session_stop"))
+                    TriggerStopSession(session.EventId);
+            }
         }
     }
 
-    private void DrawStopBar()
+    private void DrawSessionListBar(int sessionCount)
     {
-        var scale = ImGuiHelpers.GlobalScale;
         var baseX = ImGui.GetCursorPosX();
         var avail = ImGui.GetContentRegionAvail().X;
 
-        var stopLabel = _form.IsStarting ? "Stopping..." : "Stop Session";
-        var btnSize = new Vector2(240f * scale, 46f * scale);
-        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - btnSize.X) * 0.5f));
-        using (UIHelper.PushRedButtonColours())
-        using (ImRaii.Disabled(_form.IsStarting))
+        var atCapacity = sessionCount >= HostSessions.MaxConcurrent;
+        var newLabel = $"New Session ({sessionCount}/{HostSessions.MaxConcurrent})";
+
+        var newWidth = MeasureIconTextButtonWidth(FontAwesomeIcon.Plus, newLabel);
+        var stopAllWidth = MeasureIconTextButtonWidth(FontAwesomeIcon.StopCircle, "Stop All");
+        var groupWidth = newWidth + stopAllWidth + ImGui.GetStyle().ItemSpacing.X;
+
+        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - groupWidth) * 0.5f));
+
+        using (ImRaii.Disabled(atCapacity || _form.IsStarting))
+        using (UIHelper.PushGreenButtonColours())
         {
-            if (UIHelper.IconTextButton(FontAwesomeIcon.Stop, stopLabel, btnSize, "##StopHosting"))
-                TriggerStopSession();
+            if (UIHelper.IconTextButton(FontAwesomeIcon.Plus, newLabel, "##gw_new_session"))
+            {
+                _form.StatusMessage = null;
+                _showNewSessionForm = true;
+            }
         }
+
+        if (atCapacity && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip($"You can host up to {HostSessions.MaxConcurrent} sessions at once.");
+
+        ImGui.SameLine();
+
+        using (UIHelper.PushRedButtonColours())
+        {
+            if (UIHelper.IconTextButton(FontAwesomeIcon.StopCircle, "Stop All", "##gw_stop_all"))
+                ImGui.OpenPopup("##gw_stop_all_confirm");
+        }
+
+        DrawStopAllPopup();
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        const string syncNote = "Session data syncs to the server every 1 minute.";
+        var noteWidth = ImGui.CalcTextSize(syncNote).X;
+        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - noteWidth) * 0.5f));
+        ImGui.TextColored(Yellow, syncNote);
+    }
+
+    private void DrawStopAllPopup()
+    {
+        using var popup = ImRaii.Popup("##gw_stop_all_confirm");
+        if (!popup.Success)
+            return;
+
+        ImGui.TextUnformatted("End every active session?");
+        ImGui.Spacing();
+
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Check, "Yes, stop them all", "##gw_stop_all_yes"))
+        {
+            TriggerStopAllSessions();
+            ImGui.CloseCurrentPopup();
+        }
+
+        ImGui.SameLine();
+
+        if (UIHelper.IconTextButton(FontAwesomeIcon.Times, "Cancel", "##gw_stop_all_no"))
+            ImGui.CloseCurrentPopup();
     }
 
     private void DrawActiveField(string label, string value, float labelX)
@@ -755,9 +885,9 @@ public class HostGambaTab
         ImGui.TextUnformatted(value);
     }
 
-    private void DrawActiveRules()
+    private void DrawActiveRules(SessionState session)
     {
-        if (_sessionState.ActiveRules == null || _sessionState.ActiveRules.Count == 0)
+        if (session.ActiveRules == null || session.ActiveRules.Count == 0)
             return;
 
         ImGuiHelpers.ScaledDummy(4f);
@@ -772,17 +902,17 @@ public class HostGambaTab
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(2f);
 
-        DrawRuleKeyValues(_sessionState.ActiveRules);
+        DrawRuleKeyValues(session.ActiveRules);
     }
 
-    private void DrawPartyFinderButtons()
+    private void DrawPartyFinderButtons(SessionState session)
     {
         const string partyLabel = "Create Party in Partyfinder";
         const string allianceLabel = "Create Alliance in Partyfinder";
 
-        var gameType = _sessionState.GameType;
-        var venueName = _sessionState.VenueName;
-        var location = _sessionState.Location;
+        var gameType = session.GameType;
+        var venueName = session.VenueName;
+        var location = session.Location;
 
         var running = _partyFinderCreator.IsRunning;
         var eligible = _partyFinderCreator.CanCreate(out var ineligibleReason);
@@ -1117,6 +1247,12 @@ public class HostGambaTab
             return;
         }
 
+        if (_sessions.AtCapacity)
+        {
+            _form.StatusMessage = $"You are already hosting {HostSessions.MaxConcurrent} sessions.";
+            return;
+        }
+
         if (_form.Description.Length > 511)
         {
             _form.StatusMessage = "Description must be 511 characters or fewer.";
@@ -1173,7 +1309,10 @@ public class HostGambaTab
                 return;
             }
 
-            _sessionState.UsesAutomaticHostRules = usedAutomaticIpc;
+            if (created != null && _sessions.Find(created.Id) is { } session)
+                session.UsesAutomaticHostRules = usedAutomaticIpc;
+
+            _showNewSessionForm = false;
 
             if (profile != null && sentPictureHash != null && !string.IsNullOrEmpty(created?.ProfileImageUrl))
             {
@@ -1208,14 +1347,26 @@ public class HostGambaTab
         return hash;
     }
 
-    private void TriggerStopSession()
+    private void TriggerStopSession(string eventId)
+    {
+        _stoppingEventId = eventId;
+        _ = Task.Run(async () =>
+        {
+            await _sessionService.StopSessionAsync(eventId);
+            _stoppingEventId = null;
+            _form.StatusMessage = null;
+        });
+    }
+
+    private void TriggerStopAllSessions()
     {
         _form.IsStarting = true;
         _ = Task.Run(async () =>
         {
-            await _sessionService.StopSessionAsync();
+            await _sessionService.StopAllSessionsAsync();
             _form.IsStarting = false;
             _form.StatusMessage = null;
+            _showNewSessionForm = false;
         });
     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -22,15 +23,13 @@ public sealed class WebhookService : IDisposable
 
     private readonly IPluginLog _log;
     private readonly Configuration _config;
-    private readonly SessionState _sessionState;
+    private readonly HostSessions _sessions;
     private readonly HttpClient _http;
     private readonly SemaphoreSlim _discordGate = new(1, 1);
     private readonly ImageService _imageService;
     private readonly string _bannerDir;
 
-    private DiscordSessionSnapshot _lastSentActiveSnapshot;
-    private string? _lastSentRulesJson;
-    private bool _hasSentActiveSnapshot;
+    private string? _lastSentSnapshotJson;
 
     private readonly JsonSerializerOptions _serializerOptions = new()
     {
@@ -41,13 +40,13 @@ public sealed class WebhookService : IDisposable
     public WebhookService(
         IPluginLog log,
         Configuration config,
-        SessionState sessionState,
+        HostSessions sessions,
         string pluginDirectory,
         ImageService imageService)
     {
         _log = log;
         _config = config;
-        _sessionState = sessionState;
+        _sessions = sessions;
         _imageService = imageService;
 
         var handler = new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) };
@@ -68,22 +67,23 @@ public sealed class WebhookService : IDisposable
         await _discordGate.WaitAsync(cancellationToken);
         try
         {
-            var snapshot = CaptureSessionSnapshot();
+            var snapshots = CaptureSessionSnapshots();
+            if (snapshots.Count == 0)
+                return;
 
-            if (!snapshot.IsActive || !HasSnapshotChanged(snapshot))
+            var snapshotJson = JsonSerializer.Serialize(snapshots);
+            if (snapshotJson == _lastSentSnapshotJson)
                 return;
 
             foreach (var entry in entries.Where(e => e.Enabled && !string.IsNullOrWhiteSpace(e.Url) && !e.PostFailed))
             {
-                await DispatchSingleEntryAsync(entry, snapshot, DispatchKind.RequireActiveSnapshot, cancellationToken);
+                await DispatchSingleEntryAsync(entry, snapshots, DispatchKind.RequireActiveSnapshot, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
             _config.Save();
 
-            _lastSentActiveSnapshot = snapshot;
-            _lastSentRulesJson = snapshot.Rules != null ? JsonSerializer.Serialize(snapshot.Rules) : null;
-            _hasSentActiveSnapshot = true;
+            _lastSentSnapshotJson = snapshotJson;
         }
         finally
         {
@@ -100,12 +100,12 @@ public sealed class WebhookService : IDisposable
         await _discordGate.WaitAsync(cancellationToken);
         try
         {
-            _hasSentActiveSnapshot = false;
+            _lastSentSnapshotJson = null;
 
-            var snapshot = CaptureSessionSnapshot();
+            var snapshots = CaptureSessionSnapshots();
             foreach (var entry in entries.Where(e => e.Enabled && !string.IsNullOrWhiteSpace(e.Url) && !e.PostFailed))
             {
-                await DispatchSingleEntryAsync(entry, snapshot, DispatchKind.AlwaysIdle, cancellationToken);
+                await DispatchSingleEntryAsync(entry, snapshots, DispatchKind.AlwaysIdle, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
@@ -125,8 +125,9 @@ public sealed class WebhookService : IDisposable
         await _discordGate.WaitAsync(cancellationToken);
         try
         {
-            var kind = _sessionState.IsActive ? DispatchKind.RequireActiveSnapshot : DispatchKind.AlwaysIdle;
-            await DispatchSingleEntryAsync(entry, CaptureSessionSnapshot(), kind, cancellationToken);
+            var snapshots = CaptureSessionSnapshots();
+            var kind = snapshots.Count > 0 ? DispatchKind.RequireActiveSnapshot : DispatchKind.AlwaysIdle;
+            await DispatchSingleEntryAsync(entry, snapshots, kind, cancellationToken);
             _config.Save();
         }
         finally
@@ -141,39 +142,23 @@ public sealed class WebhookService : IDisposable
         AlwaysIdle
     }
 
-    private bool HasSnapshotChanged(DiscordSessionSnapshot current)
-    {
-        if (!_hasSentActiveSnapshot)
-            return true;
-
-        var prev = _lastSentActiveSnapshot;
-
-        if (prev.IsActive != current.IsActive
-            || prev.CharacterName != current.CharacterName
-            || prev.GameType != current.GameType
-            || prev.VenueName != current.VenueName
-            || prev.Location != current.Location
-            || prev.DiscordUrl != current.DiscordUrl
-            || prev.ImageUrl != current.ImageUrl)
-            return true;
-
-        var currentRulesJson = current.Rules != null ? JsonSerializer.Serialize(current.Rules) : null;
-        return currentRulesJson != _lastSentRulesJson;
-    }
-
-    private DiscordSessionSnapshot CaptureSessionSnapshot() =>
-        new(_sessionState.IsActive,
-            _sessionState.CharacterName,
-            _sessionState.GameType,
-            _sessionState.VenueName,
-            _sessionState.Location,
-            _sessionState.ActiveRules,
-            _sessionState.DiscordUrl,
-            _sessionState.ImageUrl);
+    private List<DiscordSessionSnapshot> CaptureSessionSnapshots() =>
+        _sessions.Snapshot()
+            .Where(session => session.IsActive)
+            .Select(session => new DiscordSessionSnapshot(
+                session.IsActive,
+                session.CharacterName,
+                session.GameType,
+                session.VenueName,
+                session.Location,
+                session.ActiveRules,
+                session.DiscordUrl,
+                session.ImageUrl))
+            .ToList();
 
     private async Task DispatchSingleEntryAsync(
         DiscordWebhookEntry entry,
-        DiscordSessionSnapshot snapshot,
+        IReadOnlyList<DiscordSessionSnapshot> snapshots,
         DispatchKind dispatchKind,
         CancellationToken cancellationToken)
     {
@@ -190,10 +175,10 @@ public sealed class WebhookService : IDisposable
 
             if (dispatchKind == DispatchKind.RequireActiveSnapshot)
             {
-                if (!snapshot.IsActive)
+                if (snapshots.Count == 0)
                     return;
 
-                var theme = WebhookTheme.ResolveForGame(snapshot.GameType);
+                var theme = WebhookTheme.ResolveForGame(snapshots[0].GameType);
 
                 var customPath = _imageService.GetBannerPath(_config.CustomActiveBannerFileName);
                 var loaded = customPath != null ? LoadBannerFromPath(customPath) : null;
@@ -202,13 +187,13 @@ public sealed class WebhookService : IDisposable
                 {
                     bannerBytes = loaded.Value.bytes;
                     bannerFileName = loaded.Value.fileName;
-                    payloadJson = Serialize(WebhookPayload.ForActive(snapshot, theme, bannerFileName, isFirstPost));
+                    payloadJson = Serialize(WebhookPayload.ForActive(snapshots, theme, bannerFileName, isFirstPost));
                 }
                 else if (!string.IsNullOrWhiteSpace(theme.BannerUrl))
                 {
                     bannerBytes = Array.Empty<byte>();
                     bannerFileName = string.Empty;
-                    payloadJson = Serialize(WebhookPayload.ForActive(snapshot, theme, null, isFirstPost));
+                    payloadJson = Serialize(WebhookPayload.ForActive(snapshots, theme, null, isFirstPost));
                 }
                 else
                 {
@@ -221,7 +206,7 @@ public sealed class WebhookService : IDisposable
 
                     bannerBytes = loaded.Value.bytes;
                     bannerFileName = loaded.Value.fileName;
-                    payloadJson = Serialize(WebhookPayload.ForActive(snapshot, theme, bannerFileName, isFirstPost));
+                    payloadJson = Serialize(WebhookPayload.ForActive(snapshots, theme, bannerFileName, isFirstPost));
                 }
             }
             else

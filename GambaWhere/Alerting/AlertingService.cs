@@ -7,6 +7,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using GambaWhere.Models;
 using GambaWhere.Config;
+using GambaWhere.State;
 using GambaWhere.UI.Tabs;
 
 namespace GambaWhere.Alerting;
@@ -29,11 +30,14 @@ public sealed class AlertingService : IDisposable
 
     private readonly DalamudLinkPayload _linkPayload;
 
-    private readonly HashSet<string> _alertedCharacterNames = new();
+    private readonly HostSessions _sessions;
+
+    private readonly HashSet<string> _alertedEventIds = new();
     private bool _initialised;
 
     public AlertingService(
         Configuration config,
+        HostSessions sessions,
         IChatGui chatGui,
         IToastGui toasts,
         IFramework framework,
@@ -41,6 +45,7 @@ public sealed class AlertingService : IDisposable
         Action<string> onLinkClicked)
     {
         _config = config;
+        _sessions = sessions;
         _chatGui = chatGui;
         _toasts = toasts;
         _framework = framework;
@@ -58,17 +63,17 @@ public sealed class AlertingService : IDisposable
     private void Process(IReadOnlyList<EventResponse> events)
     {
         var matches = new List<(AlertRule rule, EventResponse ev)>();
-        var currentNames = events.Select(e => e.CharacterName).ToHashSet();
-        _alertedCharacterNames.IntersectWith(currentNames);
+        var currentIds = events.Select(e => e.Id).ToHashSet();
+        _alertedEventIds.IntersectWith(currentIds);
 
-        var ownSessionCharacter = _config.ActiveCharacterName;
+        var ownCharacters = _sessions.CharacterNames();
 
         foreach (var ev in events)
         {
-            if (_alertedCharacterNames.Contains(ev.CharacterName))
+            if (_alertedEventIds.Contains(ev.Id))
                 continue;
 
-            if (!string.IsNullOrEmpty(ownSessionCharacter) && ev.CharacterName == ownSessionCharacter)
+            if (ownCharacters.Contains(ev.CharacterName))
                 continue;
 
             foreach (var rule in _config.Alerts)
@@ -80,7 +85,7 @@ public sealed class AlertingService : IDisposable
                     continue;
 
                 matches.Add((rule, ev));
-                _alertedCharacterNames.Add(ev.CharacterName);
+                _alertedEventIds.Add(ev.Id);
                 break;
             }
         }

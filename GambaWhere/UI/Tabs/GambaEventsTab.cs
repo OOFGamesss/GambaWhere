@@ -48,10 +48,11 @@ public class GambaEventsTab : IDisposable
     private bool _hasActiveFilters;
     private string _querySignature = string.Empty;
 
+    private string? _pendingScrollEventId;
     private string? _pendingScrollCharacter;
-    private string? _infoPopupCharacter;
+    private string? _infoPopupEventId;
     private bool _openInfoRequested;
-    private string? _profilePopupCharacter;
+    private string? _profilePopupEventId;
     private bool _openProfileRequested;
     private readonly HashSet<string> _selectedGameTypes = new();
     private readonly HashSet<string> _selectedDataCentres = new();
@@ -119,8 +120,11 @@ public class GambaEventsTab : IDisposable
     public void ExpandAndScrollTo(string characterName)
     {
         _pendingScrollCharacter = characterName;
-        _infoPopupCharacter = characterName;
-        _openInfoRequested = true;
+        _pendingScrollEventId = null;
+
+        var match = _events.FirstOrDefault(e => e.CharacterName == characterName);
+        _infoPopupEventId = match?.Id;
+        _openInfoRequested = match != null;
     }
 
     public void Tick()
@@ -421,7 +425,7 @@ public class GambaEventsTab : IDisposable
 
     private void DrawCompactCard(EventResponse ev, float cardWidth, float cardHeight)
     {
-        using var id = ImRaii.PushId(ev.CharacterName);
+        using var id = ImRaii.PushId(ev.Id);
 
         var scale = ImGuiHelpers.GlobalScale;
         var pad = CardPad * scale;
@@ -480,9 +484,10 @@ public class GambaEventsTab : IDisposable
         if (borderMin != borderMax)
             CardEffectDrawer.DrawBorderAfterChildWindow(cardEffect, borderMin, borderMax, rounding, ImGui.GetTime());
 
-        if (_pendingScrollCharacter == ev.CharacterName)
+        if (_pendingScrollEventId == ev.Id || (_pendingScrollEventId == null && _pendingScrollCharacter == ev.CharacterName))
         {
             ImGui.SetScrollHereY(0.2f);
+            _pendingScrollEventId = null;
             _pendingScrollCharacter = null;
         }
     }
@@ -562,7 +567,7 @@ public class GambaEventsTab : IDisposable
 
     private void OpenProfile(EventResponse ev)
     {
-        _profilePopupCharacter = ev.CharacterName;
+        _profilePopupEventId = ev.Id;
         _openProfileRequested = true;
     }
 
@@ -690,7 +695,7 @@ public class GambaEventsTab : IDisposable
 
         if (UIHelper.IconTextButton(FontAwesomeIcon.InfoCircle, "Game Info", buttonSize, "##gameInfo"))
         {
-            _infoPopupCharacter = ev.CharacterName;
+            _infoPopupEventId = ev.Id;
             _openInfoRequested = true;
         }
 
@@ -775,7 +780,7 @@ public class GambaEventsTab : IDisposable
         }
 
         var scale = ImGuiHelpers.GlobalScale;
-        var ev = _events.FirstOrDefault(e => e.CharacterName == _infoPopupCharacter);
+        var ev = _events.FirstOrDefault(e => e.Id == _infoPopupEventId);
 
         var cardEffect = ev != null ? GetCardEffect(ev) : CardEffectType.None;
         var (bgColour, accent) = ev != null
@@ -880,7 +885,7 @@ public class GambaEventsTab : IDisposable
 
     private void DrawProfilePopup()
     {
-        var ev = _events.FirstOrDefault(e => e.CharacterName == _profilePopupCharacter);
+        var ev = _events.FirstOrDefault(e => e.Id == _profilePopupEventId);
         var data = ev == null
             ? null
             : new ProfilePopup.Data

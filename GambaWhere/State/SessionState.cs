@@ -4,10 +4,11 @@ using System.Threading;
 
 namespace GambaWhere.State;
 
-/// <summary>Runtime state for the active hosting session.</summary>
+/// <summary>Runtime state for a single hosting session; a character may run several at once.</summary>
 public class SessionState
 {
     public bool IsActive { get; set; }
+    public string EventId { get; set; } = string.Empty;
     public string SessionToken { get; set; } = string.Empty;
     public string CharacterName { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
@@ -19,30 +20,19 @@ public class SessionState
     public bool UsesAutomaticHostRules { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? AutoEndAt { get; set; }
-    public CancellationTokenSource? LoopCts { get; set; }
+    public CancellationTokenSource? AutoEndCts { get; set; }
     public bool IsPaused { get; set; }
     public string Description { get; set; } = string.Empty;
     public DateTime? PausedAt { get; set; }
     public TimeSpan TotalPausedDuration { get; set; }
 
-    public void Clear()
+    public TimeSpan Elapsed()
     {
-        IsActive = false;
-        SessionToken = string.Empty;
-        CharacterName = string.Empty;
-        Location = string.Empty;
-        GameType = string.Empty;
-        VenueName = null;
-        ActiveRules = null;
-        DiscordUrl = null;
-        ImageUrl = null;
-        UsesAutomaticHostRules = false;
-        StartedAt = null;
-        AutoEndAt = null;
-        LoopCts = null;
-        IsPaused = false;
-        Description = string.Empty;
-        PausedAt = null;
-        TotalPausedDuration = TimeSpan.Zero;
+        if (!StartedAt.HasValue)
+            return TimeSpan.Zero;
+
+        var until = IsPaused && PausedAt.HasValue ? PausedAt.Value : DateTime.UtcNow;
+        var elapsed = until - StartedAt.Value - TotalPausedDuration;
+        return elapsed < TimeSpan.Zero ? TimeSpan.Zero : elapsed;
     }
 }

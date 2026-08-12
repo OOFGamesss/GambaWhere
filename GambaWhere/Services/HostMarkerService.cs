@@ -18,9 +18,7 @@ public sealed class HostMarkerService : IDisposable
     private readonly PlayerInfoService _playerInfo;
     private readonly Configuration _config;
 
-    private sealed record HostEntry(string Game, IReadOnlyDictionary<string, object> Rules);
-
-    private volatile Dictionary<string, HostEntry> _activeHosts = new();
+    private volatile Dictionary<string, List<HostEntry>> _activeHosts = new();
     private volatile IReadOnlyList<HostMarker> _markers = Array.Empty<HostMarker>();
     private int _frameCounter;
 
@@ -35,11 +33,19 @@ public sealed class HostMarkerService : IDisposable
 
     public void OnEventsRefreshed(IReadOnlyList<EventResponse> events)
     {
-        var next = new Dictionary<string, HostEntry>(StringComparer.Ordinal);
+        var next = new Dictionary<string, List<HostEntry>>(StringComparer.Ordinal);
         foreach (var ev in events)
         {
-            if (ev.IsActive && !string.IsNullOrWhiteSpace(ev.CharacterName))
-                next[ev.CharacterName] = new HostEntry(ev.Game, ev.Rules);
+            if (!ev.IsActive || string.IsNullOrWhiteSpace(ev.CharacterName))
+                continue;
+
+            if (!next.TryGetValue(ev.CharacterName, out var entries))
+            {
+                entries = new List<HostEntry>();
+                next[ev.CharacterName] = entries;
+            }
+
+            entries.Add(new HostEntry(ev.Game, ev.Rules));
         }
 
         _activeHosts = next;
@@ -61,7 +67,7 @@ public sealed class HostMarkerService : IDisposable
         Scan(hosts);
     }
 
-    private void Scan(Dictionary<string, HostEntry> hosts)
+    private void Scan(Dictionary<string, List<HostEntry>> hosts)
     {
         var localId = _playerInfo.GetObjectId();
         var found = new List<HostMarker>();
@@ -76,8 +82,14 @@ public sealed class HostMarkerService : IDisposable
                 continue;
 
             var key = $"{pc.Name.TextValue} {world}";
-            if (hosts.TryGetValue(key, out var entry) && _config.IsMinimapGameTypeEnabled(entry.Game))
-                found.Add(new HostMarker(key, entry.Game, entry.Rules, pc.Position));
+            if (!hosts.TryGetValue(key, out var entries))
+                continue;
+
+            var visible = entries.FindAll(e => _config.IsMinimapGameTypeEnabled(e.Game));
+            if (visible.Count == 0)
+                continue;
+
+            found.Add(new HostMarker(key, visible, pc.Position));
         }
 
         _markers = found;
@@ -85,10 +97,18 @@ public sealed class HostMarkerService : IDisposable
 
     public void Dispose()
     {
-        _activeHosts = new Dictionary<string, HostEntry>();
+        _activeHosts = new Dictionary<string, List<HostEntry>>();
         _markers = Array.Empty<HostMarker>();
     }
 }
 
+public readonly record struct HostEntry(string Game, IReadOnlyDictionary<string, object> Rules);
+
 public readonly record struct HostMarker(
-    string DisplayName, string Game, IReadOnlyDictionary<string, object> Rules, Vector3 Position);
+    string DisplayName, IReadOnlyList<HostEntry> Entries, Vector3 Position)
+{
+    public string Game => Entries.Count > 0 ? Entries[0].Game : string.Empty;
+
+    public IReadOnlyDictionary<string, object> Rules =>
+        Entries.Count > 0 ? Entries[0].Rules : new Dictionary<string, object>();
+}

@@ -50,3 +50,24 @@ public class GamePreset
     public Dictionary<string, object> RuleValues { get; set; } = new();
     public string Description { get; set; } = string.Empty;
 }
+
+[Serializable]
+public class ActiveSessionSnapshot
+{
+    public string EventId { get; set; } = string.Empty;
+    public string SessionToken { get; set; } = string.Empty;
+    public string CharacterName { get; set; } = string.Empty;
+    public string? GameType { get; set; }
+    public string? VenueName { get; set; }
+    public string? RulesJson { get; set; }
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? AutoEndAt { get; set; }
+    public bool IsPaused { get; set; }
+    public DateTime? PausedAt { get; set; }
+    public long TotalPausedDurationTicks { get; set; }
+    public bool UsesAutomaticHostRules { get; set; }
+    public string? DiscordUrl { get; set; }
+    public string? ImageUrl { get; set; }
+}
