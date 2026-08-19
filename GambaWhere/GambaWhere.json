@@ -8,7 +8,7 @@
   "InternalName": "GambaWhere",
   "Punchline": "Find and host FFXIV gambling events near you.",
   "Description": "Browse live gambling events across Eorzea, filter by game or data centre, and teleport straight there with Lifestream. Host your own session with game-specific rules, presets, and host profiles with automatic location updates, Discord webhooks, minimap host icons, and Party Finder shortcuts. Find or advertise for venues and hosts on the Recruitment board, and set custom alerts to be notified when a new event matches your preferences.",
-  "Changelog": "- You can now host up to 5 sessions at once. After starting a session, click new session to start another.",
+  "Changelog": "\n- New Upcoming Gamba Events tab: Use this to let ohter players know when you next plan to host gamba, along with all the normal details. Set it to recur every week/fortnight/month so you don't need to retype it every shift!\n- New toast start session buttons when your upcoming gamba session is about to start.\n- Game Store UI changes.\n- Minor bug fixes.",
   "Tags": [
     "gambling",
     "events",

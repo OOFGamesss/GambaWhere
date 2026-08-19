@@ -48,7 +48,9 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly WindowSystem _windowSystem = new("GambaWhere");
     private readonly MainWindow _mainWindow;
     private readonly SessionPillOverlay _pillOverlay;
+    private readonly ScheduledSessionOverlay _scheduledOverlay;
     private readonly GambaEventsTab _eventsTab;
+    private readonly UpcomingGambaEventsTab _upcomingTab;
     private readonly FindAVenueTab _findAVenueTab;
     private readonly FindAHostTab _findAHostTab;
     private readonly HostSessions _sessions;
@@ -58,6 +60,7 @@ public sealed class GambaWhere : IDalamudPlugin
     private readonly CategoryService _categoryService;
     private readonly PlayerInfoService _playerInfo;
     private readonly SessionService _sessionService;
+    private readonly ScheduledSessionService _scheduledSessions;
     private readonly WebhookService _discordWebhook;
     private readonly ImageService _imageService;
     private readonly PartnerIpcManager _partnerIpcManager;
@@ -101,15 +104,19 @@ public sealed class GambaWhere : IDalamudPlugin
         _partyFinderLocator = new PartyFinderLocator(PartyFinderGui, Framework, ChatGui, Log, pfInterop, Condition);
         _eventsTab = new GambaEventsTab(_client, _imageService, eventTeleport, Configuration, _playerInfo, _partyFinderLocator, Log);
 
-        var hostTab = new HostGambaTab(_sessionService, _playerInfo, _client, _sessions, Configuration, hostFormState, _imageService, _partyFinderCreator, _categoryService);
+        _scheduledSessions = new ScheduledSessionService(_client, _sessionService, _playerInfo, _imageService, Configuration, Framework, Log);
+        _upcomingTab = new UpcomingGambaEventsTab(_client, _imageService, Configuration, _scheduledSessions, _playerInfo);
+
+        var hostTab = new HostGambaTab(_sessionService, _playerInfo, _client, _sessions, Configuration, hostFormState, _imageService, _partyFinderCreator, _categoryService, _scheduledSessions);
         var gameListTab = new GameListTab(_imageService, Configuration, _gameStoreService);
         var profilesTab = new ProfilesTab(Configuration, _imageService, _playerInfo);
         _findAVenueTab = new FindAVenueTab(_client, _imageService, Configuration, _gameStoreService, _playerInfo, ChatGui, Log);
         _findAHostTab = new FindAHostTab(_client, _imageService, Configuration, _gameStoreService, _playerInfo, ChatGui, Log);
 
         _pillOverlay = new SessionPillOverlay(_sessions, Configuration, _sessionService);
+        _scheduledOverlay = new ScheduledSessionOverlay(_scheduledSessions, Configuration);
 
-        var settingsTab = new SettingsTab(Configuration, _imageService, Log, _pillOverlay);
+        var settingsTab = new SettingsTab(Configuration, _imageService, Log, _pillOverlay, _scheduledOverlay);
         var supportTab = new SupportTab(_imageService, Configuration);
         var discordBotTab = new DiscordBotTab(Configuration, _imageService);
         var addVenueTab = new AddVenueTab(Configuration, _imageService);
@@ -117,9 +124,10 @@ public sealed class GambaWhere : IDalamudPlugin
         var alertsTab = new AlertsTab(Configuration, _client);
 
         _mainWindow =
-            new MainWindow(_eventsTab, hostTab, profilesTab, gameListTab, _findAVenueTab, _findAHostTab, settingsTab, supportTab, discordBotTab, addVenueTab, discordTab, alertsTab, Configuration);
+            new MainWindow(_eventsTab, _upcomingTab, hostTab, profilesTab, gameListTab, _findAVenueTab, _findAHostTab, settingsTab, supportTab, discordBotTab, addVenueTab, discordTab, alertsTab, Configuration);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_pillOverlay);
+        _windowSystem.AddWindow(_scheduledOverlay);
 
         _alertingService = new AlertingService(
             Configuration,
@@ -150,8 +158,11 @@ public sealed class GambaWhere : IDalamudPlugin
 
         hostTab.GetHostAutomaticRuleSources = () => BuildHostRuleSources(hostTab.GetSelectedGameType());
 
-        _sessionService.RefreshAutomaticRulesFromIpc = category =>
-            _partnerIpcV2Manager.GetRules(category) ?? _partnerIpcManager.GetRules(category);
+        _sessionService.RefreshAutomaticRulesFromIpc = (category, sourceName) =>
+            _partnerIpcV2Manager.GetRules(category, sourceName) ?? _partnerIpcManager.GetRules(category, sourceName);
+
+        _scheduledSessions.ResolveAutomaticRules = (category, sourceName) =>
+            _partnerIpcV2Manager.GetRules(category, sourceName) ?? _partnerIpcManager.GetRules(category, sourceName);
 
         CommandManager.AddHandler(MainCommand, new CommandInfo(OnCommand)
         {
@@ -178,6 +189,7 @@ public sealed class GambaWhere : IDalamudPlugin
     {
         Framework.Update -= OnFrameworkUpdate;
         _eventsTab.Dispose();
+        _upcomingTab.Dispose();
         _findAVenueTab.Dispose();
         _findAHostTab.Dispose();
         _alertFeed.Dispose();
@@ -189,6 +201,7 @@ public sealed class GambaWhere : IDalamudPlugin
         _windowSystem.RemoveAllWindows();
         _mainWindow.Dispose();
         _pillOverlay.Dispose();
+        _scheduledOverlay.Dispose();
         _minimapHostOverlay.Dispose();
         _hostMarkerService.Dispose();
         _partyFinderCreator.Dispose();
@@ -201,6 +214,7 @@ public sealed class GambaWhere : IDalamudPlugin
         CommandManager.RemoveHandler(AliasCommand);
         CommandManager.RemoveHandler(ConfigCommand);
 
+        _scheduledSessions.Dispose();
         _sessionService.Dispose();
         _discordWebhook.Dispose();
         _gameStoreService.Dispose();
@@ -215,9 +229,14 @@ public sealed class GambaWhere : IDalamudPlugin
     {
         if (_mainWindow.IsEventsTabSelected)
             _eventsTab.Tick();
+        if (_mainWindow.IsUpcomingTabSelected)
+            _upcomingTab.Tick();
         _alertFeed.Tick();
         _hostMarkerService.Tick();
+        _scheduledSessions.Tick();
         _pillOverlay.IsOpen = (_sessions.AnyActive || _pillOverlay.IsMoving) && Configuration.PillOverlayEnabled;
+        _scheduledOverlay.IsOpen =
+            (_scheduledSessions.HasDue || _scheduledOverlay.IsMoving) && Configuration.ScheduledOverlayEnabled;
         _minimapHostOverlay.IsOpen =
             Configuration.MinimapHostIconsEnabled && _playerInfo.IsLoggedIn && _hostMarkerService.Markers.Count > 0;
     }
@@ -231,10 +250,11 @@ public sealed class GambaWhere : IDalamudPlugin
 
         var sources = new List<HostRuleSource>();
         foreach (var v1Source in _partnerIpcManager.GetRuleSources(category))
-            if (!v2Names.Contains(v1Source.Name))
+            if (v2Names.Add(v1Source.Name))
                 sources.Add(v1Source);
 
         sources.AddRange(v2Sources);
+        sources.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
         return sources;
     }
 

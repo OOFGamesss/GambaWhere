@@ -52,6 +52,34 @@ public class GamePreset
 }
 
 [Serializable]
+public class ScheduledSessionSnapshot
+{
+    public string Id { get; set; } = string.Empty;
+    public string SessionToken { get; set; } = string.Empty;
+    public string CharacterName { get; set; } = string.Empty;
+    public string? GameType { get; set; }
+    public string? VenueName { get; set; }
+    public string? AutomaticRuleSourceName { get; set; }
+    public string? PresetName { get; set; }
+    public string? ProfileId { get; set; }
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public DateTime ScheduledForUtc { get; set; }
+    public string Recurrence { get; set; } = "once";
+    public int? RecurrenceDay { get; set; }
+    public int? RecurrenceWeek { get; set; }
+    public DateTime? DismissedForUtc { get; set; }
+}
+
+[Serializable]
+public class KnownRuleSource
+{
+    public string Name { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public DateTime LastSeenUtc { get; set; }
+}
+
+[Serializable]
 public class ActiveSessionSnapshot
 {
     public string EventId { get; set; } = string.Empty;
@@ -67,7 +95,7 @@ public class ActiveSessionSnapshot
     public bool IsPaused { get; set; }
     public DateTime? PausedAt { get; set; }
     public long TotalPausedDurationTicks { get; set; }
-    public bool UsesAutomaticHostRules { get; set; }
+    public string? AutomaticRuleSourceName { get; set; }
     public string? DiscordUrl { get; set; }
     public string? ImageUrl { get; set; }
 }

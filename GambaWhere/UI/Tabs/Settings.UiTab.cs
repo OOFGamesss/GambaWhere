@@ -19,6 +19,10 @@ public partial class SettingsTab
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
+        DrawScheduledOverlaySettings();
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
         DrawMinimapHostSettings();
         ImGui.Spacing();
         ImGui.Separator();
@@ -71,6 +75,75 @@ public partial class SettingsTab
 
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                     ImGui.SetTooltip("Drag the overlay to reposition it, then return here to lock it in place.");
+            }
+
+            ImGui.Unindent();
+        }
+    }
+
+    private void DrawScheduledOverlaySettings()
+    {
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Scheduled Session Reminder");
+
+        var enabled = _config.ScheduledOverlayEnabled;
+        if (ImGui.Checkbox("Remind me when one of my scheduled sessions is due", ref enabled))
+        {
+            _config.ScheduledOverlayEnabled = enabled;
+            _config.Save();
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(
+                "Shows a panel near the top right with the session details and\n" +
+                "buttons to start it now or cancel it.");
+        }
+
+        using (ImRaii.Disabled(!_config.ScheduledOverlayEnabled))
+        {
+            ImGui.Indent();
+
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted("Show it");
+            ImGui.SameLine();
+
+            ImGui.SetNextItemWidth(90f * ImGuiHelpers.GlobalScale);
+            var lead = _config.ScheduledLeadMinutes;
+            if (ImGui.InputInt("##ScheduledLeadMinutes", ref lead, 5))
+            {
+                _config.ScheduledLeadMinutes = System.Math.Clamp(lead, 0, 120);
+                _config.Save();
+            }
+
+            ImGui.SameLine();
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted("minutes before the session starts");
+
+            ImGui.Spacing();
+
+            if (_scheduledOverlay.IsMoving)
+            {
+                if (UIHelper.IconTextButton(FontAwesomeIcon.Lock, "Lock Reminder in Place", "##LockReminder"))
+                    _scheduledOverlay.ExitMoveMode();
+
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip("Click to lock the reminder at its current position.");
+
+                ImGui.SameLine();
+
+                if (UIHelper.IconTextButton(FontAwesomeIcon.Undo, "Reset Reminder Position", "##ResetReminderPos"))
+                    _scheduledOverlay.ResetPosition();
+
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip("Snaps the reminder back to the top right of your screen.");
+            }
+            else
+            {
+                if (UIHelper.IconTextButton(FontAwesomeIcon.ArrowsUpDownLeftRight, "Move Reminder", "##MoveReminder"))
+                    _scheduledOverlay.EnterMoveMode();
+
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip("Drag the reminder to reposition it, then return here to lock it in place.");
             }
 
             ImGui.Unindent();

@@ -36,7 +36,7 @@ public class SessionService : IDisposable
 
     private CancellationTokenSource? _heartbeatCts;
 
-    public Func<string, Dictionary<string, object>?>? RefreshAutomaticRulesFromIpc { get; set; }
+    public Func<string, string, Dictionary<string, object>?>? RefreshAutomaticRulesFromIpc { get; set; }
 
     public SessionService(
         GambaWhereClient client,
@@ -66,7 +66,10 @@ public class SessionService : IDisposable
             _ = Task.Run(TryRecoverSessionsAsync);
     }
 
-    public async Task<(string? Error, EventCreateResponse? Created)> StartSessionAsync(PostEventRequest request, DateTime? autoEndAt = null)
+    public async Task<(string? Error, EventCreateResponse? Created)> StartSessionAsync(
+        PostEventRequest request,
+        DateTime? autoEndAt = null,
+        string? automaticRuleSourceName = null)
     {
         if (_sessions.AtCapacity)
             return ($"You are already hosting {HostSessions.MaxConcurrent} sessions.", null);
@@ -90,6 +93,7 @@ public class SessionService : IDisposable
             Description = request.Description,
             StartedAt = DateTime.UtcNow,
             AutoEndAt = autoEndAt,
+            AutomaticRuleSourceName = automaticRuleSourceName,
         };
 
         _sessions.Add(session);
@@ -311,7 +315,7 @@ public class SessionService : IDisposable
             IsPaused = snapshot.IsPaused,
             PausedAt = snapshot.PausedAt,
             TotalPausedDuration = TimeSpan.FromTicks(snapshot.TotalPausedDurationTicks),
-            UsesAutomaticHostRules = snapshot.UsesAutomaticHostRules,
+            AutomaticRuleSourceName = snapshot.AutomaticRuleSourceName,
             DiscordUrl = response.DiscordUrl ?? snapshot.DiscordUrl,
             ImageUrl = response.ImageUrl ?? snapshot.ImageUrl,
         };
@@ -430,12 +434,12 @@ public class SessionService : IDisposable
         if (RefreshAutomaticRulesFromIpc == null)
             return;
 
-        var automatic = sessions.Where(s => s.UsesAutomaticHostRules).ToList();
+        var automatic = sessions.Where(s => !string.IsNullOrEmpty(s.AutomaticRuleSourceName)).ToList();
         if (automatic.Count == 0)
             return;
 
         var refreshed = await _framework.RunOnFrameworkThread(() =>
-            automatic.Select(s => (Session: s, Rules: RefreshAutomaticRulesFromIpc.Invoke(s.GameType))).ToList());
+            automatic.Select(s => (Session: s, Rules: RefreshAutomaticRulesFromIpc.Invoke(s.GameType, s.AutomaticRuleSourceName!))).ToList());
 
         foreach (var (session, rules) in refreshed)
         {
@@ -518,7 +522,7 @@ public class SessionService : IDisposable
             IsPaused = session.IsPaused,
             PausedAt = session.PausedAt,
             TotalPausedDurationTicks = session.TotalPausedDuration.Ticks,
-            UsesAutomaticHostRules = session.UsesAutomaticHostRules,
+            AutomaticRuleSourceName = session.AutomaticRuleSourceName,
             DiscordUrl = session.DiscordUrl,
             ImageUrl = session.ImageUrl,
         }).ToList();

@@ -7,6 +7,9 @@ namespace GambaWhere.Utility;
 /// <summary>Colour helpers: theme colours from the user's primary and secondary colours, and per-game-type colours from the central catalogue.</summary>
 public static class ThemeColours
 {
+    public static readonly Vector4 ScheduledTime = new(1f, 1f, 0f, 1f);
+    public static readonly Vector4 ScheduledTimeDistant = new(1f, 1f, 1f, 1f);
+
     public static Vector4 TintedWindowBg(Vector4 p) => BlendWithDark(p, 0.09f, 0.96f);
     public static Vector4 TintedPopupBg(Vector4 p) => BlendWithDark(p, 0.11f, 0.98f);
 

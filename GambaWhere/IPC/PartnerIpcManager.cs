@@ -17,6 +17,7 @@ public sealed class PartnerIpcManager : IDisposable
 {
     private readonly List<PartnerPluginIpc> _channels = new();
     private readonly Dictionary<string, PartnerPluginIpc> _byCategory = new();
+    private readonly Configuration _config;
 
     public PartnerIpcManager(
         IDalamudPluginInterface pluginInterface,
@@ -26,6 +27,8 @@ public sealed class PartnerIpcManager : IDisposable
         Configuration config,
         IPluginLog log)
     {
+        _config = config;
+
         var reserved = new HashSet<uint> { LifestreamService.LinkId, AlertingService.LinkId };
 
         uint linkId = 1;
@@ -40,13 +43,25 @@ public sealed class PartnerIpcManager : IDisposable
         }
     }
 
-    public IReadOnlyList<HostRuleSource> GetRuleSources(string category) =>
-        _byCategory.TryGetValue(category, out var ipc) && ipc.HasRules
-            ? new[] { new HostRuleSource(ipc.RuleSourceName, () => ipc.GetRules()) }
-            : Array.Empty<HostRuleSource>();
+    public IReadOnlyList<HostRuleSource> GetRuleSources(string category)
+    {
+        if (!_byCategory.TryGetValue(category, out var ipc) || !ipc.HasRules)
+            return Array.Empty<HostRuleSource>();
 
-    public Dictionary<string, object>? GetRules(string category) =>
-        _byCategory.TryGetValue(category, out var ipc) ? ipc.GetRules(true) : null;
+        var live = ipc.GetRules() != null;
+        if (live)
+            _config.RememberRuleSource(ipc.RuleSourceName, category);
+        else if (!_config.IsKnownRuleSource(ipc.RuleSourceName, category))
+            return Array.Empty<HostRuleSource>();
+
+        return new[] { new HostRuleSource(ipc.RuleSourceName, () => ipc.GetRules(), live) };
+    }
+
+    public Dictionary<string, object>? GetRules(string category, string sourceName) =>
+        _byCategory.TryGetValue(category, out var ipc)
+        && string.Equals(ipc.RuleSourceName, sourceName, StringComparison.Ordinal)
+            ? ipc.GetRules(true)
+            : null;
 
     public void Dispose()
     {

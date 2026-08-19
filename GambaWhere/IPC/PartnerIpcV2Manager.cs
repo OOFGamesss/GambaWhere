@@ -66,42 +66,44 @@ public sealed class PartnerIpcV2Manager : IDisposable
     {
         lock (_gate)
         {
-            var sources = new List<HostRuleSource>();
-            foreach (var channel in _channels.Values)
-            {
-                if (!channel.IsLive || !string.Equals(channel.Category, category, StringComparison.Ordinal))
-                    continue;
+            var names = new SortedSet<string>(StringComparer.Ordinal);
 
-                var captured = channel;
-                sources.Add(new HostRuleSource(captured.PluginName, () => GetRulesForChannel(captured)));
+            foreach (var channel in _channels.Values)
+                if (IsLiveFor(channel, category))
+                    names.Add(channel.PluginName);
+
+            foreach (var known in _config.KnownRuleSourceNames(category))
+                names.Add(known);
+
+            var sources = new List<HostRuleSource>();
+            foreach (var name in names)
+            {
+                var captured = name;
+                var live = _channels.TryGetValue(captured, out var channel) && IsLiveFor(channel, category);
+                sources.Add(new HostRuleSource(captured, () => GetRules(category, captured), live));
             }
 
             return sources;
         }
     }
 
-    public Dictionary<string, object>? GetRules(string category)
+    private static bool IsLiveFor(PartnerChannelV2 channel, string category) =>
+        channel.IsLive
+        && string.Equals(channel.Category, category, StringComparison.Ordinal)
+        && channel.GetRules() != null;
+
+    public Dictionary<string, object>? GetRules(string category, string sourceName)
     {
         lock (_gate)
         {
-            foreach (var channel in _channels.Values)
-            {
-                if (!channel.IsLive || !string.Equals(channel.Category, category, StringComparison.Ordinal))
-                    continue;
+            if (!_channels.TryGetValue(sourceName, out var channel))
+                return null;
 
-                var rules = channel.GetRules();
-                if (rules != null)
-                    return rules;
-            }
+            if (!channel.IsLive || !string.Equals(channel.Category, category, StringComparison.Ordinal))
+                return null;
 
-            return null;
-        }
-    }
-
-    private Dictionary<string, object>? GetRulesForChannel(PartnerChannelV2 channel)
-    {
-        lock (_gate)
             return channel.GetRules();
+        }
     }
 
     private bool OnWindowOpened(string pluginName, string category)
@@ -151,6 +153,7 @@ public sealed class PartnerIpcV2Manager : IDisposable
             channel.SetRules(rules);
         }
 
+        _config.RememberRuleSource(name, category);
         return true;
     }
 

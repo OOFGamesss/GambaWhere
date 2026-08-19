@@ -21,6 +21,7 @@ public class GameListTab
     private const float FilterWidth = 130f;
     private const float ImageSize = 80f;
     private const float ImagePadding = 8f;
+    private const float ParagraphGap = 3f;
 
     private const string WarningHeading = "Third Party Software";
     private const string WarningBody =
@@ -42,6 +43,9 @@ public class GameListTab
     private GameStoreGame? _installGame;
     private bool _openInstallRequested;
     private long _copiedAtTick;
+    private float _cardHeight;
+    private float _tallestCardHeight;
+    private readonly Dictionary<int, float> _naturalCardHeights = new();
 
     public GameListTab(ImageService imageService, Configuration config, GameStoreService store)
     {
@@ -159,8 +163,11 @@ public class GameListTab
 
     private void DrawCards()
     {
+        _tallestCardHeight = 0f;
+
         if (_store.Games.Count == 0)
         {
+            _cardHeight = 0f;
             if (_store.IsRefreshing)
                 ImGui.TextDisabled("Loading games...");
             else if (_store.LastUpdatedUtc != null && !_store.LastRefreshFailed)
@@ -173,6 +180,7 @@ public class GameListTab
         var filtered = _store.Games.Where(Matches).ToList();
         if (filtered.Count == 0)
         {
+            _cardHeight = 0f;
             ImGui.TextDisabled("No games match your search.");
             return;
         }
@@ -182,6 +190,8 @@ public class GameListTab
             DrawCard(game);
             ImGuiHelpers.ScaledDummy(6f);
         }
+
+        _cardHeight = _tallestCardHeight;
     }
 
     private bool Matches(GameStoreGame game)
@@ -218,6 +228,10 @@ public class GameListTab
         drawList.ChannelsSplit(2);
         drawList.ChannelsSetCurrent(1);
 
+        var footerPad = _naturalCardHeights.TryGetValue(game.Id, out var natural)
+            ? Math.Max(0f, _cardHeight - natural)
+            : 0f;
+
         ImGuiHelpers.ScaledDummy(4f);
 
         using (var table = ImRaii.Table("##storeCard", 2, ImGuiTableFlags.None))
@@ -233,7 +247,7 @@ public class GameListTab
                 ImGui.Dummy(scaledImageSize);
 
                 ImGui.TableSetColumnIndex(1);
-                DrawCardText(game, accent);
+                DrawCardText(game, accent, footerPad);
             }
         }
 
@@ -241,8 +255,11 @@ public class GameListTab
 
         var cardBottomScreen = ImGui.GetCursorScreenPos();
 
-        var rowHeight = cardBottomScreen.Y - cardTopScreen.Y;
-        var imageTop = cardTopScreen.Y + Math.Max(0f, (rowHeight - scaledImageSize.Y) * 0.5f);
+        var drawnHeight = cardBottomScreen.Y - cardTopScreen.Y;
+        _naturalCardHeights[game.Id] = drawnHeight - footerPad;
+        _tallestCardHeight = Math.Max(_tallestCardHeight, drawnHeight - footerPad);
+
+        var imageTop = cardTopScreen.Y + Math.Max(0f, (drawnHeight - scaledImageSize.Y) * 0.5f);
         var imageMin = new Vector2(cardTopScreen.X + ImagePadding * scale, imageTop);
         DrawCardImage(game, drawList, imageMin, scaledImageSize);
 
@@ -286,7 +303,7 @@ public class GameListTab
         drawList.AddImage(tex.Handle, drawMin, drawMin + drawSize);
     }
 
-    private void DrawCardText(GameStoreGame game, Vector4 accent)
+    private void DrawCardText(GameStoreGame game, Vector4 accent, float footerPad)
     {
         var scale = ImGuiHelpers.GlobalScale;
         var cellRightEdge = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - 12f * scale;
@@ -312,12 +329,19 @@ public class GameListTab
         if (!string.IsNullOrWhiteSpace(game.Description))
         {
             ImGuiHelpers.ScaledDummy(2f);
-            ImGui.PushTextWrapPos(cellRightEdge);
-            ImGui.TextWrapped(game.Description);
-            ImGui.PopTextWrapPos();
+            using var wrap = ImRaii.TextWrapPos(cellRightEdge);
+            using var paragraphSpacing = ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing,
+                new Vector2(ImGui.GetStyle().ItemSpacing.X, ParagraphGap * scale));
+
+            foreach (var paragraph in SplitParagraphs(game.Description))
+                ImGui.TextWrapped(paragraph);
         }
 
         ImGuiHelpers.ScaledDummy(4f);
+
+        if (footerPad > 0f)
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + footerPad);
+
         DrawCardFooter(game, accent, cellRightEdge);
     }
 
@@ -529,6 +553,9 @@ public class GameListTab
         if (line.Length > 0)
             yield return line;
     }
+
+    private static IEnumerable<string> SplitParagraphs(string description) =>
+        description.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static IEnumerable<string> SplitAuthors(string authors) =>
         authors.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

@@ -12,12 +12,19 @@ public partial class SettingsTab
     private readonly ImageService _imageService;
     private readonly IPluginLog _log;
     private readonly SessionPillOverlay _pillOverlay;
+    private readonly ScheduledSessionOverlay _scheduledOverlay;
 
-    public SettingsTab(Configuration config, ImageService imageService, IPluginLog log, SessionPillOverlay pillOverlay)
+    public SettingsTab(
+        Configuration config,
+        ImageService imageService,
+        IPluginLog log,
+        SessionPillOverlay pillOverlay,
+        ScheduledSessionOverlay scheduledOverlay)
     {
         _config = config;
         _imageService = imageService;
         _log = log;
         _pillOverlay = pillOverlay;
+        _scheduledOverlay = scheduledOverlay;
     }
 }

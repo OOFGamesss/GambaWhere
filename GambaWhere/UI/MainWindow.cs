@@ -17,6 +17,7 @@ public class MainWindow : Window, IDisposable
     private enum Tab
     {
         Events,
+        Upcoming,
         Host,
         Profiles,
         GameList,
@@ -49,6 +50,7 @@ public class MainWindow : Window, IDisposable
     }
 
     private readonly GambaEventsTab _eventsTab;
+    private readonly UpcomingGambaEventsTab _upcomingTab;
     private readonly HostGambaTab _hostTab;
     private readonly ProfilesTab _profilesTab;
     private readonly GameListTab _gameListTab;
@@ -62,6 +64,9 @@ public class MainWindow : Window, IDisposable
     private readonly AlertsTab _alertsTab;
     private readonly Configuration _config;
 
+    private const string UpcomingTabLabel = "Upcoming Gamba Events";
+    private const float SidebarMinWidth = 170f;
+
     private Tab _selected = Tab.Events;
     private SettingsSection _settingsSection = SettingsSection.Ui;
     private bool _settingsExpanded;
@@ -73,6 +78,7 @@ public class MainWindow : Window, IDisposable
 
     public MainWindow(
         GambaEventsTab eventsTab,
+        UpcomingGambaEventsTab upcomingTab,
         HostGambaTab hostTab,
         ProfilesTab profilesTab,
         GameListTab gameListTab,
@@ -94,6 +100,7 @@ public class MainWindow : Window, IDisposable
         };
 
         _eventsTab = eventsTab;
+        _upcomingTab = upcomingTab;
         _hostTab = hostTab;
         _profilesTab = profilesTab;
         _gameListTab = gameListTab;
@@ -126,6 +133,8 @@ public class MainWindow : Window, IDisposable
     }
 
     public bool IsEventsTabSelected => IsOpen && _selected == Tab.Events;
+
+    public bool IsUpcomingTabSelected => IsOpen && _selected == Tab.Upcoming;
 
     public void OpenEventsTabExpanded(string characterName)
     {
@@ -179,7 +188,7 @@ public class MainWindow : Window, IDisposable
 
     public override void Draw()
     {
-        var sidebarWidth = 170f * ImGuiHelpers.GlobalScale;
+        var sidebarWidth = MeasureSidebarWidth();
 
         using (var sidebar = ImRaii.Child("##GambaWhereSidebar", new Vector2(sidebarWidth, 0f), true))
         {
@@ -196,13 +205,36 @@ public class MainWindow : Window, IDisposable
         DrawSelectedTab();
     }
 
+    private static float MeasureSidebarWidth()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var style = ImGui.GetStyle();
+
+        const float rowPadX = 8f;
+        const float iconBoxWidth = 26f;
+        const float trailingGap = 12f;
+
+        var needed = (rowPadX + iconBoxWidth + trailingGap) * scale
+                     + style.ItemInnerSpacing.X
+                     + ImGui.CalcTextSize(UpcomingTabLabel).X
+                     + style.WindowPadding.X * 2f;
+
+        return Math.Max(SidebarMinWidth * scale, needed);
+    }
+
     private void DrawSidebar()
     {
         ImGuiHelpers.ScaledDummy(4f);
-        DrawNavItem(Tab.Events,    FontAwesomeIcon.Dice,           "Gamba Events");
+        DrawNavItem(Tab.Events,    FontAwesomeIcon.Dice,           "Live Gamba Events");
+        DrawNavItem(Tab.Upcoming,  FontAwesomeIcon.CalendarAlt,    UpcomingTabLabel);
         DrawNavItem(Tab.Host,      FontAwesomeIcon.HandHoldingUsd, "Host Gamba");
-        DrawNavItem(Tab.GameList,  FontAwesomeIcon.Store,          "Game Store");
         DrawRecruitmentNav();
+
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        DrawNavItem(Tab.GameList,  FontAwesomeIcon.Store,          "Game Store");
 
         ImGuiHelpers.ScaledDummy(4f);
         ImGui.Separator();
@@ -229,6 +261,8 @@ public class MainWindow : Window, IDisposable
             _supportExpanded = false;
             if (tab == Tab.Events)
                 _eventsTab.RequestRefresh();
+            else if (tab == Tab.Upcoming)
+                _upcomingTab.RequestRefresh();
             else if (tab == Tab.Host)
                 _hostTab.OnSelected();
             else if (tab == Tab.GameList)
@@ -407,6 +441,7 @@ public class MainWindow : Window, IDisposable
         switch (_selected)
         {
             case Tab.Events:   _eventsTab.EnsureLoaded(); _eventsTab.Draw(); break;
+            case Tab.Upcoming: _upcomingTab.EnsureLoaded(); _upcomingTab.Draw(); break;
             case Tab.Host:     _hostTab.Draw(); break;
             case Tab.Profiles: _profilesTab.Draw(); break;
             case Tab.GameList: _gameListTab.Draw(); break;

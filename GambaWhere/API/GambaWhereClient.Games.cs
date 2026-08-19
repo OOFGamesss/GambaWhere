@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
@@ -23,7 +24,11 @@ public partial class GambaWhereClient
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<GameStoreGame[]>(JsonOptions, cancellationToken);
+            var games = await response.Content.ReadFromJsonAsync<GameStoreGame[]>(JsonOptions, cancellationToken);
+            return games?
+                .OrderBy(g => g.GameType, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
         catch (Exception ex)
         {

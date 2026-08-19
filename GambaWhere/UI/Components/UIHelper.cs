@@ -154,6 +154,12 @@ internal static class UIHelper
             .Push(ImGuiCol.ButtonHovered, new Vector4(0.9f,  0.65f, 0.0f,  1f))
             .Push(ImGuiCol.ButtonActive,  new Vector4(0.5f,  0.35f, 0.0f,  1f));
 
+    internal static ImRaii.ColorDisposable PushVioletButtonColours() =>
+        new ImRaii.ColorDisposable()
+            .Push(ImGuiCol.Button,        new Vector4(0.42f, 0.18f, 0.70f, 1f))
+            .Push(ImGuiCol.ButtonHovered, new Vector4(0.55f, 0.28f, 0.88f, 1f))
+            .Push(ImGuiCol.ButtonActive,  new Vector4(0.30f, 0.12f, 0.52f, 1f));
+
     internal static string TruncateToFit(string text, float wrapWidth, float maxHeight)
     {
         if (ImGui.CalcTextSize(text, false, wrapWidth).Y <= maxHeight)

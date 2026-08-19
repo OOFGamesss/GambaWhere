@@ -241,8 +241,6 @@ public class GambaEventsTab : IDisposable
         var dataCentres = _selectedDataCentres.Count > 0 ? _selectedDataCentres.ToArray() : null;
         var hasFilters = gameTypes != null || dataCentres != null;
 
-        // _log.Information("[GambaWhere/EventsTab] GET /events/page (page={Page}, pageSize={PageSize})", page, PageSize);
-
         _ = Task.Run(async () =>
         {
             try
@@ -676,10 +674,22 @@ public class GambaEventsTab : IDisposable
 
         var maxHeight = 2f * ImGui.GetTextLineHeight() + 1f;
         var text = UIHelper.TruncateToFit(ev.Description, contentWidth, maxHeight);
+        var size = new Vector2(contentWidth, maxHeight);
+        var startScreen = ImGui.GetCursorScreenPos();
 
-        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + contentWidth);
-        ImGui.TextWrapped(text);
-        ImGui.PopTextWrapPos();
+        if (ImGui.InvisibleButton("##descGameInfo", size))
+            OpenGameInfo(ev);
+
+        if (ImGui.IsItemHovered())
+            ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+        ImGui.GetWindowDrawList().AddText(
+            ImGui.GetFont(),
+            ImGui.GetFontSize(),
+            startScreen,
+            ImGui.GetColorU32(ImGuiCol.Text),
+            text,
+            contentWidth);
     }
 
     private void DrawCardButtons(EventResponse ev, float rowWidth)
@@ -694,10 +704,7 @@ public class GambaEventsTab : IDisposable
             .Push(ImGuiCol.ButtonActive, ThemeColours.ButtonPressed(_config.PrimaryColour));
 
         if (UIHelper.IconTextButton(FontAwesomeIcon.InfoCircle, "Game Info", buttonSize, "##gameInfo"))
-        {
-            _infoPopupEventId = ev.Id;
-            _openInfoRequested = true;
-        }
+            OpenGameInfo(ev);
 
         ImGui.SameLine();
         var teleportEnabled = _teleport.IsLifestreamAvailable;
@@ -763,6 +770,12 @@ public class GambaEventsTab : IDisposable
             : InferDataCentre(ev.Location);
 
         return string.Equals(eventDc, current, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OpenGameInfo(EventResponse ev)
+    {
+        _infoPopupEventId = ev.Id;
+        _openInfoRequested = true;
     }
 
     private static void DrawCardBorder(ImDrawListPtr dl, Vector2 min, Vector2 max, Vector4 accent, float rounding)

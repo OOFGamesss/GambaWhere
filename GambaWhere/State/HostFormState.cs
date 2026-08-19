@@ -23,4 +23,4 @@ public class HostFormState
     public int AutoEndMinutes { get; set; }
 }
 
-public sealed record HostRuleSource(string Name, Func<Dictionary<string, object>?> GetRules);
+public sealed record HostRuleSource(string Name, Func<Dictionary<string, object>?> GetRules, bool IsLive);

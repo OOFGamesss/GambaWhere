@@ -17,7 +17,7 @@ public class SessionState
     public Dictionary<string, object>? ActiveRules { get; set; }
     public string? DiscordUrl { get; set; }
     public string? ImageUrl { get; set; }
-    public bool UsesAutomaticHostRules { get; set; }
+    public string? AutomaticRuleSourceName { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? AutoEndAt { get; set; }
     public CancellationTokenSource? AutoEndCts { get; set; }

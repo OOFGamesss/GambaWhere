@@ -25,7 +25,7 @@ jobs:
 
           NEW_VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' GambaWhere/GambaWhere.csproj || echo "0.0.0.1")
 
-          EMBED_COLOR=15158332
+          EMBED_COLOR=10181046
 
           if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" == "null" ] || [ "$CHANGELOG" == "" ]; then
             CHANGELOG="*No changelog provided.*"
@@ -39,7 +39,7 @@ jobs:
             --arg footer_icon "https://raw.githubusercontent.com/OOFGamesss/OOFGamesPlugins/main/images/oofgameslogo2.png" \
             --argjson color "$EMBED_COLOR" \
             '{
-              username: "OOFGames Plugin Updates",
+              username: "OOF Games Plugin Updates",
               embeds: [({
                 title: "🚀 Update: \($name)",
                 color: $color,

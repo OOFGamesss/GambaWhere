@@ -34,6 +34,7 @@ public class HostGambaTab
     private readonly ImageService _imageService;
     private readonly PartyFinderCreator _partyFinderCreator;
     private readonly CategoryService _categoryService;
+    private readonly ScheduledSessionService _scheduledSessions;
 
     private string[] GameTypes => GameCategories.Keys;
 
@@ -69,6 +70,22 @@ public class HostGambaTab
     private bool _showNewSessionForm;
     private string? _stoppingEventId;
 
+    private readonly DateTimePicker _schedulePicker = new();
+    private string _scheduleLocation = string.Empty;
+    private int _scheduleRecurrenceIndex;
+    private volatile bool _isScheduling;
+    private string _scheduleError = string.Empty;
+    private DateTime _scheduledConfirmFor;
+    private string _scheduledConfirmGame = string.Empty;
+    private string _scheduledConfirmVenue = string.Empty;
+    private volatile bool _openScheduledConfirm;
+    private volatile bool _showScheduleForm;
+    private int _scheduleScrollFrames;
+
+    private const string ScheduledConfirmPopupId = "Session Scheduled###gwScheduleConfirm";
+    private const int ScheduleLocationMaxLength = 128;
+    private const float ScheduleErrorWrap = 420f;
+
     private readonly ThemedCard _card = new();
 
     public Func<IReadOnlyList<HostRuleSource>>? GetHostAutomaticRuleSources { get; set; }
@@ -82,7 +99,8 @@ public class HostGambaTab
         HostFormState form,
         ImageService imageService,
         PartyFinderCreator partyFinderCreator,
-        CategoryService categoryService)
+        CategoryService categoryService,
+        ScheduledSessionService scheduledSessions)
     {
         _sessionService = sessionService;
         _playerInfo = playerInfo;
@@ -93,6 +111,7 @@ public class HostGambaTab
         _imageService = imageService;
         _partyFinderCreator = partyFinderCreator;
         _categoryService = categoryService;
+        _scheduledSessions = scheduledSessions;
 
         _ruleConfigs = GameCatalog.CreateRuleConfigs();
         ClampSelectedGameIndex();
@@ -177,7 +196,8 @@ public class HostGambaTab
         HostFieldTheme.Secondary = _config.SecondaryColour;
 
         var sessions = _sessions.Snapshot();
-        var showingForm = sessions.Count == 0 || _showNewSessionForm;
+        var showingSchedule = _showScheduleForm;
+        var showingForm = !showingSchedule && (sessions.Count == 0 || _showNewSessionForm);
 
         var scale = ImGuiHelpers.GlobalScale;
         var footerHeight = 76f * scale;
@@ -189,13 +209,22 @@ public class HostGambaTab
                 + ImGui.GetStyle().ItemSpacing.Y + 4f * scale;
         }
 
+        if (showingSchedule && !string.IsNullOrEmpty(_scheduleError))
+        {
+            var wrapW = Math.Min(ImGui.GetContentRegionAvail().X, ScheduleErrorWrap * scale);
+            footerHeight += ImGui.CalcTextSize(_scheduleError, false, wrapW).Y
+                + ImGui.GetStyle().ItemSpacing.Y + 4f * scale;
+        }
+
         var scrollHeight = Math.Max(80f * scale, ImGui.GetContentRegionAvail().Y - footerHeight);
 
         using (var scroll = ImRaii.Child("##gw_host_scroll", new Vector2(0f, scrollHeight), false))
         {
             if (scroll.Success)
             {
-                if (showingForm)
+                if (showingSchedule)
+                    DrawScheduleForm();
+                else if (showingForm)
                     DrawConfigForm();
                 else
                     DrawActiveSessionList(sessions);
@@ -206,10 +235,53 @@ public class HostGambaTab
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
-        if (showingForm)
+        if (showingSchedule)
+            DrawScheduleBar();
+        else if (showingForm)
             DrawBottomBar(sessions.Count);
         else
             DrawSessionListBar(sessions.Count);
+
+        DrawScheduledConfirmPopup();
+    }
+
+    private void DrawScheduledConfirmPopup()
+    {
+        if (_openScheduledConfirm)
+        {
+            ImGui.OpenPopup(ScheduledConfirmPopupId);
+            _openScheduledConfirm = false;
+        }
+
+        var scale = ImGuiHelpers.GlobalScale;
+        var open = true;
+
+        using var rounding = ImRaii.PushStyle(ImGuiStyleVar.WindowRounding, 6f * scale);
+        using var modal = ImRaii.PopupModal(ScheduledConfirmPopupId, ref open,
+            ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize);
+        if (!modal.Success)
+            return;
+
+        ImGui.TextColored(ThemeColours.AccentText(_config.SecondaryColour), "Your session is booked in.");
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        var labelX = 90f * scale;
+        DrawActiveField("Starts", ServerTime.FormatServerTimeWithLocal(_scheduledConfirmFor), labelX);
+        DrawActiveField("Game", _scheduledConfirmGame, labelX);
+        DrawActiveField("Venue", _scheduledConfirmVenue, labelX);
+
+        ImGuiHelpers.ScaledDummy(10f);
+
+        var buttonSize = new Vector2(120f * scale, 0f);
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX()
+            + Math.Max(0f, (ImGui.GetContentRegionAvail().X - buttonSize.X) * 0.5f));
+
+        using (UIHelper.PushGreenButtonColours())
+        {
+            if (ImGui.Button("OK##gwScheduleConfirmOk", buttonSize))
+                ImGui.CloseCurrentPopup();
+        }
     }
 
     private void DrawActiveSessionList(IReadOnlyList<SessionState> sessions)
@@ -352,6 +424,12 @@ public class HostGambaTab
         var scale = ImGuiHelpers.GlobalScale;
         var presetNames = presets.Select(p => p.Name).ToArray();
         var presetIdx = _form.SelectedPresetIndex;
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+
+        CentreRow(
+            MeasureIconTextButtonWidth(FontAwesomeIcon.FileImport, "Import")
+            + spacing
+            + MeasureIconTextButtonWidth(FontAwesomeIcon.Copy, "Export"));
 
         using (UIHelper.PushGreenButtonColours())
         {
@@ -374,10 +452,23 @@ public class HostGambaTab
 
         ImGuiHelpers.ScaledDummy(4f);
 
+        var comboWidth = 200 * scale;
+        var iconGap = 4 * scale;
+        var actionsWidth =
+            MeasureIconButtonWidth(FontAwesomeIcon.Save) + iconGap
+            + MeasureIconButtonWidth(FontAwesomeIcon.Plus) + iconGap
+            + MeasureIconButtonWidth(FontAwesomeIcon.Pen)
+            + (presets.Count > 1 ? iconGap + MeasureIconButtonWidth(FontAwesomeIcon.Trash) : 0f);
+
+        CentreRow(
+            ImGui.CalcTextSize("Presets").X + spacing
+            + comboWidth + spacing
+            + actionsWidth);
+
         ImGui.AlignTextToFramePadding();
         HostField.Label("Presets");
         ImGui.SameLine();
-        ImGui.SetNextItemWidth(200 * scale);
+        ImGui.SetNextItemWidth(comboWidth);
         using (var presetCombo = ImRaii.Combo("##PresetPicker", presetIdx < presetNames.Length ? presetNames[presetIdx] : string.Empty))
         {
             if (presetCombo)
@@ -533,8 +624,10 @@ public class HostGambaTab
         if (_form.SelectedRuleSourceIndex < 0 || _form.SelectedRuleSourceIndex >= segments.Length)
             _form.SelectedRuleSourceIndex = 0;
 
+        var muted = new[] { false }.Concat(sources.Select(s => !s.IsLive)).ToArray();
+
         HostField.Label("Rules Source");
-        _form.SelectedRuleSourceIndex = DrawSegmentedBar("##gw_rules_source", segments, _form.SelectedRuleSourceIndex, _config.SecondaryColour);
+        _form.SelectedRuleSourceIndex = DrawSegmentedBar("##gw_rules_source", segments, _form.SelectedRuleSourceIndex, _config.SecondaryColour, muted);
         _form.UseManualHostRules = _form.SelectedRuleSourceIndex == 0;
 
         ImGuiHelpers.ScaledDummy(4f);
@@ -547,37 +640,55 @@ public class HostGambaTab
             return;
         }
 
-        var liveRules = sources[_form.SelectedRuleSourceIndex - 1].GetRules();
+        var source = sources[_form.SelectedRuleSourceIndex - 1];
+        var liveRules = source.GetRules();
 
         if (liveRules == null || liveRules.Count == 0)
         {
-            ImGui.TextDisabled("No Session Found");
+            ImGui.TextWrapped($"{source.Name} isn't running right now.");
+            ImGui.TextDisabled("Its rules will be read when the session starts.");
             return;
         }
 
         DrawRuleKeyValues(liveRules);
     }
 
-    private static int DrawSegmentedBar(string id, string[] segments, int selected, Vector4 accent)
+    private static int DrawSegmentedBar(string id, string[] segments, int selected, Vector4 accent, bool[]? muted = null)
     {
         var result = selected;
         var scale = ImGuiHelpers.GlobalScale;
+        var spacing = 4f * scale;
+        var framePadX = ImGui.GetStyle().FramePadding.X * 2f;
+        var avail = ImGui.GetContentRegionAvail().X;
+        var lineWidth = 0f;
 
         using var rounding = ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * scale);
 
         for (var i = 0; i < segments.Length; i++)
         {
-            if (i > 0)
-                ImGui.SameLine(0f, 4f * scale);
+            var segmentWidth = ImGui.CalcTextSize(segments[i]).X + framePadX;
+
+            if (i > 0 && lineWidth + spacing + segmentWidth <= avail)
+            {
+                ImGui.SameLine(0f, spacing);
+                lineWidth += spacing + segmentWidth;
+            }
+            else
+            {
+                lineWidth = segmentWidth;
+            }
 
             var isSelected = i == selected;
-            var baseCol = new Vector4(accent.X, accent.Y, accent.Z, isSelected ? 0.55f : 0.14f);
-            var hovCol = new Vector4(accent.X, accent.Y, accent.Z, isSelected ? 0.66f : 0.30f);
-            var actCol = new Vector4(accent.X, accent.Y, accent.Z, 0.75f);
+            var isMuted = muted != null && i < muted.Length && muted[i];
+            var fade = isMuted ? 0.45f : 1f;
+            var baseCol = new Vector4(accent.X, accent.Y, accent.Z, (isSelected ? 0.55f : 0.14f) * fade);
+            var hovCol = new Vector4(accent.X, accent.Y, accent.Z, (isSelected ? 0.66f : 0.30f) * fade);
+            var actCol = new Vector4(accent.X, accent.Y, accent.Z, 0.75f * fade);
 
             using var colours = ImRaii.PushColor(ImGuiCol.Button, baseCol)
                 .Push(ImGuiCol.ButtonHovered, hovCol)
-                .Push(ImGuiCol.ButtonActive, actCol);
+                .Push(ImGuiCol.ButtonActive, actCol)
+                .Push(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled], isMuted);
 
             if (ImGui.Button($"{segments[i]}##{id}_seg{i}"))
                 result = i;
@@ -604,6 +715,21 @@ public class HostGambaTab
 
     private void DrawSessionDetailsBody()
     {
+        DrawDescriptionField();
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        HostField.Label("Current Location");
+        ImGui.TextWrapped(_playerInfo.GetCurrentLocation() ?? "Unknown");
+
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawAutoEndControl();
+    }
+
+    private void DrawDescriptionField()
+    {
         HostField.Label("Description");
         ImGui.SetNextItemWidth(-1);
         var desc = _form.Description;
@@ -619,16 +745,6 @@ public class HostGambaTab
             ImGui.SameLine();
             ImGui.TextColored(new Vector4(1f, 0.2f, 0.2f, 1f), "- Description is too long!");
         }
-
-        ImGuiHelpers.ScaledDummy(6f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-
-        HostField.Label("Current Location");
-        ImGui.TextWrapped(_playerInfo.GetCurrentLocation() ?? "Unknown");
-
-        ImGuiHelpers.ScaledDummy(8f);
-        DrawAutoEndControl();
     }
 
     private void DrawBottomBar(int sessionCount)
@@ -656,12 +772,16 @@ public class HostGambaTab
         }
 
         var startLabel = _form.IsStarting ? "Starting..." : "Start Session";
+        var scheduleLabel = _isScheduling ? "Scheduling..." : "Schedule Session";
         var btnSize = new Vector2(240f * scale, 46f * scale);
-        var backWidth = sessionCount > 0
-            ? MeasureIconTextButtonWidth(FontAwesomeIcon.ArrowLeft, "Back") + ImGui.GetStyle().ItemSpacing.X
-            : 0f;
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
 
-        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - btnSize.X - backWidth) * 0.5f));
+        var backWidth = sessionCount > 0
+            ? MeasureIconTextButtonWidth(FontAwesomeIcon.ArrowLeft, "Back") + spacing
+            : 0f;
+        var groupWidth = backWidth + btnSize.X * 2f + spacing;
+
+        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - groupWidth) * 0.5f));
 
         if (sessionCount > 0)
         {
@@ -683,6 +803,325 @@ public class HostGambaTab
             if (UIHelper.IconTextButton(FontAwesomeIcon.Play, startLabel, btnSize, "##StartHosting"))
                 TriggerStartSession();
         }
+
+        ImGui.SameLine();
+
+        using (UIHelper.PushVioletButtonColours())
+        using (ImRaii.Disabled(_isScheduling))
+        {
+            if (UIHelper.IconTextButton(FontAwesomeIcon.CalendarPlus, scheduleLabel, btnSize, "##gw_schedule_session_btn"))
+                OpenScheduleForm();
+        }
+    }
+
+    private void OpenScheduleForm()
+    {
+        _schedulePicker.Reset(DateTime.UtcNow);
+        _scheduleLocation = _playerInfo.GetCurrentLocation() ?? string.Empty;
+        if (_scheduleLocation.Length > ScheduleLocationMaxLength)
+            _scheduleLocation = _scheduleLocation[..ScheduleLocationMaxLength];
+
+        _scheduleRecurrenceIndex = 0;
+        _scheduleError = string.Empty;
+        _form.StatusMessage = null;
+        _showScheduleForm = true;
+        _scheduleScrollFrames = 3;
+    }
+
+    private void CloseScheduleForm()
+    {
+        _scheduleError = string.Empty;
+        _showScheduleForm = false;
+    }
+
+    private void DrawScheduleForm()
+    {
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawCard("##gw_setup_panel", "Setup", DrawSetupCardBody);
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawCard("##gw_rules_panel", "Game Rules", DrawRulesCardBody);
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawCard("##gw_schedule_details", "Session Details", DrawDescriptionField);
+        ImGuiHelpers.ScaledDummy(8f);
+        DrawCard("##gw_schedule_when", "When and Where", DrawScheduleWhenBody);
+        ImGuiHelpers.ScaledDummy(10f);
+
+        if (_scheduleScrollFrames <= 0)
+            return;
+
+        _scheduleScrollFrames--;
+        ImGui.SetScrollY(ImGui.GetScrollMaxY());
+    }
+
+    private void DrawScheduleWhenBody()
+    {
+        var accent = _config.SecondaryColour;
+
+        _schedulePicker.Draw("##gw_schedule_picker", accent);
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(6f);
+
+        HostField.Label("Location");
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputText("##gw_schedule_location", ref _scheduleLocation, ScheduleLocationMaxLength);
+
+        var overLimit = _scheduleLocation.Length >= ScheduleLocationMaxLength;
+        ImGui.TextColored(
+            overLimit ? new Vector4(1f, 0.2f, 0.2f, 1f) : new Vector4(0.5f, 0.5f, 0.5f, 1f),
+            $"{_scheduleLocation.Length} / {ScheduleLocationMaxLength}");
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(6f);
+
+        HostField.Label("Repeats");
+        _scheduleRecurrenceIndex = DrawSegmentedBar(
+            "##gw_schedule_recurrence", ScheduleRecurrence.Labels, _scheduleRecurrenceIndex, accent);
+
+        ImGuiHelpers.ScaledDummy(4f);
+        DrawRecurrencePreview();
+    }
+
+    private void DrawScheduleBar()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var baseX = ImGui.GetCursorPosX();
+        var avail = ImGui.GetContentRegionAvail().X;
+
+        if (!string.IsNullOrEmpty(_scheduleError))
+        {
+            var wrapW = Math.Min(avail, ScheduleErrorWrap * scale);
+            var startX = baseX + Math.Max(0f, (avail - wrapW) * 0.5f);
+            ImGui.SetCursorPosX(startX);
+            ImGui.PushTextWrapPos(startX + wrapW);
+            ImGui.TextColored(SoftRed, _scheduleError);
+            ImGui.PopTextWrapPos();
+            ImGuiHelpers.ScaledDummy(4f);
+        }
+
+        var btnSize = new Vector2(240f * scale, 46f * scale);
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+        var backWidth = MeasureIconTextButtonWidth(FontAwesomeIcon.ArrowLeft, "Back");
+
+        ImGui.SetCursorPosX(baseX + Math.Max(0f, (avail - backWidth - spacing - btnSize.X) * 0.5f));
+
+        using (UIHelper.PushBlueButtonColours())
+        using (ImRaii.Disabled(_isScheduling))
+        {
+            if (UIHelper.IconTextButton(FontAwesomeIcon.ArrowLeft, "Back", "##gw_schedule_back"))
+                CloseScheduleForm();
+        }
+
+        ImGui.SameLine();
+
+        using (UIHelper.PushVioletButtonColours())
+        using (ImRaii.Disabled(_isScheduling))
+        {
+            var label = _isScheduling ? "Scheduling..." : "Confirm Schedule";
+            if (UIHelper.IconTextButton(FontAwesomeIcon.CalendarPlus, label, btnSize, "##gw_schedule_confirm"))
+                TriggerScheduleSession();
+        }
+    }
+
+    private void DrawRecurrencePreview()
+    {
+        var recurrence = ScheduleRecurrence.All[_scheduleRecurrenceIndex];
+        var first = _schedulePicker.Value;
+
+        if (recurrence == ScheduleRecurrence.Once)
+        {
+            ImGui.TextDisabled("Runs once, then disappears.");
+            return;
+        }
+
+        var day = recurrence == ScheduleRecurrence.MonthlyDate
+            ? first.Day
+            : ScheduleRecurrence.MondayBased(first);
+        var week = recurrence == ScheduleRecurrence.MonthlyWeekday ? WeekOfMonth(first) : (int?)null;
+
+        ImGui.TextDisabled(ScheduleRecurrence.Describe(recurrence, first, day, week));
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        using var table = ImRaii.Table("##gw_schedule_occurrences", 3,
+            ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV);
+        if (!table)
+            return;
+
+        ImGui.TableSetupColumn("##when", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("Server Time", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("Local Time", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableHeadersRow();
+
+        DrawOccurrenceRow("First", first);
+
+        var next = first;
+        for (var i = 0; i < 3; i++)
+        {
+            next = NextOccurrence(next, recurrence, day, week);
+            DrawOccurrenceRow(i == 0 ? "Then" : string.Empty, next);
+        }
+    }
+
+    private static void DrawOccurrenceRow(string label, DateTime occurrence)
+    {
+        ImGui.TableNextRow();
+
+        ImGui.TableNextColumn();
+        ImGui.TextDisabled(label);
+
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted(ServerTime.FormatServerTimeShort(occurrence));
+
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted(ServerTime.FormatLocalDateTime(occurrence));
+    }
+
+    private static int WeekOfMonth(DateTime moment) =>
+        moment.Day + 7 > ServerTime.DaysInMonth(moment.Year, moment.Month)
+            ? 5
+            : (moment.Day - 1) / 7 + 1;
+
+    private static DateTime NextOccurrence(DateTime current, string recurrence, int day, int? week)
+    {
+        switch (recurrence)
+        {
+            case ScheduleRecurrence.Weekly:
+                return current.AddDays(7);
+            case ScheduleRecurrence.Fortnightly:
+                return current.AddDays(14);
+            case ScheduleRecurrence.MonthlyDate:
+            {
+                var start = new DateTime(current.Year, current.Month, 1, current.Hour, current.Minute, 0, DateTimeKind.Utc).AddMonths(1);
+                return start.AddDays(Math.Min(day, ServerTime.DaysInMonth(start.Year, start.Month)) - 1);
+            }
+            case ScheduleRecurrence.MonthlyWeekday:
+            {
+                var start = new DateTime(current.Year, current.Month, 1, current.Hour, current.Minute, 0, DateTimeKind.Utc).AddMonths(1);
+                var daysInMonth = ServerTime.DaysInMonth(start.Year, start.Month);
+                var offset = (day - ScheduleRecurrence.MondayBased(start) + 7) % 7;
+                var target = week is 5
+                    ? 1 + offset + 7 * ((daysInMonth - 1 - offset) / 7)
+                    : 1 + offset + 7 * ((week ?? 1) - 1);
+                return start.AddDays(Math.Min(target, daysInMonth) - 1);
+            }
+            default:
+                return current;
+        }
+    }
+
+    private void TriggerScheduleSession()
+    {
+        if (!_playerInfo.IsLoggedIn)
+        {
+            _scheduleError = "You must be logged in to schedule a session.";
+            return;
+        }
+
+        var scheduledFor = _schedulePicker.Value;
+        if (scheduledFor < DateTime.UtcNow.AddMinutes(5))
+        {
+            _scheduleError = "Pick a time at least 5 minutes from now.";
+            return;
+        }
+
+        if (scheduledFor > DateTime.UtcNow.AddDays(365))
+        {
+            _scheduleError = "Pick a time within the next year.";
+            return;
+        }
+
+        var location = _scheduleLocation.Trim();
+        if (location.Length == 0)
+        {
+            _scheduleError = "Enter where the session will be held.";
+            return;
+        }
+
+        if (UserTextGuard.ContainsDisallowedContent(location))
+        {
+            _scheduleError = "Location must not contain URLs or HTML.";
+            return;
+        }
+
+        if (_form.Description.Length > 511)
+        {
+            _scheduleError = "Description must be 511 characters or fewer.";
+            return;
+        }
+
+        if (UserTextGuard.ContainsDisallowedContent(_form.Description))
+        {
+            _scheduleError = "Description must not contain URLs or HTML.";
+            return;
+        }
+
+        _scheduleError = string.Empty;
+        _isScheduling = true;
+
+        ResolveRuleSource(out var automaticSourceName, out var presetName);
+
+        var request = new PostScheduledEventRequest
+        {
+            CharacterName = _playerInfo.GetCharacterName()!,
+            ScheduledFor = scheduledFor,
+            Location = location,
+            Game = GameTypes[_form.SelectedGameIndex],
+            Description = _form.Description.Trim(),
+            VenueName = _form.SelectedVenueName ?? "No Venue",
+            Recurrence = ScheduleRecurrence.All[_scheduleRecurrenceIndex],
+            DataCentre = _playerInfo.GetCurrentDataCentre(),
+            World = _playerInfo.GetCurrentWorld(),
+            BoosterKey = string.IsNullOrWhiteSpace(_config.BoosterKey) ? null : _config.BoosterKey.Trim()
+        };
+
+        var profile = GetSelectedProfile();
+        var sentPictureHash = AttachProfileToSchedule(request, profile);
+
+        _ = Task.Run(async () =>
+        {
+            var error = await _scheduledSessions.ScheduleAsync(request, automaticSourceName, presetName, profile?.Id, sentPictureHash);
+            _isScheduling = false;
+
+            if (error != null)
+            {
+                _scheduleError = error;
+                return;
+            }
+
+            _scheduleError = string.Empty;
+            _scheduledConfirmFor = scheduledFor;
+            _scheduledConfirmGame = request.Game;
+            _scheduledConfirmVenue = request.VenueName;
+            _openScheduledConfirm = true;
+            _showScheduleForm = false;
+        });
+    }
+
+    private string? AttachProfileToSchedule(PostScheduledEventRequest request, GambaProfile? profile)
+    {
+        if (profile == null)
+            return null;
+
+        request.Bio = string.IsNullOrWhiteSpace(profile.Bio) ? null : profile.Bio.Trim();
+        request.PreferredGames = new List<string>(profile.PreferredGames);
+        request.BorderStyle = profile.BorderStyle;
+        request.CardEffectStyle = profile.CardEffectStyle;
+
+        var path = _imageService.GetProfileImagePath(profile.ImageFileName);
+        if (path == null || !_imageService.TryEncodeProfileImage(path, out var b64, out var hash))
+            return null;
+
+        if (!string.IsNullOrEmpty(profile.UploadedImageUrl) && profile.UploadedImageHash == hash)
+        {
+            request.ProfileImageUrl = profile.UploadedImageUrl;
+            return null;
+        }
+
+        request.ProfilePictureB64 = b64;
+        return hash;
     }
 
     private void DrawAutoEndControl()
@@ -963,6 +1402,22 @@ public class HostGambaTab
         return style.FramePadding.X * 2 + iconWidth + style.ItemInnerSpacing.X + textWidth;
     }
 
+    private static float MeasureIconButtonWidth(FontAwesomeIcon icon)
+    {
+        ImGui.PushFont(UiBuilder.IconFont);
+        var iconWidth = ImGui.CalcTextSize(icon.ToIconString()).X;
+        ImGui.PopFont();
+
+        return ImGui.GetStyle().FramePadding.X * 2 + iconWidth;
+    }
+
+    private static void CentreRow(float rowWidth)
+    {
+        var avail = ImGui.GetContentRegionAvail().X;
+        if (rowWidth < avail)
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (avail - rowWidth) * 0.5f);
+    }
+
     private static void DrawDisabledReasonTooltip(bool disabled, bool eligible, string reason)
     {
         if (!disabled || eligible || string.IsNullOrEmpty(reason))
@@ -1008,10 +1463,9 @@ public class HostGambaTab
         };
     }
 
-    private Dictionary<string, object> ResolveRulesSnapshot(out bool usedAutomatic)
+    private Dictionary<string, object> ResolveRulesSnapshot(out string? automaticSourceName)
     {
-        usedAutomatic = false;
-        var manual = _form.RuleConfig?.ToApiPayload() ?? new();
+        automaticSourceName = null;
 
         if (_form.SelectedRuleSourceIndex > 0)
         {
@@ -1019,47 +1473,38 @@ public class HostGambaTab
             var idx = _form.SelectedRuleSourceIndex - 1;
             if (idx >= 0 && idx < sources.Count)
             {
+                automaticSourceName = sources[idx].Name;
+
                 var autoRules = sources[idx].GetRules();
-                if (autoRules != null && autoRules.Count > 0)
-                {
-                    usedAutomatic = true;
-                    return new Dictionary<string, object>(autoRules);
-                }
+                return autoRules is { Count: > 0 }
+                    ? new Dictionary<string, object>(autoRules)
+                    : new Dictionary<string, object>();
             }
         }
 
-        var result = new Dictionary<string, object>(StringComparer.Ordinal);
-        foreach (var kv in manual)
-        {
-            if (IsSendableRuleValue(kv.Value))
-                result[kv.Key] = kv.Value;
-        }
-
-        return result;
+        return PresetRules.Sendable(_form.RuleConfig?.ToApiPayload() ?? new());
     }
 
-    private static bool IsSendableRuleValue(object? value)
+    private void ResolveRuleSource(out string? automaticSourceName, out string? presetName)
     {
-        if (value is null)
-            return false;
+        automaticSourceName = null;
+        presetName = null;
 
-        return value switch
+        if (_form.SelectedRuleSourceIndex > 0)
         {
-            string s => !string.IsNullOrWhiteSpace(s),
-            bool b => b,
-            byte n => n != 0,
-            sbyte n => n != 0,
-            short n => n != 0,
-            ushort n => n != 0,
-            int n => n != 0,
-            uint n => n != 0,
-            long n => n != 0,
-            ulong n => n != 0,
-            float f => f != 0f,
-            double d => d != 0d,
-            decimal m => m != 0m,
-            _ => true
-        };
+            var sources = GetSources();
+            var index = _form.SelectedRuleSourceIndex - 1;
+            if (index >= 0 && index < sources.Count)
+            {
+                automaticSourceName = sources[index].Name;
+                return;
+            }
+        }
+
+        var gameType = GameTypes[_form.SelectedGameIndex];
+        var presets = GetOrInitPresets(gameType);
+        if (_form.SelectedPresetIndex >= 0 && _form.SelectedPresetIndex < presets.Count)
+            presetName = presets[_form.SelectedPresetIndex].Name;
     }
 
     private void DrawAddPresetInput(List<GamePreset> presets)
@@ -1278,7 +1723,7 @@ public class HostGambaTab
         var location = _playerInfo.GetCurrentLocation() ?? "Unknown";
         var gameType = GameTypes[_form.SelectedGameIndex];
         var venueName = _form.SelectedVenueName ?? "No Venue";
-        var rulesSnapshot = ResolveRulesSnapshot(out var usedAutomaticIpc);
+        var rulesSnapshot = ResolveRulesSnapshot(out var automaticSourceName);
 
         DateTime? autoEndAt = null;
         if (_form.AutoEndEnabled)
@@ -1300,7 +1745,7 @@ public class HostGambaTab
 
         _ = Task.Run(async () =>
         {
-            var (error, created) = await _sessionService.StartSessionAsync(request, autoEndAt);
+            var (error, created) = await _sessionService.StartSessionAsync(request, autoEndAt, automaticSourceName);
             _form.IsStarting = false;
 
             if (error != null)
@@ -1308,9 +1753,6 @@ public class HostGambaTab
                 _form.StatusMessage = error;
                 return;
             }
-
-            if (created != null && _sessions.Find(created.Id) is { } session)
-                session.UsesAutomaticHostRules = usedAutomaticIpc;
 
             _showNewSessionForm = false;
 

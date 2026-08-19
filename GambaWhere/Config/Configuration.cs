@@ -28,7 +28,6 @@ public class Configuration : IPluginConfiguration
     public bool ActiveIsPaused { get; set; }
     public DateTime? ActivePausedAt { get; set; }
     public long ActiveTotalPausedDurationTicks { get; set; }
-    public bool ActiveUsesAutomaticHostRules { get; set; }
     public string? ActiveDiscordUrl { get; set; }
     public string? ActiveImageUrl { get; set; }
 
@@ -49,6 +48,15 @@ public class Configuration : IPluginConfiguration
     public bool PillOverlayEnabled { get; set; } = true;
     public float PillPositionX { get; set; } = 50f;
     public float PillPositionY { get; set; } = 50f;
+
+    public List<ScheduledSessionSnapshot> ScheduledSessions { get; set; } = new();
+
+    public List<KnownRuleSource> KnownRuleSources { get; set; } = new();
+
+    public bool ScheduledOverlayEnabled { get; set; } = true;
+    public int ScheduledLeadMinutes { get; set; } = 15;
+    public float ScheduledOverlayX { get; set; } = -1f;
+    public float ScheduledOverlayY { get; set; } = -1f;
 
     public bool MinimapHostIconsEnabled { get; set; } = true;
 
@@ -83,6 +91,64 @@ public class Configuration : IPluginConfiguration
 
     public void Save() => global::GambaWhere.GambaWhere.PluginInterface.SavePluginConfig(this);
 
+    private readonly object _knownRuleSourceGate = new();
+
+    private static readonly TimeSpan KnownRuleSourceRefreshInterval = TimeSpan.FromHours(1);
+
+    public void RememberRuleSource(string name, string category)
+    {
+        var now = DateTime.UtcNow;
+        bool save;
+
+        lock (_knownRuleSourceGate)
+        {
+            var known = KnownRuleSources.Find(
+                s => string.Equals(s.Name, name, StringComparison.Ordinal)
+                     && string.Equals(s.Category, category, StringComparison.Ordinal));
+
+            if (known == null)
+            {
+                KnownRuleSources.Add(new KnownRuleSource
+                {
+                    Name = name,
+                    Category = category,
+                    LastSeenUtc = now
+                });
+                save = true;
+            }
+            else
+            {
+                save = now - known.LastSeenUtc >= KnownRuleSourceRefreshInterval;
+                if (save)
+                    known.LastSeenUtc = now;
+            }
+        }
+
+        if (save)
+            Save();
+    }
+
+    public bool IsKnownRuleSource(string name, string category)
+    {
+        lock (_knownRuleSourceGate)
+            return KnownRuleSources.Exists(
+                s => string.Equals(s.Name, name, StringComparison.Ordinal)
+                     && string.Equals(s.Category, category, StringComparison.Ordinal));
+    }
+
+    public List<string> KnownRuleSourceNames(string category)
+    {
+        lock (_knownRuleSourceGate)
+        {
+            var names = new List<string>();
+            foreach (var known in KnownRuleSources)
+                if (string.Equals(known.Category, category, StringComparison.Ordinal))
+                    names.Add(known.Name);
+
+            return names;
+        }
+    }
+
     public void MigrateLegacyActiveSession()
     {
         if (string.IsNullOrEmpty(ActiveSessionToken)
@@ -105,7 +171,6 @@ public class Configuration : IPluginConfiguration
             IsPaused = ActiveIsPaused,
             PausedAt = ActivePausedAt,
             TotalPausedDurationTicks = ActiveTotalPausedDurationTicks,
-            UsesAutomaticHostRules = ActiveUsesAutomaticHostRules,
             DiscordUrl = ActiveDiscordUrl,
             ImageUrl = ActiveImageUrl,
         });
@@ -122,7 +187,6 @@ public class Configuration : IPluginConfiguration
         ActiveIsPaused = false;
         ActivePausedAt = null;
         ActiveTotalPausedDurationTicks = 0;
-        ActiveUsesAutomaticHostRules = false;
         ActiveDiscordUrl = null;
         ActiveImageUrl = null;
 

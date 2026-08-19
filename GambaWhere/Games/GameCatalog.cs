@@ -15,17 +15,6 @@ public static class GameCatalog
     private const string OofGames = "https://oofgames.fyi";
     private const string Asuna = "https://puni.sh/api/repository/asuna";
 
-    // ==========================================================================================
-    // ADD A GAME HERE: one Game per offering, in a Category (see GameCategories.cs).
-    //   Category, CompanionPlugin, Description, Creator, Url, IconFile : the Games-tab card (IconFile under Images/).
-    //   IpcBaseName   : companion IPC base, e.g. "SimpleBingo" -> ".WindowOpened"/".GetGameInfo"/".GameJoined". Drives the
-    //                   auto-session prompt; null = display-only. (LinkId auto-assigned by PartnerIpcManager.)
-    //   AutomaticFields : this game's automatic rules. Each maps an IPC JSON value to a rule key (Name case-insensitive;
-    //                     Source/Multiplier/SkipIfMissing/SkipIfZero/SpacesFromUnderscores/AutoType transform it). A Name
-    //                     shared with a category manual field auto-captures that value. Null = no automatic rules.
-    //   UsesGameJoined: subscribe to "{base}.GameJoined" to refresh the rules cache.
-    //   AutomaticShapesOverride / InvalidationKeysOverride : only for odd companions (e.g. Mini Games' two info keys).
-    // ==========================================================================================
     public static readonly IReadOnlyList<Game> Games = new Game[]
     {
         new("Aviator", "SimpleAviator",
@@ -71,30 +60,7 @@ public static class GameCatalog
         new("Mini Games", "Mini Games Emporium",
             "Casual mini bar-style games designed for quick rounds, simple interactions, and social-friendly gameplay.",
             "OOF Games", OofGames, "Games/minigamesemporium.png",
-            IpcBaseName: "MiniGamesEmporium",
-            AutomaticShapesOverride: new[]
-            {
-                new AutomaticRuleShape("MiniGamesEmporium.Bar777.GetInfo", new RuleField[]
-                {
-                    new("gameType", Source: "GameLabel", AutoType: RuleValueType.String),
-                    new("boostedPot", Source: "BoostedPot", AutoType: RuleValueType.Long),
-                    new("totalPot", Source: "TotalPot", AutoType: RuleValueType.Long),
-                    new("costPerRoll", Source: "CostPerRoll", AutoType: RuleValueType.Long),
-                    new("maxRolls", Source: "MaxRolls", AutoType: RuleValueType.Int),
-                    new("playersPlayed", Source: "PlayersPlayed", AutoType: RuleValueType.Int),
-                    new("queue", Source: "Queue", AutoType: RuleValueType.Int, SkipIfMissing: true),
-                }),
-                new AutomaticRuleShape("MiniGamesEmporium.DeathrollTournament.GetInfo", new RuleField[]
-                {
-                    new("gameType", Source: "GameLabel", AutoType: RuleValueType.String),
-                    new("round", Source: "Round", AutoType: RuleValueType.String),
-                    new("boostedPot", Source: "BoostedPot", AutoType: RuleValueType.Long),
-                    new("totalPot", Source: "TotalPot", AutoType: RuleValueType.Long),
-                    new("entryCost", Source: "EntryCost", AutoType: RuleValueType.Long),
-                    new("playersEntered", Source: "PlayersEntered", AutoType: RuleValueType.Int),
-                }),
-            },
-            InvalidationKeysOverride: new[] { "MiniGamesEmporium.Bar777.GetInfo", "MiniGamesEmporium.DeathrollTournament.GetInfo" }),
+            IpcBaseName: "MiniGamesEmporium"),
 
         new("Mini Games", "SimpleMiniGames",
             "DICE! GAMES! UNO! Cards Against Humanity",
